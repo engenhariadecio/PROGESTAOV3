@@ -36,6 +36,12 @@ Os sistemas eram independentes e guardavam dados em lugares diferentes. Agora co
 - As consultas de aniversariantes usavam `HAVING` sem `GROUP BY`, o que o Postgres rejeita. Reescritas com subquery.
 - Layout retematizado com a identidade da Décio.
 
+**Contagem que não trava e soma direto (22/10/2026) — v44**
+- A câmera ficava parada em "Calibrando" com celular mais lento: a IA de contorno faz poucas leituras por segundo e a regra pedia 3 leituras idênticas em 2,5 s. Agora a janela acompanha a velocidade do aparelho e a decisão é por **maioria** das leituras (≥ 75 %), então uma leitura que oscila não trava a contagem. O aviso da câmera mostra "IA a cada X s" quando o aparelho está lento.
+- **Peças que já estavam no pallet ao ligar** a câmera são contadas (evento "peca (ja no pallet ao ligar)"). Ao recarregar a página ou religar, ela compara com o que já foi contado neste pallet (eventos desde a última troca de pallet) e soma só a diferença — não conta duas vezes.
+- Qualquer movimento/mão/pessoa no pallet conta como "alguém mexeu" (antes precisava de movimento grande ou a IA de pessoa), então uma caixa colocada rápido não é mais ignorada.
+- Até 50 peças num evento só (antes 4). Pallet sai → "pallet saiu"; pallet vazio entra → "pallet novo vazio"; a contagem continua somando.
+
 **Modelos de IA salvos e reaproveitados + peças encostadas separadas (22/10/2026) — v43**
 - **Biblioteca de modelos** (*Ensinar a IA › Modelos salvos*): cada treino vira um modelo com nome (ex.: **Caixa/Pallet**). O ⭐ **padrão** vale para todos os produtos; um produto pode escolher outro modelo em *Modelo usado neste produto*. O primeiro modelo treinado vira o padrão. Renomear, trocar o padrão e apagar pelo painel.
 - **Treinar**: escolhe o modelo (treinar de novo um existente — substitui ele em todos os produtos que o usam — ou criar um novo) e quais fotos usar (de todos os produtos e todas as câmeras = modelo geral; ou só do produto). As câmeras baixam o modelo novo sozinhas (a versão faz parte do endereço, sem cache antigo).

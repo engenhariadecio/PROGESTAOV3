@@ -309,7 +309,7 @@ class H(SimpleHTTPRequestHandler):
             origem = b.get('origem')
             if origem not in ORIG: return self.json({ 'error': 'Origem inválida' }, 400)
             v = ORIG[origem]
-            if origem in ('ia', 'ia_retirada') and str(b.get('valor', '')).isdigit(): v = ORIG[origem] * max(1, min(4, int(b['valor'])))
+            if origem in ('ia', 'ia_retirada') and str(b.get('valor', '')).isdigit(): v = ORIG[origem] * max(1, min(50, int(b['valor'])))
             foto = b64jpeg(b.get('foto'))
             e = { 'id': (EVENTOS[-1]['id'] + 1) if EVENTOS else 1, 'ts': b.get('ts') or agora_iso(), 'origem': origem, 'valor': v, 'mudanca_pct': b.get('mudanca_pct'), 'detalhe': (str(b['detalhe'])[:60] if b.get('detalhe') else None), 'foto': foto }
             with LOCK: EVENTOS.append(e); salvar_eventos()

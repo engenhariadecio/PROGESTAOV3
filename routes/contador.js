@@ -312,7 +312,7 @@ router.post('/eventos', requireAuth, naoPcp, async (req, res) => {
     let sid = idOk(sessao_id) ? Number(sessao_id) : null;
     if (!sid && linha) { const s = await sessaoDeHoje(linha.produto_id); sid = s ? s.id : null; }
     let v = ORIG[origem];
-    if ((origem === 'ia' || origem === 'ia_retirada') && idOk(valor)) v = ORIG[origem] * Math.min(4, Math.max(1, Number(valor)));   // várias caixas de uma vez
+    if ((origem === 'ia' || origem === 'ia_retirada') && idOk(valor)) v = ORIG[origem] * Math.min(50, Math.max(1, Number(valor)));   // várias caixas de uma vez (ou as que já estavam no pallet ao ligar)
     let fotoBuf = b64jpeg(foto);
     if (fotoBuf && fotoBuf.length > FOTO_MAX) fotoBuf = null;
     const quando = ts && !isNaN(Date.parse(ts)) ? new Date(ts) : new Date();

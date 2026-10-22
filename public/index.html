@@ -179,6 +179,10 @@
     .then(p => { document.getElementById('statCad').textContent = `${p.length} produtos`; })
     .catch(() => {});
 
+  API.get('/api/health')
+    .then(h => { const d = document.createElement('div'); d.style.cssText = 'text-align:center;color:var(--t3);font-size:11px;margin:18px 0 6px;font-family:var(--mono)'; d.textContent = 'versão ' + (h.versao || '?').split('.')[0]; document.querySelector('main.conteudo').appendChild(d); })
+    .catch(() => {});
+
   API.get('/api/colaboradores?status=Ativo')
     .then(c => { document.getElementById('statColab').textContent = `${c.length} colaboradores`; })
     .catch(() => {});

@@ -1,0 +1,31 @@
+{
+  "name": "decio-sistema-integrado",
+  "version": "1.0.0",
+  "description": "Sistema Integrado da Montagem — Décio Indústria Metalúrgica (Ponto NFC + Cadenciador de Produção + ProGestão)",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js",
+    "db:seed": "node db/seed.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "chart.js": "^4.4.1",
+    "connect-pg-simple": "^9.0.1",
+    "dotenv": "^16.4.5",
+    "exceljs": "^4.4.0",
+    "express": "^4.21.0",
+    "express-session": "^1.18.0",
+    "pg": "^8.13.0",
+    "qrcode": "^1.5.4",
+    "selfsigned": "^2.4.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.4"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "license": "UNLICENSED",
+  "private": true
+}

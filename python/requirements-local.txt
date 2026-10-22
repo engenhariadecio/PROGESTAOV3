@@ -1,0 +1,6 @@
+# Para instalar o treino no seu PC (Windows/Linux/Mac): python -m pip install -r python/requirements-local.txt
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch>=2.3
+torchvision>=0.18
+ultralytics>=8.3
+onnx>=1.16

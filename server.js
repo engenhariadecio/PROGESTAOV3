@@ -40,7 +40,12 @@ app.use(session({
 /* Só assets são servidos estaticamente. Os HTML passam obrigatoriamente
    pelas rotas abaixo, que exigem sessão — servir a pasta inteira deixaria
    /admin.html acessível sem login. */
-const estatico = (sub) => express.static(path.join(__dirname, 'public', sub), { maxAge: '1h' });
+/* .js e .css: o navegador sempre confere com o servidor (ETag) — depois de um deploy ninguém fica
+   com código velho. Arquivos grandes que quase nunca mudam (wasm, modelos, imagens) ficam 1 h em cache. */
+const estatico = (sub) => express.static(path.join(__dirname, 'public', sub), {
+  maxAge: '1h',
+  setHeaders: (res, p) => { if (/\.(js|mjs|css|html)$/.test(p)) res.setHeader('Cache-Control', 'no-cache'); }
+});
 app.use('/css',    estatico('css'));
 app.use('/js',     estatico('js'));
 app.use('/assets', estatico('assets'));
@@ -50,10 +55,13 @@ app.get('/cadenciador.webmanifest', (_req, res) =>
 
 /* ════════════════ API ════════════════ */
 
+/* Versão publicada: abra /api/health para conferir se o Railway está rodando a versão nova */
+const VERSAO = require('./package.json').version;
+
 app.get('/api/health', async (_req, res) => {
   try {
     await pool.query('SELECT 1');
-    res.json({ ok: true, db: 'up', ts: new Date().toISOString() });
+    res.json({ ok: true, db: 'up', versao: VERSAO, ts: new Date().toISOString() });
   } catch (e) {
     res.status(503).json({ ok: false, db: 'down', erro: e.message });
   }

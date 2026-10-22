@@ -36,6 +36,13 @@ Os sistemas eram independentes e guardavam dados em lugares diferentes. Agora co
 - As consultas de aniversariantes usavam `HAVING` sem `GROUP BY`, o que o Postgres rejeita. Reescritas com subquery.
 - Layout retematizado com a identidade da Décio.
 
+**Deploy à prova de falha (22/10/2026) — v35**
+- O Dockerfile não depende mais de arquivos da pasta `python` para montar a imagem (antes, um commit com o Dockerfile mas sem a pasta `python` derrubava o build) e a instalação do treino da IA é opcional: se falhar, o build segue e o sistema sobe (o botão *Treinar IA* avisa). `npm ci` cai para `npm install` se o lockfile não bater.
+
+**Versão visível e sem cache velho (22/10/2026) — v34**
+- `/api/health` responde a versão (`"versao": "34.0.0"`) e o portal mostra "versão 34" no rodapé: é o jeito de conferir qual versão o Railway está rodando.
+- `.js`/`.css` passam a ser revalidados a cada carregamento (antes ficavam 1 h no cache do navegador e, logo depois de um deploy, a página nova podia rodar com o script antigo).
+
 **Ensinar a IA de dentro do Cadenciador (22/10/2026)**
 - No cartão *Câmera do pallet* do Cadenciador: **🧠 Ensinar a IA deste produto** e **▭ Área e câmera**. Abrem em tela cheia, sem sair do Cadenciador, a tela de treino já na célula e no **produto em linha** (o modelo fica salvo para aquele produto naquela célula). Ao fechar, volta ao Cadenciador e o tablet baixa o modelo sozinho.
 - O cartão mostra se o produto em linha já tem IA treinada ("✓ IA treinada para X · N quadros · acerto 99%") ou o aviso para treinar. Se houver só o modelo geral da câmera, avisa que dá para treinar um específico.

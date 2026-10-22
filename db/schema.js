@@ -716,6 +716,16 @@ ALTER TABLE cont_amostras     ADD COLUMN IF NOT EXISTS rotulo VARCHAR(20);
 ALTER TABLE cont_eventos      ADD COLUMN IF NOT EXISTS detalhe VARCHAR(60);   -- caixa | peca | pallet saiu | pallet novo
 ALTER TABLE cont_modelos      ADD COLUMN IF NOT EXISTS tipo VARCHAR(10) NOT NULL DEFAULT 'det';
 ALTER TABLE cont_modelos      ADD COLUMN IF NOT EXISTS classes JSONB;
+-- biblioteca de modelos da IA: um modelo com nome (ex.: Caixa/Pallet) serve para vários produtos
+ALTER TABLE cont_modelos      ADD COLUMN IF NOT EXISTS nome VARCHAR(80);
+ALTER TABLE cont_modelos      ADD COLUMN IF NOT EXISTS padrao BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE cont_modelos      ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
+ALTER TABLE cont_modelos      ALTER COLUMN linha_id DROP NOT NULL;
+CREATE TABLE IF NOT EXISTS cont_modelo_produto (
+  produto_id    INTEGER PRIMARY KEY REFERENCES cad_produtos(id) ON DELETE CASCADE,
+  modelo_id     INTEGER NOT NULL REFERENCES cont_modelos(id) ON DELETE CASCADE,
+  updated_at    TIMESTAMPTZ DEFAULT NOW()
+);
 
 ALTER TABLE colaboradores     ADD COLUMN IF NOT EXISTS mat VARCHAR(50);
 ALTER TABLE colaboradores     ADD COLUMN IF NOT EXISTS cargo VARCHAR(120);

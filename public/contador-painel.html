@@ -101,6 +101,12 @@ html.embed #mCfg .modal { max-width: none !important; width: 100%; max-height: 1
 .assist .passo span { display: block; font-size: 12.5px; color: var(--t2); margin-bottom: 6px; line-height: 1.45; }
 .assist .passo .cont { display: inline-block; margin-left: 6px; font-weight: 800; color: var(--verde-clr); }
 .assist select.mini { display: inline-block; width: auto; min-width: 0; padding: 2px 6px; font-size: 12px; height: auto; }
+.biblio { display: grid; gap: 6px; }
+.mod-item { display: flex; gap: 8px; align-items: flex-start; justify-content: space-between; border: 1px solid var(--linha); border-radius: 10px; padding: 8px 10px; font-size: 12.5px; }
+.mod-item.padrao { border-color: rgba(240,180,41,.6); background: rgba(240,180,41,.06); }
+.mod-item small { display: block; color: var(--t2); font-size: 11.5px; margin-top: 2px; line-height: 1.4; }
+.mod-item .mod-acoes { display: flex; gap: 2px; flex: none; }
+.tag-padrao { font-size: 10px; font-weight: 800; color: #F0B429; border: 1px solid #F0B429; border-radius: 6px; padding: 0 5px; }
 .trein-off { background: var(--erro-bg); border: 1px solid var(--erro-bd); color: var(--erro); padding: 8px 10px; border-radius: 8px; font-size: 12px; }
 .modelo-ok { background: var(--fade-suave); border: 1px solid rgba(38,178,71,.3); border-radius: 10px; padding: 10px 12px; font-size: 12.5px; }
 .qr img { width: 240px; height: 240px; background: #fff; border-radius: 12px; padding: 8px; }
@@ -222,16 +228,24 @@ td img { width: 72px; height: 54px; object-fit: cover; border-radius: 6px; curso
         <div class="ajuda" id="ensDica" style="margin-top:8px"></div>
       </div>
       <div class="lado">
-        <div class="grupo"><h5>Quadros marcados <span id="ensResumo"></span></h5><div class="amostras" id="ensLista"></div></div>
-        <div class="grupo"><h5>Treinar</h5>
-          <div class="campo"><span class="rotulo">Para</span><select class="controle" id="ensProduto"></select></div>
+        <div class="grupo"><h5>Fotos <span id="ensResumo"></span></h5>
+          <div class="campo"><span class="rotulo">Produto das fotos</span><select class="controle" id="ensProduto"></select></div>
+          <div class="amostras" id="ensLista"></div></div>
+        <div class="grupo"><h5>🧠 Treinar</h5>
+          <div class="campo"><span class="rotulo">Modelo</span><select class="controle" id="ensDestino"></select></div>
+          <div class="campo" id="ensNomeCampo"><span class="rotulo">Nome do modelo novo</span><input class="controle" id="ensNome" maxlength="80" placeholder="Ex.: Caixa/Pallet"></div>
+          <div class="campo"><span class="rotulo">Usar as fotos</span><select class="controle" id="ensFotos"><option value="todos">de todos os produtos (modelo geral)</option><option value="produto">só do produto escolhido acima</option></select></div>
+          <label class="lbl"><input type="checkbox" id="ensTodas" checked> <span>de <b>todas as câmeras</b> (vários ângulos num modelo só)</span></label>
           <div class="campo"><span class="rotulo">Qualidade</span><select class="controle" id="ensEpocas"><option value="25">Rápido (25 passadas)</option><option value="40" selected>Normal (40)</option><option value="70">Caprichado (70)</option></select></div>
-          <label class="lbl"><input type="checkbox" id="ensTodas"> <span>Usar os quadros de <b>todas as câmeras</b> (vários ângulos num modelo só)</span></label>
           <button class="btn btn-primario" id="ensTreinar">🧠 Treinar IA</button>
           <div class="barra-prog" id="ensProg" style="display:none"><i></i></div>
           <div class="ajuda" id="ensStatus"></div>
         </div>
-        <div class="grupo"><h5>Modelo em uso</h5><div id="ensModelo" class="ajuda">Nenhum modelo treinado — a câmera usa diferença de imagem.</div><button class="btn btn-sm btn-fantasma" id="ensRemoverModelo" style="display:none">Remover modelo</button></div>
+        <div class="grupo"><h5>Modelo usado neste produto</h5>
+          <select class="controle" id="ensUso"></select>
+          <div id="ensModelo" class="ajuda" style="margin-top:6px"></div>
+        </div>
+        <div class="grupo"><h5>Modelos salvos</h5><div id="ensBiblio" class="biblio"></div></div>
       </div>
     </div>
     <div class="cfg" id="cfgArea">
@@ -512,7 +526,7 @@ function irPasso(p) {
     ? (lerAs('pallet')
       ? 'Deixe o pallet <b>sem nenhuma peça</b>, ninguém na frente, e clique em <b>📸 Capturar</b>. O contorno do pallet já vem marcado — se ele mudou de lugar, arraste os pontos roxos. Capture <b>2 ou 3</b> vazios (luz diferente ajuda) e passe para o passo 2.'
       : 'Deixe o pallet <b>sem nenhuma peça</b>, ninguém na frente, e clique em <b>📸 Capturar</b>. Depois <b>contorne o pallet</b>: segure o botão do mouse (ou o dedo) e passe em volta dele. Ajuste os pontos se precisar e clique em <b>✓ Confirmar</b>. Só precisa contornar uma vez.')
-    : 'Coloque <b>uma peça EM CIMA do pallet</b> (o pallet não sai do lugar), saia da frente e clique em <b>📸 Capturar</b>. O sistema compara com o pallet vazio e <b>desenha o contorno da peça sozinho</b>. Confira: arraste os pontos para acertar, apague o que estiver errado (clique no contorno → ✕) ou contorne à mão o que faltou. A próxima captura salva esta. Repita mudando a posição e o lado da peça, depois com 2, 3… peças — <b>15 ou mais</b> fotos. A câmera <b>não pode mexer</b>.';
+    : 'Monte o pallet <b>como na linha, uma peça (ou caixa) de cada vez</b>: coloque uma em cima do pallet, saia da frente e clique em <b>📸 Capturar</b>; coloque a próxima (pode encostar na outra) e capture de novo… até o pallet cheio. O sistema compara com a foto anterior e <b>contorna só a peça nova</b>, separada das que já estavam. Confira cada foto: arraste os pontos, apague o errado (clique → ✕) ou contorne à mão. Esvaziou o pallet? Capture um <b>pallet vazio</b> (passo 1) e comece outra sequência. Faça 2 ou 3 sequências com posições diferentes. A câmera e o pallet <b>não podem mexer</b>.';
   desenharEns();
 }
 document.querySelectorAll('.passo-ens[data-passo]').forEach(b => b.onclick = () => irPasso(b.dataset.passo));
@@ -523,7 +537,7 @@ async function abrirEnsinar() {
   $('ensProduto').innerHTML = '<option value="">Todos os produtos desta câmera</option>' + produtos.map(p => `<option value="${p.id}">${escapar(p.nome)}</option>`).join('');
   $('ensProduto').value = cfgProduto || '';
   irPasso(lerAs('ref') ? 'peca' : 'vazio');
-  await listarAmostras(); await infoModelo(); acompanharTreino();
+  await listarAmostras(); await carregarBiblio(); acompanharTreino();
   verificarTreino();
 }
 async function verificarTreino() {
@@ -534,7 +548,7 @@ async function verificarTreino() {
   $('ensStatus').innerHTML = `<div class="trein-off"><b>O treino não está funcionando neste servidor.</b><br>Motivo: <code>${escapar(d.motivo || '?')}</code><br>As fotos e contornos ficam guardados mesmo assim. Para resolver no PC: feche o servidor e rode <code>python -m pip install -r python/requirements-local.txt</code>, depois abra o servidor de novo. No Railway, a versão nova (Dockerfile) instala sozinha.<br><button class="btn btn-sm btn-fantasma" id="ensReverificar" style="margin-top:6px">↻ Verificar de novo</button></div>`;
   $('ensReverificar').onclick = verificarTreino;
 }
-$('ensProduto').onchange = () => { listarAmostras(); infoModelo(); acompanharTreino(); };
+$('ensProduto').onchange = () => { listarAmostras(); infoModelo(); };
 async function listarAmostras() {
   const pid = $('ensProduto').value;
   const lista = await API.get(`/api/contador/linhas/${cfgLinha.id}/amostras${pid ? '?produto_id=' + pid : ''}`).catch(e => { avisoErro('Não consegui listar as fotos: ' + e.message); return []; });
@@ -572,7 +586,8 @@ async function salvarAtual(silencioso) {
   const caixas = ensCaixas.filter(c => c.pts.length >= 3).map(c => ({ c: c.c, pts: c.pts, ...Contorno.caixaDe(c.pts) }));
   const r = await API.put('/api/contador/amostras/' + ensAmostra.id, { caixas }); ensSujo = false; ensAmostra.caixas = caixas;
   const pallet = caixas.find(c => c.c === 'pallet');
-  if (pallet && tipoAmostra({ caixas }) === 'vazio') { gravarAs('pallet', pallet.pts); gravarAs('ref', ensAmostra.id); }
+  if (pallet && tipoAmostra({ caixas }) === 'vazio') { gravarAs('pallet', pallet.pts); gravarAs('ref', ensAmostra.id); gravarAs('ultima', null); }
+  else if (tipoAmostra({ caixas }) === 'peca') gravarAs('ultima', { id: ensAmostra.id, pecas: caixas.filter(c => c.c !== 'pallet').map(c => c.pts) });
   if (!silencioso) avisoOk(tipoAmostra({ caixas }) === 'vazio' ? 'Pallet vazio salvo — é a referência para achar as peças.' : `Salvo: ${caixas.filter(c => c.c !== 'pallet').length} peça(s) nesta foto.`);
   await listarAmostras(); return r;
 }
@@ -589,7 +604,7 @@ $('ensCapturar').onclick = async () => {
       const r = await capturarQuadro(), refAnt = lerAs('ref');
       // o pallet continua onde estava na última foto vazia? Se mexeu, o contorno guardado não serve mais
       const mexeu = palletC.length && refAnt ? (await acharPecas(refAnt, r.id, palletC[0].pts).catch(() => ({ palletMudou: 0 }))).palletMudou > 0.3 : false;
-      gravarAs('ref', r.id);
+      gravarAs('ref', r.id); gravarAs('ultima', null);   // pallet vazio = começa uma sequência nova de peças
       abrirAmostra({ id: r.id, caixas: [], created_at: r.created_at }, mexeu ? [] : palletC);
       if (mexeu) dica('<b style="color:var(--alerta)">O pallet mudou de lugar</b> desde a última foto vazia. <b>Contorne o pallet de novo</b> (segure e passe em volta) e clique em <b>✓ Confirmar</b>. Depois disso, não mexa mais no pallet nem na câmera.');
       else if (palletC.length) { await salvarAtual(true); dica('✓ Pallet vazio capturado e contornado. Se o pallet mudou de lugar, arraste os pontos e clique em <b>✓ Confirmar</b>. Capture mais 1 ou 2, ou vá para o <b>passo 2</b>.'); }
@@ -597,10 +612,25 @@ $('ensCapturar').onclick = async () => {
     } else {
       const ref = lerAs('ref'); if (!ref) { irPasso('vazio'); throw new Error('Capture primeiro o pallet VAZIO (passo 1).'); }
       const r = await capturarQuadro();
-      const { pecas: achados, palletMudou } = await acharPecas(ref, r.id, palletC.length ? palletC[0].pts : null);
-      abrirAmostra({ id: r.id, caixas: [], created_at: r.created_at }, palletMudou > 0.4 ? [] : [...palletC, ...achados]);
+      const palPts = palletC.length ? palletC[0].pts : null, ult = lerAs('ultima');
+      let achados = [], anteriores = [], palletMudou = 0, modo = 'vazio';
+      // 1º tenta comparar com a ÚLTIMA foto confirmada: só a peça que acabou de ser colocada muda — assim duas peças
+      //    encostadas ficam com um contorno cada (comparando com o pallet vazio elas virariam uma mancha só)
+      if (ult && ult.id && ult.pecas && ult.pecas.length) {
+        const r1 = await acharPecas(ult.id, r.id, palPts).catch(() => null);
+        const sumiram = r1 ? ult.pecas.filter(p => r1.mudouDentro(p) > 0.6).length : 99;
+        if (r1 && r1.palletMudou <= 0.4 && !sumiram) {
+          modo = 'anterior'; anteriores = ult.pecas.map(pts => ({ c: 'peca', pts }));
+          const sobre = (n, a) => { const A = Contorno.caixaDe(n.pts), B = Contorno.caixaDe(a.pts), ix = Math.max(0, Math.min(A.x + A.w, B.x + B.w) - Math.max(A.x, B.x)), iy = Math.max(0, Math.min(A.y + A.h, B.y + B.h) - Math.max(A.y, B.y)); return ix * iy / (A.w * A.h + 1e-9); };
+          achados = r1.pecas.filter(n => !anteriores.some(a => sobre(n, a) > 0.6));
+        }
+      }
+      if (modo === 'vazio') { const r2 = await acharPecas(ref, r.id, palPts); achados = r2.pecas; palletMudou = r2.palletMudou; }
+      abrirAmostra({ id: r.id, caixas: [], created_at: r.created_at }, palletMudou > 0.4 ? [] : [...palletC, ...anteriores, ...achados]);
       await listarAmostras();
       if (palletMudou > 0.4) dica(`<b style="color:var(--alerta)">O pallet saiu do lugar</b> (${Math.round(palletMudou * 100)}% dele mudou). A peça tem que ser colocada <b>em cima do pallet</b>, com o pallet parado — assim o sistema acha a peça sozinho. Recoloque o pallet e capture de novo, ou contorne a peça à mão nesta foto (e o pallet, se ele aparecer).`);
+      else if (modo === 'anterior' && achados.length) dica(`<b>${achados.length} peça(s) nova(s)</b> desde a foto anterior — contornada(s) separada(s) das <b>${anteriores.length}</b> que já estavam. Confira e coloque a próxima.`);
+      else if (modo === 'anterior') dica(`<b style="color:var(--alerta)">Não vi peça nova</b> desde a foto anterior (${anteriores.length} peça(s) mantidas). A peça nova ficou escondida atrás de outra? Contorne à mão a parte que aparece.`);
       else if (!achados.length) dica('<b style="color:var(--alerta)">Não achei peça.</b> A peça está no pallet e ninguém na frente? Contorne à mão (segure e passe em volta da peça).');
       else if (achados.length > 6) dica(`<b style="color:var(--alerta)">Achei ${achados.length} diferenças</b> — a câmera mexeu ou a luz mudou? Capture o pallet VAZIO de novo (passo 1), ou apague as erradas.`);
       else dica(`Achei <b>${achados.length}</b> peça(s). Confira o contorno azul; acerte os pontos se precisar. A próxima captura salva esta (ou clique em <b>✓ Confirmar</b>).`);
@@ -663,7 +693,13 @@ async function acharPecas(refId, id, palletPts) {
     const alt = pb.w * (4 / 3) * 1.6;
     col = { x0: pb.x - pb.w * 0.06, x1: pb.x + pb.w * 1.06, y0: Math.max(0, pb.y - alt), y1: pb.y + pb.h };
   }
-  if (palletMudou > 0.4) return { pecas: [], palletMudou };
+  const mudouDentro = pts => {   // fração de um contorno que mudou entre as duas fotos
+    const bb = Contorno.caixaDe(pts); let den = 0, mud = 0;
+    for (let y = Math.floor(bb.y * H); y < Math.min(H, Math.ceil((bb.y + bb.h) * H)); y++) for (let x = Math.floor(bb.x * W); x < Math.min(W, Math.ceil((bb.x + bb.w) * W)); x++)
+      if (Contorno.dentro(pts, (x + 0.5) / W, (y + 0.5) / H)) { den++; if (m[y * W + x]) mud++; }
+    return den ? mud / den : 0;
+  };
+  if (palletMudou > 0.4) return { pecas: [], palletMudou, mudouDentro };
   let regs = Contorno.regioes(m, W, H, N * 0.0025, 1.5).filter(r => r.x1 - r.x0 >= 5 && r.y1 - r.y0 >= 5)
     .filter(r => r.area >= (r.x1 - r.x0 + 1) * (r.y1 - r.y0 + 1) * 0.2)          // mancha rala = sombra/luz, não peça
     .filter(r => { if (!col) return true; const cx = (r.x0 + r.x1) / 2 / W, cy = (r.y0 + r.y1) / 2 / H; return cx >= col.x0 && cx <= col.x1 && cy >= col.y0 && cy <= col.y1; });
@@ -680,7 +716,7 @@ async function acharPecas(refId, id, palletPts) {
     } }
   const pecas = regs.filter(r => (r.x1 - r.x0) * (r.y1 - r.y0) < N * 0.6).sort((p, q) => p.x0 - q.x0)
     .map(r => ({ c: 'peca', pts: r.pts.map(([x, y]) => [+(x / W).toFixed(4), +(y / H).toFixed(4)]) }));
-  return { pecas, palletMudou };
+  return { pecas, palletMudou, mudouDentro };
 }
 /* 📁 importar fotos (celular/PC) — reduz para no máx. 1280 px; contorne à mão (ou 🪄 depois do 1º treino) */
 $('ensImportar').onchange = async e => {
@@ -777,37 +813,81 @@ const soltarEns = () => {
   desenharEns();
 };
 ensCanvas.addEventListener('pointerup', soltarEns); ensCanvas.addEventListener('pointercancel', soltarEns);
+/* ───── 🧠 Treinar + biblioteca de modelos ─────
+   Um modelo com nome (ex.: "Caixa/Pallet") serve para vários produtos. O ⭐ PADRÃO vale para todos
+   os produtos que não escolheram outro. Treinar de novo um modelo substitui ele em todos que o usam. */
+let BIBLIO = [];
+const nomeModelo = m => m.nome || `Modelo antigo #${m.id}${m.linha_nome || m.linha_celula ? ' (' + (m.linha_nome || m.linha_celula) + ')' : ''}`;
+const pct = v => v != null ? Math.round(v * 100) + '%' : '—';
+function metricasTxt(m) {
+  const k = m.metricas || {};
+  if (m.tipo === 'cls') return 'acerto ' + pct(k.acerto);
+  return 'acerto ' + pct(k.map50) + (k.contorno != null ? ' · contorno ' + pct(k.contorno) : '') + (k.por_classe ? ' · ' + Object.entries(k.por_classe).map(([c, v]) => (NOME_CL[c] || c) + ' ' + pct(v)).join(', ') : '');
+}
+async function carregarBiblio() {
+  BIBLIO = await API.get('/api/contador/modelos').catch(() => []);
+  const dest = $('ensDestino'), antes = dest.value, padrao = BIBLIO.find(m => m.padrao);
+  dest.innerHTML = BIBLIO.map(m => `<option value="${m.id}">${m.padrao ? '⭐ ' : ''}${escapar(nomeModelo(m))} — treinar de novo</option>`).join('') + '<option value="novo">➕ Criar um modelo novo</option>';
+  dest.value = antes && [...dest.options].some(o => o.value === antes) ? antes : (padrao ? String(padrao.id) : 'novo');
+  if (!$('ensNome').value) $('ensNome').value = padrao ? '' : 'Caixa/Pallet';
+  $('ensNomeCampo').style.display = dest.value === 'novo' ? '' : 'none';
+  $('ensBiblio').innerHTML = BIBLIO.length ? BIBLIO.map(m => `<div class="mod-item${m.padrao ? ' padrao' : ''}">
+      <div><b>${m.padrao ? '⭐ ' : ''}${escapar(nomeModelo(m))}</b>${m.padrao ? ' <span class="tag-padrao">PADRÃO</span>' : ''}
+        <small>${m.tipo === 'seg' ? 'contorno' : m.tipo === 'cls' ? 'vazio × com peças' : 'retângulos'} · ${m.amostras} fotos · ${metricasTxt(m)} · ${new Date(m.updated_at || m.created_at).toLocaleString('pt-BR')}</small>
+        <small>${m.padrao ? 'Usado por todos os produtos que não escolheram outro' : ''}${(m.produtos || []).length ? (m.padrao ? ' · ' : '') + 'Escolhido em: ' + m.produtos.map(p => escapar(p.nome)).join(', ') : ''}</small></div>
+      <div class="mod-acoes">${m.padrao ? '' : `<button class="btn btn-sm btn-fantasma" data-padrao="${m.id}" title="Vale para todos os produtos">⭐ Tornar padrão</button>`}<button class="btn btn-sm btn-fantasma" data-renomear="${m.id}">✎</button><button class="btn btn-sm btn-fantasma" data-apagar="${m.id}">🗑</button></div></div>`).join('')
+    : '<div class="ajuda">Nenhum modelo treinado ainda. O primeiro que você treinar vira o ⭐ padrão de todos os produtos.</div>';
+  $('ensBiblio').querySelectorAll('[data-padrao]').forEach(b => b.onclick = async () => { await API.put('/api/contador/modelos/' + b.dataset.padrao, { padrao: true }).catch(e => avisoErro(e.message)); avisoOk('Modelo padrão trocado. As câmeras passam a usar ele em alguns segundos.'); carregarBiblio(); });
+  $('ensBiblio').querySelectorAll('[data-renomear]').forEach(b => b.onclick = async () => { const m = BIBLIO.find(x => x.id === Number(b.dataset.renomear)); const n = prompt('Nome do modelo:', m.nome || ''); if (!n || !n.trim()) return; await API.put('/api/contador/modelos/' + m.id, { nome: n.trim() }).catch(e => avisoErro(e.message)); carregarBiblio(); });
+  $('ensBiblio').querySelectorAll('[data-apagar]').forEach(b => b.onclick = async () => { const m = BIBLIO.find(x => x.id === Number(b.dataset.apagar)); if (!confirm(`Apagar o modelo "${nomeModelo(m)}"? Os produtos que usam ele voltam para o padrão.`)) return; await API.del('/api/contador/modelos/' + m.id).catch(e => avisoErro(e.message)); carregarBiblio(); });
+  await infoModelo();
+}
+$('ensDestino').onchange = () => { $('ensNomeCampo').style.display = $('ensDestino').value === 'novo' ? '' : 'none'; if ($('ensDestino').value === 'novo') $('ensNome').focus(); };
+/* qual modelo este produto usa */
+async function infoModelo() {
+  const pid = $('ensProduto').value, padrao = BIBLIO.find(m => m.padrao);
+  const uso = $('ensUso');
+  uso.innerHTML = `<option value="">${padrao ? '⭐ Padrão — ' + escapar(nomeModelo(padrao)) : 'Padrão (nenhum ainda)'}</option>` + BIBLIO.map(m => `<option value="${m.id}">${escapar(nomeModelo(m))}</option>`).join('');
+  uso.disabled = !pid;
+  if (pid) { const r = await API.get(`/api/contador/produtos/${pid}/modelo`).catch(() => ({ modelo_id: null })); uso.value = r.modelo_id ? String(r.modelo_id) : ''; }
+  else uso.value = '';
+  const m = await API.get(`/api/contador/linhas/${cfgLinha.id}/modelo?info=1${pid ? '&produto_id=' + pid : ''}`).catch(() => null);
+  if (!m) { $('ensModelo').innerHTML = 'Nenhum modelo treinado ainda — a câmera usa diferença de imagem.'; $('ensModelo').className = 'ajuda'; return; }
+  $('ensModelo').className = 'modelo-ok';
+  $('ensModelo').innerHTML = `${pid ? 'Este produto' : 'Esta câmera'} usa <b>${escapar(nomeModelo(m))}</b> ${m.origem === 'padrao' ? '(o padrão)' : m.origem === 'produto' ? '(escolhido para o produto)' : '(último treinado nesta câmera)'}.<br>${metricasTxt(m)} · ${m.amostras} fotos · ${m.imgsz}px`;
+}
+$('ensUso').onchange = async () => {
+  const pid = $('ensProduto').value; if (!pid) return;
+  try { await API.put(`/api/contador/produtos/${pid}/modelo`, { modelo_id: $('ensUso').value || null }); avisoOk('Modelo do produto salvo. A câmera troca em alguns segundos.'); carregarBiblio(); }
+  catch (e) { avisoErro(e.message); }
+};
 $('ensTreinar').onclick = async () => {
   if (ensSujo && ensCaixas.length) await salvarAtual(true).catch(() => {});
+  const destino = $('ensDestino').value, novo = destino === 'novo', nome = $('ensNome').value.trim();
+  if (novo && !nome) { $('ensNome').focus(); return avisoErro('Dê um nome ao modelo novo (ex.: Caixa/Pallet).'); }
+  const m = BIBLIO.find(x => String(x.id) === destino);
+  if (!novo && !confirm(`Treinar de novo "${nomeModelo(m)}"?\n\nQuando terminar, ele é substituído pelo novo em todos os produtos que o usam.`)) return;
   try {
-    const r = await API.post(`/api/contador/linhas/${cfgLinha.id}/treinar`, { produto_id: $('ensProduto').value || null, epocas: Number($('ensEpocas').value), modo: 'seg', todas_cameras: $('ensTodas').checked });
-    $('ensStatus').textContent = `Treinando com ${r.amostras} fotos… (5–15 min; pode fechar esta tela)`; acompanharTreino();
+    const r = await API.post(`/api/contador/linhas/${cfgLinha.id}/treinar`, {
+      produto_id: $('ensProduto').value || null, todos_produtos: $('ensFotos').value === 'todos', todas_cameras: $('ensTodas').checked,
+      epocas: Number($('ensEpocas').value), modo: 'seg', modelo_id: novo ? null : Number(destino), nome: novo ? nome : undefined });
+    $('ensStatus').textContent = `Treinando "${r.modelo_nome}" com ${r.amostras} fotos… (pode fechar esta tela)`; acompanharTreino();
   } catch (e) { avisoErro(e.message); $('ensStatus').textContent = e.message; }
 };
 async function acompanharTreino() {
   clearInterval(ensTimer);
   const tick = async () => {
     if (!cfgLinha) return clearInterval(ensTimer);
-    const pid = $('ensProduto').value;
-    const t = await API.get(`/api/contador/linhas/${cfgLinha.id}/treino${pid ? '?produto_id=' + pid : ''}`).catch(() => null);
+    const t = await API.get('/api/contador/treino/atual').catch(() => null);
     if (!t || t.estado === 'nenhum') { $('ensProg').style.display = 'none'; return clearInterval(ensTimer); }
-    $('ensProg').style.display = ''; $('ensProg').querySelector('i').style.width = Math.round(100 * (t.progresso || 0) / (t.total || 1)) + '%';
+    $('ensProg').style.display = t.estado === 'rodando' ? '' : 'none'; $('ensProg').querySelector('i').style.width = Math.round(100 * (t.progresso || 0) / (t.total || 1)) + '%';
     $('ensTreinar').disabled = t.estado === 'rodando';
     const dur = Math.round(((t.fim || Date.now()) - t.inicio) / 60000);
-    if (t.estado === 'rodando') $('ensStatus').textContent = `Treinando… passada ${t.progresso}/${t.total} · ${dur} min`;
-    else if (t.estado === 'concluido') { $('ensStatus').textContent = `Treino concluído em ${dur} min. O aparelho baixa o modelo sozinho.`; clearInterval(ensTimer); infoModelo(); }
+    if (t.estado === 'rodando') $('ensStatus').textContent = `Treinando "${t.modelo_nome || ''}"… passada ${t.progresso}/${t.total} · ${dur} min`;
+    else if (t.estado === 'concluido') { $('ensStatus').textContent = `"${t.modelo_nome || ''}" treinado em ${dur} min. As câmeras baixam o modelo novo sozinhas.`; clearInterval(ensTimer); carregarBiblio(); }
     else { $('ensStatus').textContent = 'Erro no treino: ' + (t.erro || '') + ' ' + (t.log || []).slice(-3).join(' | '); clearInterval(ensTimer); }
   };
   await tick(); ensTimer = setInterval(tick, 3000);
-}
-async function infoModelo() {
-  const pid = $('ensProduto').value;
-  const m = await API.get(`/api/contador/linhas/${cfgLinha.id}/modelo?info=1${pid ? '&produto_id=' + pid : ''}`).catch(() => null);
-  if (!m) { $('ensModelo').innerHTML = 'Nenhum modelo treinado — a câmera usa diferença de imagem.'; $('ensModelo').className = 'ajuda'; $('ensRemoverModelo').style.display = 'none'; return; }
-  const k = m.metricas || {};
-  $('ensModelo').innerHTML = `<b>IA treinada</b> (${m.tipo === 'cls' ? 'pallet vazio × com peças' : (m.tipo === 'seg' ? 'contorno de ' : '') + (m.classes || ['objeto']).map(c => NOME_CL[c] || c).join(' / ')}) em ${new Date(m.created_at).toLocaleString('pt-BR')} com ${m.amostras} quadros${m.produto_id ? '' : ' (vale para todos os produtos)'}.<br>Acerto no treino: ${m.tipo === 'cls' ? (k.acerto != null ? Math.round(k.acerto * 100) + '%' : '—') : (k.map50 != null ? Math.round(k.map50 * 100) + '%' : '—') + ' · recall ' + (k.recall != null ? Math.round(k.recall * 100) + '%' : '—') + (k.contorno != null ? ' · contorno ' + Math.round(k.contorno * 100) + '%' : '') + (k.por_classe ? ' · ' + Object.entries(k.por_classe).map(([c, v]) => (NOME_CL[c] || c) + ' ' + Math.round(v * 100) + '%').join(', ') : '')} · ${m.imgsz}px`;
-  $('ensModelo').className = 'modelo-ok'; $('ensRemoverModelo').style.display = '';
-  $('ensRemoverModelo').onclick = async () => { if (!confirm('Remover o modelo treinado? A câmera volta a usar diferença de imagem.')) return; await API.del(`/api/contador/linhas/${cfgLinha.id}/modelo/${m.id}`).catch(e => avisoErro(e.message)); infoModelo(); };
 }
 
 /* ───────── ANÁLISE ───────── */

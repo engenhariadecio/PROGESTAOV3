@@ -239,7 +239,7 @@ router.get('/linhas/:id/estado', requireAuth, async (req, res) => {
     const modelo = await modeloAtual(l.id, l.config_produto_id);
     res.json({ linha: { id: l.id, celula: l.celula, nome: l.nome, produto_id: l.config_produto_id, produto_nome: l.produto_nome, takt_padrao: l.takt_padrao },
       config: l.config, config_ts: l.updated_at, sessao, contagem: cont, comandos, agora: Date.now(),
-      modelo: modelo ? { id: modelo.id, imgsz: modelo.imgsz, tipo: modelo.tipo || 'det', classes: modelo.classes, created_at: modelo.created_at, metricas: modelo.metricas } : null });
+      modelo: modelo ? { id: modelo.id, chave: modelo.chave, nome: modelo.nome, origem: modelo.origem, imgsz: modelo.imgsz, tipo: modelo.tipo || 'det', classes: modelo.classes, created_at: modelo.created_at, updated_at: modelo.updated_at, metricas: modelo.metricas } : null });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -484,12 +484,14 @@ router.post('/amostras/:id/sugerir', requireAuth, naoPcp, (req, res) => {
       const args = [path.join(__dirname, '..', 'python', 'sugerir.py'), '--imagem', img];
       let fonte = 'IA genérica';
       if (!req.body || !req.body.generica) {
-        const m = await modeloAtual(a.linha_id, idOk(req.body && req.body.produto_id) ? req.body.produto_id : a.produto_id);
+        const m = idOk(req.body && req.body.modelo_id)
+          ? (await pool.query(`SELECT ${CAMPOS_MOD} FROM cont_modelos m WHERE m.id = $1`, [req.body.modelo_id])).rows[0]
+          : await modeloAtual(a.linha_id, idOk(req.body && req.body.produto_id) ? req.body.produto_id : a.produto_id);
         if (m && ['det', 'seg'].includes(m.tipo || 'det')) {
           const onnx = (await pool.query('SELECT onnx FROM cont_modelos WHERE id = $1', [m.id])).rows[0].onnx;
           const mp = path.join(dir, 'm.onnx'); fs.writeFileSync(mp, onnx);
           args.push('--modelo', mp, '--classes', (m.classes || CLASSES_DET).join(','), '--tipo', m.tipo || 'det');
-          fonte = 'IA treinada desta câmera';
+          fonte = 'IA treinada' + (m.nome ? ' (' + m.nome + ')' : '');
         }
       }
       execFile(PY, args, { timeout: 120000, maxBuffer: 4 * 1024 * 1024, env: { ...process.env, YOLO_VERBOSE: 'False' } }, (err, stdout) => {
@@ -503,11 +505,24 @@ router.post('/amostras/:id/sugerir', requireAuth, naoPcp, (req, res) => {
 });
 
 /* modelo treinado (o aparelho baixa) */
+/* Qual modelo a câmera usa (nesta ordem):
+   1) o modelo escolhido para o produto (cont_modelo_produto);
+   2) o modelo PADRÃO da biblioteca (ex.: "Caixa/Pallet", serve para a maioria dos produtos);
+   3) compatibilidade: o último modelo treinado nesta câmera (versões antigas, sem nome). */
+const CAMPOS_MOD = `m.id, m.nome, m.padrao, m.linha_id, m.produto_id, m.imgsz, m.tipo, m.classes, m.metricas, m.amostras, m.created_at, COALESCE(m.updated_at, m.created_at) AS updated_at, octet_length(m.onnx) AS tamanho`;
+const comChave = (m, origem) => m ? { ...m, origem, chave: `${m.id}.${new Date(m.updated_at).getTime()}` } : null;
 async function modeloAtual(linhaId, produtoId) {
+  const pid = idOk(produtoId) ? Number(produtoId) : null;
+  if (pid) {
+    const r = await pool.query(`SELECT ${CAMPOS_MOD} FROM cont_modelo_produto mp JOIN cont_modelos m ON m.id = mp.modelo_id WHERE mp.produto_id = $1`, [pid]);
+    if (r.rows[0]) return comChave(r.rows[0], 'produto');
+  }
+  const p = await pool.query(`SELECT ${CAMPOS_MOD} FROM cont_modelos m WHERE m.padrao ORDER BY m.updated_at DESC NULLS LAST LIMIT 1`);
+  if (p.rows[0]) return comChave(p.rows[0], 'padrao');
   const r = await pool.query(
-    `SELECT id, produto_id, imgsz, tipo, classes, metricas, amostras, created_at FROM cont_modelos WHERE linha_id = $1 AND (produto_id = $2 OR produto_id IS NULL)
-      ORDER BY (produto_id IS NOT NULL) DESC, created_at DESC LIMIT 1`, [linhaId, idOk(produtoId) ? Number(produtoId) : null]);
-  return r.rows[0] || null;
+    `SELECT ${CAMPOS_MOD} FROM cont_modelos m WHERE m.linha_id = $1 AND (m.produto_id = $2 OR m.produto_id IS NULL)
+      ORDER BY (m.produto_id IS NOT NULL) DESC, m.created_at DESC LIMIT 1`, [linhaId, pid]);
+  return comChave(r.rows[0], 'camera');
 }
 router.get('/linhas/:id/modelo', requireAuth, async (req, res) => {
   try {
@@ -523,7 +538,46 @@ router.delete('/linhas/:id/modelo/:mid', requireAuth, naoPcp, async (req, res) =
   catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-/* treino */
+/* ───── biblioteca de modelos ───── */
+router.get('/modelos', requireAuth, async (req, res) => {
+  try {
+    const r = await pool.query(`SELECT ${CAMPOS_MOD}, l.celula AS linha_celula, l.nome AS linha_nome, pr.nome AS produto_nome,
+        COALESCE((SELECT json_agg(json_build_object('id', p2.id, 'nome', p2.nome) ORDER BY p2.nome) FROM cont_modelo_produto mp JOIN cad_produtos p2 ON p2.id = mp.produto_id WHERE mp.modelo_id = m.id), '[]') AS produtos
+      FROM cont_modelos m LEFT JOIN cont_linhas l ON l.id = m.linha_id LEFT JOIN cad_produtos pr ON pr.id = m.produto_id
+      ORDER BY m.padrao DESC, (m.nome IS NULL), m.updated_at DESC NULLS LAST`);
+    res.json(r.rows);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+router.put('/modelos/:id', requireAuth, naoPcp, async (req, res) => {
+  try {
+    const { nome, padrao } = req.body || {};
+    if (nome !== undefined) { if (!String(nome).trim()) return res.status(400).json({ error: 'Nome obrigatório' }); await pool.query('UPDATE cont_modelos SET nome = $2 WHERE id = $1', [req.params.id, String(nome).trim().slice(0, 80)]); }
+    if (padrao === true) { await pool.query('UPDATE cont_modelos SET padrao = (id = $1)', [req.params.id]); }
+    else if (padrao === false) await pool.query('UPDATE cont_modelos SET padrao = FALSE WHERE id = $1', [req.params.id]);
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+router.delete('/modelos/:id', requireAuth, naoPcp, async (req, res) => {
+  try { await pool.query('DELETE FROM cont_modelos WHERE id = $1', [req.params.id]); res.json({ ok: true }); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+/* modelo de um produto: { modelo_id } = usa esse; { modelo_id: null } = usa o padrão */
+router.get('/produtos/:pid/modelo', requireAuth, async (req, res) => {
+  try { const r = await pool.query('SELECT modelo_id FROM cont_modelo_produto WHERE produto_id = $1', [req.params.pid]); res.json({ modelo_id: r.rows[0] ? r.rows[0].modelo_id : null }); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+router.put('/produtos/:pid/modelo', requireAuth, naoPcp, async (req, res) => {
+  try {
+    const mid = idOk(req.body && req.body.modelo_id) ? Number(req.body.modelo_id) : null;
+    if (mid) await pool.query(`INSERT INTO cont_modelo_produto (produto_id, modelo_id) VALUES ($1, $2) ON CONFLICT (produto_id) DO UPDATE SET modelo_id = EXCLUDED.modelo_id, updated_at = NOW()`, [req.params.pid, mid]);
+    else await pool.query('DELETE FROM cont_modelo_produto WHERE produto_id = $1', [req.params.pid]);
+    res.json({ ok: true, modelo_id: mid });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+/* treino (um por vez no servidor) */
+let TREINO_ATUAL = null;
+router.get('/treino/atual', requireAuth, (req, res) => res.json(TREINO_ATUAL ? { ...TREINO_ATUAL, log: TREINO_ATUAL.log.slice(-12) } : { estado: 'nenhum' }));
 router.get('/linhas/:id/treino', requireAuth, (req, res) => {
   const t = TREINOS.get(chaveTreino(req.params.id, req.query.produto_id));
   res.json(t ? { ...t, log: t.log.slice(-12) } : { estado: 'nenhum' });
@@ -531,14 +585,17 @@ router.get('/linhas/:id/treino', requireAuth, (req, res) => {
 router.post('/linhas/:id/treinar', requireAuth, naoPcp, async (req, res) => {
   const linhaId = Number(req.params.id), produtoId = idOk(req.body && req.body.produto_id) ? Number(req.body.produto_id) : null;
   const chave = chaveTreino(linhaId, produtoId);
-  if ([...TREINOS.values()].some(t => t.estado === 'rodando')) return res.status(409).json({ error: 'Já existe um treino rodando. Aguarde terminar.' });
+  if (TREINO_ATUAL && TREINO_ATUAL.estado === 'rodando') return res.status(409).json({ error: 'Já existe um treino rodando. Aguarde terminar.' });
+  // destino: modelo_id = treina de novo (atualiza) um modelo da biblioteca; nome = cria um modelo novo
+  const destinoId = idOk(req.body && req.body.modelo_id) ? Number(req.body.modelo_id) : null;
+  const nomeNovo = String((req.body && req.body.nome) || '').trim().slice(0, 80);
   verificarPython(async d => {
     if (!d.ok) return res.status(503).json({ error: 'Treino indisponível neste servidor: ' + d.motivo + '. Veja python/README no projeto.' });
     try {
       // todas_cameras: junta os quadros marcados de todas as câmeras (vários ângulos) num modelo só
       const params = [], conds = [];
       if (!req.body.todas_cameras) { params.push(linhaId); conds.push(`linha_id = $${params.length}`); }
-      if (produtoId) { params.push(produtoId); conds.push(`produto_id = $${params.length}`); }
+      if (produtoId && !req.body.todos_produtos) { params.push(produtoId); conds.push(`produto_id = $${params.length}`); }
       const where = conds.length ? conds.join(' AND ') : 'TRUE';
       const modo = ['cls', 'det'].includes(req.body.modo) ? req.body.modo : 'seg';   // padrão: contorno
       const am = (await pool.query(`SELECT id, jpeg, largura, altura, caixas, rotulo FROM cont_amostras WHERE ${where}`, params)).rows;
@@ -577,8 +634,11 @@ router.post('/linhas/:id/treinar', requireAuth, naoPcp, async (req, res) => {
       const saida = path.join(dir, 'modelo.onnx');
       const epocas = Math.min(80, Math.max(5, Number(req.body.epocas) || 40));
       const imgsz = modo === 'cls' ? 224 : ([320, 416, 480, 640].includes(Number(req.body.imgsz)) ? Number(req.body.imgsz) : 416);
-      const t = { estado: 'rodando', progresso: 0, total: epocas, log: [], inicio: Date.now(), fim: null, erro: null, amostras: am.length, modo };
-      TREINOS.set(chave, t);
+      let destinoNome = nomeNovo;
+      if (destinoId) { const d0 = (await pool.query('SELECT nome FROM cont_modelos WHERE id = $1', [destinoId])).rows[0]; if (!d0) return res.status(404).json({ error: 'Modelo não encontrado' }); destinoNome = d0.nome || ('Modelo ' + destinoId); }
+      if (!destinoNome) destinoNome = 'Caixa/Pallet';
+      const t = { estado: 'rodando', progresso: 0, total: epocas, log: [], inicio: Date.now(), fim: null, erro: null, amostras: am.length, modo, modelo_nome: destinoNome, modelo_id: destinoId, linha_id: linhaId };
+      TREINOS.set(chave, t); TREINO_ATUAL = t;
       const proc = spawn(PY, [path.join(__dirname, '..', 'python', 'treinar.py'), '--modo', modo, '--dados', dir, '--saida', saida, '--epocas', String(epocas), '--imgsz', String(imgsz), '--batch', '4', ...args], { env: { ...process.env, YOLO_VERBOSE: 'False', OMP_NUM_THREADS: '2' } });
       const ler = (chunk) => String(chunk).split('\n').forEach(l => {
         l = l.trim(); if (!l) return;
@@ -592,15 +652,25 @@ router.post('/linhas/:id/treinar', requireAuth, naoPcp, async (req, res) => {
         try {
           if (code !== 0 || !fs.existsSync(saida)) throw new Error('Treino terminou com erro (código ' + code + '): ' + t.log.filter(l => /ERRO|Error/.test(l)).slice(-2).join(' | '));
           const onnx = fs.readFileSync(saida);
-          const r = await pool.query('INSERT INTO cont_modelos (linha_id, produto_id, onnx, imgsz, tipo, classes, metricas, amostras) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id',
-            [linhaId, produtoId, onnx, imgsz, modo, modo === 'cls' ? JSON.stringify((t.metricas && t.metricas.classes) || ['com_pecas', 'vazio']) : JSON.stringify(modo === 'seg' ? CLASSES_SEG : CLASSES_DET), JSON.stringify(t.metricas || {}), am.length]);
-          await pool.query('UPDATE cont_linhas SET updated_at = NOW() WHERE id = $1', [linhaId]);   // o aparelho vê config_ts mudar e baixa o modelo
-          t.estado = 'concluido'; t.modelo_id = r.rows[0].id; t.tamanho = onnx.length;
+          const classes = modo === 'cls' ? JSON.stringify((t.metricas && t.metricas.classes) || ['com_pecas', 'vazio']) : JSON.stringify(modo === 'seg' ? CLASSES_SEG : CLASSES_DET);
+          let id;
+          if (destinoId) {   // treinou de novo um modelo da biblioteca: substitui (todos os produtos que usam ele recebem o novo)
+            await pool.query('UPDATE cont_modelos SET onnx=$2, imgsz=$3, tipo=$4, classes=$5, metricas=$6, amostras=$7, updated_at=NOW() WHERE id=$1', [destinoId, onnx, imgsz, modo, classes, JSON.stringify(t.metricas || {}), am.length]);
+            id = destinoId;
+          } else {           // modelo novo; o primeiro com nome vira o padrão
+            const temPadrao = (await pool.query('SELECT 1 FROM cont_modelos WHERE padrao LIMIT 1')).rows.length > 0;
+            const r = await pool.query('INSERT INTO cont_modelos (linha_id, produto_id, onnx, imgsz, tipo, classes, metricas, amostras, nome, padrao, updated_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,NOW()) RETURNING id',
+              [linhaId, req.body.todos_produtos ? null : produtoId, onnx, imgsz, modo, classes, JSON.stringify(t.metricas || {}), am.length, destinoNome, !temPadrao]);
+            id = r.rows[0].id;
+          }
+          await pool.query('UPDATE cont_linhas SET updated_at = NOW() WHERE id = $1', [linhaId]);
+          t.modelo_id = id;
+          t.estado = 'concluido'; t.tamanho = onnx.length;
         } catch (e) { t.estado = 'erro'; t.erro = e.message; }
         fs.rm(dir, { recursive: true, force: true }, () => {});
       });
       proc.on('error', e => { t.estado = 'erro'; t.erro = e.message; t.fim = Date.now(); });
-      res.json({ ok: true, amostras: am.length, epocas, imgsz });
+      res.json({ ok: true, amostras: am.length, epocas, imgsz, modelo_nome: destinoNome });
     } catch (e) { res.status(500).json({ error: e.message }); }
   });
 });

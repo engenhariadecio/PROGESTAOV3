@@ -105,7 +105,7 @@ window.ContadorCam = (function () {
       if (primeira || e.config_ts !== S.cfgTs) { S.cfgTs = e.config_ts; aplicarConfig(e.config, primeira); }
       if (!primeira && e.contagem !== S.contagem && !S.fila.length) { S.contagem = e.contagem; o.onContagem && o.onContagem(S.contagem); }
       for (const c of e.comandos || []) executarComando(c);
-      const mid = e.modelo ? e.modelo.id : null;
+      const mid = e.modelo ? (e.modelo.chave || e.modelo.id) : null;   // chave muda quando o modelo é treinado de novo
       if (mid !== S.modeloId && !S.modeloCarregando) carregarModelo(e.modelo);
       o.onSessao && o.onSessao(S.sessao, S.contagem, S.eventos);
     }
@@ -298,14 +298,14 @@ window.ContadorCam = (function () {
       try {
         ort.env.wasm.wasmPaths = '/js/ort/';
         ort.env.wasm.numThreads = (self.crossOriginIsolated && navigator.hardwareConcurrency > 2) ? 2 : 1;
-        const r = await fetch(`/api/contador/linhas/${S.linhaId}/modelo?produto_id=${S.produtoId || ''}`);
+        const r = await fetch(`/api/contador/linhas/${S.linhaId}/modelo?produto_id=${S.produtoId || ''}&v=${encodeURIComponent(info.chave || info.id)}`);
         if (!r.ok) throw new Error('modelo não encontrado');
         const buf = await r.arrayBuffer();
         const sess = await ort.InferenceSession.create(buf, { executionProviders: ['wasm'], graphOptimizationLevel: 'all' });
         S.modelo = { id: info.id, imgsz: info.imgsz || 416, tipo: info.tipo || 'det', classes: info.classes || ['com_pecas', 'vazio'], sess, entrada: sess.inputNames[0], saida: sess.outputNames[0], saidas: sess.outputNames, metricas: info.metricas };
         S.pallet = null; S.histPallet = [];
-        S.modeloId = info.id; S.contEstavel = null; S.histCont = []; S.detErro = null;
-        hud('ia', S.modelo.tipo === 'cls' ? 'IA: pallet vazio × com peças' : 'IA' + (S.modelo.tipo === 'seg' ? ' (contorno)' : '') + ': ' + (S.modelo.classes || ['objeto']).map(c => ROTULO_CLASSE[c] || c).join(' / '), 'on');
+        S.modeloId = info.chave || info.id; S.modelo.nome = info.nome; S.contEstavel = null; S.histCont = []; S.detErro = null;
+        hud('ia', S.modelo.tipo === 'cls' ? 'IA: pallet vazio × com peças' : 'IA' + (info.nome ? ' ' + info.nome : '') + (S.modelo.tipo === 'seg' ? ' (contorno)' : '') + ': ' + (S.modelo.classes || ['objeto']).map(c => ROTULO_CLASSE[c] || c).join(' / '), 'on');
         o.onModelo && o.onModelo(S.modelo); o.onConfig && o.onConfig(S.cfg, S.zona);
       } catch (e) { S.detErro = e.message; S.modelo = null; hud('ia', 'IA: falha ao carregar modelo (' + e.message + ')', 'erro'); }
       S.modeloCarregando = false;

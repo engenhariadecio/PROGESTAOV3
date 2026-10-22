@@ -36,6 +36,12 @@ Os sistemas eram independentes e guardavam dados em lugares diferentes. Agora co
 - As consultas de aniversariantes usavam `HAVING` sem `GROUP BY`, o que o Postgres rejeita. Reescritas com subquery.
 - Layout retematizado com a identidade da Décio.
 
+**Modelos de IA salvos e reaproveitados + peças encostadas separadas (22/10/2026) — v43**
+- **Biblioteca de modelos** (*Ensinar a IA › Modelos salvos*): cada treino vira um modelo com nome (ex.: **Caixa/Pallet**). O ⭐ **padrão** vale para todos os produtos; um produto pode escolher outro modelo em *Modelo usado neste produto*. O primeiro modelo treinado vira o padrão. Renomear, trocar o padrão e apagar pelo painel.
+- **Treinar**: escolhe o modelo (treinar de novo um existente — substitui ele em todos os produtos que o usam — ou criar um novo) e quais fotos usar (de todos os produtos e todas as câmeras = modelo geral; ou só do produto). As câmeras baixam o modelo novo sozinhas (a versão faz parte do endereço, sem cache antigo).
+- Tabelas: `cont_modelos` ganhou `nome`, `padrao`, `updated_at` (linha opcional); nova `cont_modelo_produto`. Rotas `GET/PUT/DELETE /api/contador/modelos`, `GET/PUT /api/contador/produtos/:id/modelo`, `GET /api/contador/treino/atual`. Ordem do modelo da câmera: o do produto → o padrão → o último treinado na câmera (versões antigas).
+- **Ensinar a IA, passo 2**: cada foto é comparada com a **foto anterior** — só a peça que acabou de ser colocada é contornada, então peças/caixas **encostadas** ficam com um contorno cada (antes viravam um bloco só). Pallet vazio (passo 1) começa uma sequência nova.
+
 **Treino da IA no Railway (22/10/2026) — v42**
 - O Dockerfile instala a IA num ambiente Python separado (`/opt/ia`, `PYTHON_BIN=/opt/ia/bin/python`) em vez de `--break-system-packages` no Python do Debian, que podia falhar e deixava o treino indisponível ("Command failed: python3 -c import ultralytics…"). O build termina mostrando "IA: treino instalado — ultralytics x.y" ou "AVISO: treino da IA não foi instalado".
 - O painel mostra a última linha do erro do Python (o motivo real) em vez de "Command failed".

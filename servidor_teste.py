@@ -81,10 +81,24 @@ def b64jpeg(s):
     try: b = base64.b64decode(m.group(1))
     except Exception: return None
     return b if b[:2] == b'\xff\xd8' else None
-def modelo_info():
-    if not os.path.exists(MODELO_PATH): return None
+# biblioteca de modelos: teste_dados/modelos.json + teste_dados/modelos/<id>.onnx; uso por produto em uso_modelos.json
+BIB_PATH = os.path.join(DADOS, 'modelos.json'); USO_PATH = os.path.join(DADOS, 'uso_modelos.json'); MOD_DIR = os.path.join(DADOS, 'modelos')
+os.makedirs(MOD_DIR, exist_ok=True)
+BIBLIO = json.load(open(BIB_PATH)) if os.path.exists(BIB_PATH) else []
+USO = json.load(open(USO_PATH)) if os.path.exists(USO_PATH) else {}
+if not BIBLIO and os.path.exists(MODELO_PATH):   # versão antiga: um modelo só → vira o padrão da biblioteca
     info = json.load(open(MODELO_INFO)) if os.path.exists(MODELO_INFO) else {}
-    return { 'id': info.get('id', 1), 'produto_id': None, 'imgsz': info.get('imgsz', 416), 'tipo': info.get('tipo', 'det'), 'classes': info.get('classes'), 'metricas': info.get('metricas', {}), 'amostras': info.get('amostras', 0), 'created_at': info.get('created_at') }
+    BIBLIO = [{ 'id': 1, 'nome': 'Modelo antigo', 'padrao': True, 'imgsz': info.get('imgsz', 416), 'tipo': info.get('tipo', 'det'), 'classes': info.get('classes'), 'metricas': info.get('metricas', {}), 'amostras': info.get('amostras', 0), 'created_at': info.get('created_at'), 'updated_at': info.get('created_at') or agora_iso() }]
+    shutil.copy(MODELO_PATH, os.path.join(MOD_DIR, '1.onnx'))
+def salvar_biblio(): json.dump(BIBLIO, open(BIB_PATH, 'w')); json.dump(USO, open(USO_PATH, 'w'))
+def modelo_path(mid): return os.path.join(MOD_DIR, f'{mid}.onnx')
+def modelo_por_id(mid): return next((m for m in BIBLIO if m['id'] == int(mid)), None) if mid not in (None, '') else None
+def modelo_info(produto_id=None):
+    m, origem = None, None
+    if produto_id and str(produto_id) in USO: m, origem = modelo_por_id(USO[str(produto_id)]), 'produto'
+    if not m: m, origem = next((x for x in BIBLIO if x.get('padrao')), None), 'padrao'
+    if not m or not os.path.exists(modelo_path(m['id'])): return None
+    return { **m, 'produto_id': None, 'linha_id': 1, 'origem': origem, 'chave': f"{m['id']}.{m.get('updated_at')}", 'tamanho': os.path.getsize(modelo_path(m['id'])), 'produtos': [{ 'id': int(k), 'nome': PRODUTOS[0]['nome'] } for k, v in USO.items() if v == m['id']] }
 def contagem_total(): return sum(e['valor'] for e in EVENTOS if e['ts'][:10] == hoje())
 def sessao_fake():
     # grade simples de ciclos a partir do takt, para o painel ter "esperado": começa no primeiro evento do dia ou agora
@@ -108,7 +122,7 @@ def treino_disponivel(forcar=False):
     except Exception as e: PY_TREINO = { 'ok': False, 'motivo': ('%s: %s' % (type(e).__name__, e))[:300] }
     return PY_TREINO
 
-def treinar(produto_id, epocas, imgsz, modo='seg'):
+def treinar(produto_id, epocas, imgsz, modo='seg', destino_id=None, nome='Caixa/Pallet'):
     global TREINO
     d = tempfile.mkdtemp(prefix='treino-'); extra = []
     usadas = len(AMOSTRAS)
@@ -138,7 +152,7 @@ def treinar(produto_id, epocas, imgsz, modo='seg'):
         if z: extra = ['--zona', f"{z['x']},{z['y']},{z['w']},{z['h']}"]
         imgsz = 224
     saida = os.path.join(d, 'modelo.onnx')
-    TREINO = { 'estado': 'rodando', 'progresso': 0, 'total': epocas, 'log': [], 'inicio': time.time() * 1000, 'fim': None, 'erro': None, 'amostras': usadas, 'modo': modo }
+    TREINO = { 'estado': 'rodando', 'progresso': 0, 'total': epocas, 'log': [], 'inicio': time.time() * 1000, 'fim': None, 'erro': None, 'amostras': usadas, 'modo': modo, 'modelo_nome': (modelo_por_id(destino_id) or {}).get('nome') or nome }
     cmd = [sys.executable, os.path.join(RAIZ, 'python', 'treinar.py'), '--modo', modo, '--dados', d, '--saida', saida, '--epocas', str(epocas), '--imgsz', str(imgsz), '--batch', '4'] + extra
     env = dict(os.environ, YOLO_VERBOSE='False')
     p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, env=env, cwd=RAIZ)
@@ -159,10 +173,17 @@ def treinar(produto_id, epocas, imgsz, modo='seg'):
     if p.returncode != 0 or not os.path.exists(saida):
         TREINO['estado'] = 'erro'; TREINO['erro'] = 'Treino terminou com erro (código %s): %s' % (p.returncode, ' | '.join(l for l in TREINO['log'] if re.search('ERRO|Error', l))[-300:])
     else:
-        shutil.copy(saida, MODELO_PATH)
-        json.dump({ 'id': int(time.time()), 'imgsz': imgsz, 'tipo': modo, 'classes': metricas.get('classes') if modo == 'cls' else (CLASSES_SEG if modo == 'seg' else CLASSES_DET), 'metricas': metricas, 'amostras': usadas, 'created_at': agora_iso() }, open(MODELO_INFO, 'w'))
+        classes = metricas.get('classes') if modo == 'cls' else (CLASSES_SEG if modo == 'seg' else CLASSES_DET)
+        dados = { 'imgsz': imgsz, 'tipo': modo, 'classes': classes, 'metricas': metricas, 'amostras': usadas, 'updated_at': agora_iso() }
+        m = modelo_por_id(destino_id) if destino_id else None
+        if m: m.update(dados)
+        else:
+            m = { 'id': max([x['id'] for x in BIBLIO] + [0]) + 1, 'nome': nome, 'padrao': not any(x.get('padrao') for x in BIBLIO), 'created_at': agora_iso(), **dados }
+            BIBLIO.append(m)
+        shutil.copy(saida, modelo_path(m['id'])); salvar_biblio()
         global CONFIG_TS; CONFIG_TS = time.time()
-        TREINO['estado'] = 'concluido'; TREINO['metricas'] = metricas; TREINO['modelo_id'] = modelo_info()['id']; TREINO['tamanho'] = os.path.getsize(MODELO_PATH)
+        TREINO['modelo_id'] = m['id']
+        TREINO['estado'] = 'concluido'; TREINO['metricas'] = metricas; TREINO['tamanho'] = os.path.getsize(modelo_path(m['id']))
     shutil.rmtree(d, ignore_errors=True)
 
 # ───────── HTTP ─────────
@@ -225,7 +246,7 @@ class H(SimpleHTTPRequestHandler):
         if p == '/api/contador/linhas/1/estado':
             with LOCK: cmds = list(COMANDOS); COMANDOS.clear()
             return self.json({ 'linha': { 'id': 1, 'celula': 'Teste', 'nome': LINHA['nome'], 'produto_id': 1, 'produto_nome': PRODUTOS[0]['nome'], 'takt_padrao': PRODUTOS[0]['takt_min'] },
-                'config': CONFIG, 'config_ts': CONFIG_TS, 'sessao': None, 'contagem': contagem_total(), 'comandos': cmds, 'agora': int(time.time() * 1000), 'modelo': modelo_info() })
+                'config': CONFIG, 'config_ts': CONFIG_TS, 'sessao': None, 'contagem': contagem_total(), 'comandos': cmds, 'agora': int(time.time() * 1000), 'modelo': modelo_info(q.get('produto_id')) })
         if p == '/api/contador/linhas/1/config': return self.json({ 'config': CONFIG, 'config_linha': CONFIG, 'config_produto': {}, 'produto_id': None, 'updated_at': CONFIG_TS })
         if p == '/api/contador/frame/1':
             if not QUADRO['buf']: return self.json({ 'error': 'sem quadro' }, 404)
@@ -256,12 +277,20 @@ class H(SimpleHTTPRequestHandler):
         if m:
             f = os.path.join(DADOS, 'amostras', m.group(1) + '.jpg')
             return self.bytes(open(f, 'rb').read(), 'image/jpeg') if os.path.exists(f) else self.json({}, 404)
-        if p == '/api/contador/linhas/1/treino': return self.json({ **TREINO, 'log': TREINO.get('log', [])[-12:] })
+        if p in ('/api/contador/linhas/1/treino', '/api/contador/treino/atual'): return self.json({ **TREINO, 'log': TREINO.get('log', [])[-12:] })
+        if p == '/api/contador/modelos':
+            out = []
+            for m in sorted(BIBLIO, key=lambda x: (not x.get('padrao'), x['id'])):
+                if not os.path.exists(modelo_path(m['id'])): continue
+                out.append({ **m, 'linha_nome': LINHA['nome'], 'tamanho': os.path.getsize(modelo_path(m['id'])), 'produtos': [{ 'id': int(k), 'nome': PRODUTOS[0]['nome'] } for k, v in USO.items() if v == m['id']] })
+            return self.json(out)
+        m = re.match(r'^/api/contador/produtos/(\d+)/modelo$', p)
+        if m: return self.json({ 'modelo_id': USO.get(m.group(1)) })
         if p == '/api/contador/linhas/1/modelo':
-            info = modelo_info()
+            info = modelo_info(q.get('produto_id'))
             if not info: return self.json({ 'error': 'Sem modelo treinado' }, 404)
             if q.get('info'): return self.json(info)
-            return self.bytes(open(MODELO_PATH, 'rb').read(), 'application/octet-stream', extra={ 'X-Modelo-Id': str(info['id']), 'X-Imgsz': str(info['imgsz']) })
+            return self.bytes(open(modelo_path(info['id']), 'rb').read(), 'application/octet-stream', extra={ 'X-Modelo-Id': str(info['id']), 'X-Imgsz': str(info['imgsz']) })
         if p == '/api/export/contador': return self.json({ 'error': 'exportação não existe no servidor de teste' }, 404)
         return self.json({ 'error': 'rota não existe no servidor de teste: ' + p }, 404)
 
@@ -304,9 +333,9 @@ class H(SimpleHTTPRequestHandler):
             d = treino_disponivel()
             if not d['ok']: return self.json({ 'error': 'Sugestão indisponível: ' + d['motivo'] }, 503)
             args = [sys.executable, os.path.join(RAIZ, 'python', 'sugerir.py'), '--imagem', img]; fonte = 'IA genérica'
-            info = modelo_info()
-            if info and info.get('tipo', 'det') in ('det', 'seg') and not b.get('generica'):
-                args += ['--modelo', MODELO_PATH, '--classes', ','.join(info.get('classes') or CLASSES_DET), '--tipo', info.get('tipo', 'det')]; fonte = 'IA treinada desta câmera'
+            info = modelo_por_id(b['modelo_id']) if b.get('modelo_id') else modelo_info(b.get('produto_id'))
+            if info and info.get('tipo', 'det') in ('det', 'seg') and not b.get('generica') and os.path.exists(modelo_path(info['id'])):
+                args += ['--modelo', modelo_path(info['id']), '--classes', ','.join(info.get('classes') or CLASSES_DET), '--tipo', info.get('tipo', 'det')]; fonte = 'IA treinada (' + info.get('nome', '') + ')'
             r = subprocess.run(args, capture_output=True, text=True, timeout=180, env=dict(os.environ, YOLO_VERBOSE='False'))
             linha = next((l for l in r.stdout.splitlines() if l.startswith('SUGESTOES ')), None)
             if not linha: return self.json({ 'error': 'A IA não respondeu: ' + (r.stderr or '')[-300:] }, 500)
@@ -328,8 +357,11 @@ class H(SimpleHTTPRequestHandler):
                 nv = len([a for a in AMOSTRAS if a.get('rotulo') == 'vazio']); nc = len([a for a in AMOSTRAS if a.get('rotulo') == 'com_pecas'])
                 if nv < 3 or nc < 3: return self.json({ 'error': f'Capture pelo menos 3 quadros de pallet VAZIO e 3 COM PEÇAS (há {nv} e {nc}). O ideal são 10 ou mais de cada.' }, 400)
             epocas = max(5, min(80, int(b.get('epocas') or 40))); imgsz = int(b.get('imgsz') or 416)
-            threading.Thread(target=treinar, args=(b.get('produto_id'), epocas, imgsz, modo), daemon=True).start()
-            return self.json({ 'ok': True, 'amostras': len(AMOSTRAS), 'epocas': epocas, 'imgsz': imgsz })
+            destino = int(b['modelo_id']) if b.get('modelo_id') else None
+            if destino and not modelo_por_id(destino): return self.json({ 'error': 'Modelo não encontrado' }, 404)
+            nome = (str(b.get('nome') or '').strip() or 'Caixa/Pallet')[:80]
+            threading.Thread(target=treinar, args=(b.get('produto_id'), epocas, imgsz, modo, destino, nome), daemon=True).start()
+            return self.json({ 'ok': True, 'amostras': len([a for a in AMOSTRAS if a.get('caixas')]), 'epocas': epocas, 'imgsz': imgsz, 'modelo_nome': (modelo_por_id(destino) or {}).get('nome') or nome })
         if p == '/api/cadenciador/sessoes': return self.json({ 'error': 'sem cadenciador no servidor de teste' }, 400)
         return self.json({ 'error': 'rota não existe no servidor de teste: ' + p }, 404)
 
@@ -340,6 +372,20 @@ class H(SimpleHTTPRequestHandler):
             novo = { k: v for k, v in b.items() if k in CONFIG_PADRAO }
             with LOCK: CONFIG.update(novo); CONFIG_TS = time.time(); salvar_config()
             return self.json({ 'config': CONFIG, 'config_linha': CONFIG, 'config_produto': {}, 'updated_at': CONFIG_TS })
+        m = re.match(r'^/api/contador/modelos/(\d+)$', p)
+        if m:
+            mod = modelo_por_id(m.group(1))
+            if not mod: return self.json({ 'error': 'Modelo não encontrado' }, 404)
+            if b.get('nome'): mod['nome'] = str(b['nome']).strip()[:80]
+            if b.get('padrao') is True:
+                for x in BIBLIO: x['padrao'] = x['id'] == mod['id']
+            elif b.get('padrao') is False: mod['padrao'] = False
+            salvar_biblio(); CONFIG_TS = time.time(); return self.json({ 'ok': True })
+        m = re.match(r'^/api/contador/produtos/(\d+)/modelo$', p)
+        if m:
+            if b.get('modelo_id'): USO[m.group(1)] = int(b['modelo_id'])
+            else: USO.pop(m.group(1), None)
+            salvar_biblio(); CONFIG_TS = time.time(); return self.json({ 'ok': True, 'modelo_id': b.get('modelo_id') })
         if p == '/api/contador/linhas/1': LINHA.update({ k: b[k] for k in ('nome',) if k in b }); return self.json(LINHA)
         m = re.match(r'^/api/contador/amostras/(\d+)$', p)
         if m:
@@ -362,10 +408,12 @@ class H(SimpleHTTPRequestHandler):
             return self.json({ 'ok': True })
         m = re.match(r'^/api/contador/eventos/(\d+)$', p)
         if m: EVENTOS[:] = [e for e in EVENTOS if e['id'] != int(m.group(1))]; salvar_eventos(); return self.json({ 'ok': True })
-        if p.startswith('/api/contador/linhas/1/modelo/'):
-            for f in (MODELO_PATH, MODELO_INFO):
-                if os.path.exists(f): os.remove(f)
-            CONFIG_TS = time.time(); return self.json({ 'ok': True })
+        m = re.match(r'^/api/contador/(?:modelos|linhas/1/modelo)/(\d+)$', p)
+        if m:
+            mid = int(m.group(1)); BIBLIO[:] = [x for x in BIBLIO if x['id'] != mid]
+            for k in [k for k, v in USO.items() if v == mid]: USO.pop(k)
+            if os.path.exists(modelo_path(mid)): os.remove(modelo_path(mid))
+            salvar_biblio(); CONFIG_TS = time.time(); return self.json({ 'ok': True })
         if p.startswith('/api/contador/linhas/1/config/'): return self.json({ 'ok': True })
         return self.json({ 'error': 'rota não existe' }, 404)
 

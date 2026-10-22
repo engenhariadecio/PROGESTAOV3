@@ -325,6 +325,7 @@ tbody tr.agora td:first-child { box-shadow: inset 3px 0 0 var(--verde); }
 <script src="/js/chart.umd.js"></script>
 <script src="/js/mediapipe/pose/pose.js"></script>
 <script src="/js/ort/ort.min.js"></script>
+<script src="/js/contorno.js"></script>
 <script src="/js/contador-cam.js"></script>
 <script>
 /* ═══════════ Estado ═══════════ */
@@ -634,7 +635,7 @@ async function conectarCamAqui() {
     hud: { ia: $c('camHudIa'), estado: $c('camHudEstado'), live: $c('camHudLive') },
     onContagem: () => atualizarPlacarCam(),
     onSessao: () => atualizarPlacarCam(),
-    onConfig: (cfg, zona) => { $c('camDica').style.display = (zona || (CAM && CAM.modelo && CAM.modelo.tipo !== 'cls')) ? 'none' : ''; $c('camMult').checked = !!cfg.multiplas; $c('camInfo').innerHTML = (CAM && CAM.modelo ? (CAM.modelo.tipo === 'cls' ? '<b>IA treinada</b>: pallet vazio × com peças' : '<b>IA treinada</b>: reconhece pallet, caixas e peças; conta cada uma colocada (+1) e retirada (−1)') : `Sem IA treinada ainda — contando por diferença de imagem (sensibilidade ${cfg.sens}/10). Ensine a IA no painel das câmeras › Configurar › Ensinar a IA`) + ' · zoom e câmera ajustam-se pelo painel no PC'; },
+    onConfig: (cfg, zona) => { $c('camDica').style.display = (zona || (CAM && CAM.modelo && CAM.modelo.tipo !== 'cls')) ? 'none' : ''; $c('camMult').checked = !!cfg.multiplas; $c('camInfo').innerHTML = (CAM && CAM.modelo ? (CAM.modelo.tipo === 'cls' ? '<b>IA treinada</b>: pallet vazio × com peças' : CAM.modelo.tipo === 'seg' ? '<b>IA treinada (contorno)</b>: reconhece o pallet e o formato de cada peça; conta cada uma colocada (+1) e retirada (−1)' : '<b>IA treinada</b>: reconhece pallet, caixas e peças; conta cada uma colocada (+1) e retirada (−1)') : `Sem IA treinada ainda — contando por diferença de imagem (sensibilidade ${cfg.sens}/10). Ensine a IA no painel das câmeras › Configurar › Ensinar a IA`) + ' · zoom e câmera ajustam-se pelo painel no PC'; },
     onEncerrar: () => { CAM = null; mostrarPassoCam('conectar'); },
     onModelo: m => { $c('camSelo').textContent = m ? 'IA treinada ativa' : 'câmera deste aparelho'; if (m) avisoOk('IA treinada carregada: a contagem passa a ser por reconhecimento das caixas.'); statusIa(); }
   });

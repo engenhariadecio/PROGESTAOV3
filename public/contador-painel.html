@@ -68,7 +68,7 @@ html.embed #mCfg .modal { max-width: none !important; width: 100%; max-height: 1
 .cfg-abas .btn.sel { background: var(--verde); color: #fff; border-color: var(--verde); }
 .ens { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 18px; }
 @media (max-width: 860px) { .ens { grid-template-columns: 1fr; } }
-.ens .palco { position: relative; background: #000; border-radius: 12px; overflow: hidden; aspect-ratio: 4/3; border: 1px solid var(--linha); }
+.ens .palco { position: relative; background: #000; border-radius: 12px; overflow: hidden; aspect-ratio: 4/3; border: 1px solid var(--linha); margin: 0 auto; max-width: 100%; }
 .ens .palco img { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 .ens .palco canvas { position: absolute; inset: 0; width: 100%; height: 100%; cursor: crosshair; touch-action: none; }
 .ens .palco .semimg { position: absolute; inset: 0; display: grid; place-items: center; color: #8aa0b0; font-size: 13px; text-align: center; padding: 20px; }
@@ -85,6 +85,23 @@ html.embed #mCfg .modal { max-width: none !important; width: 100%; max-height: 1
 .classes-ens .cls-caixa.sel { background: rgba(240,180,41,.2); border-color: #F0B429; color: #F0B429; }
 .classes-ens .cls-peca.sel { background: rgba(86,182,224,.2); border-color: #56B6E0; color: #56B6E0; }
 .classes-ens .cls-pallet.sel { background: rgba(167,139,250,.2); border-color: #A78BFA; color: #A78BFA; }
+.passos-ens { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 10px; }
+.passo-ens { display: flex; align-items: center; gap: 10px; text-align: left; border: 1px solid var(--linha); border-radius: 12px; padding: 10px 12px; background: transparent; color: var(--t1); cursor: pointer; font: inherit; }
+.passo-ens > b { width: 28px; height: 28px; flex: none; border-radius: 50%; background: var(--fade); color: #fff; display: grid; place-items: center; font-size: 14px; }
+.passo-ens strong { display: block; font-size: 14px; } .passo-ens small { display: block; font-size: 12px; color: var(--t2); }
+.passo-ens.sel { border-color: var(--verde-clr); box-shadow: inset 0 0 0 1px var(--verde-clr); } .passo-ens.sel > b { background: var(--verde-clr); }
+.passo-ens.ok > b { background: var(--ok); } .passo-ens.fim { cursor: default; }
+.ens-instr { border-left: 3px solid var(--verde-clr); padding: 6px 10px; margin-bottom: 10px; font-size: 13px; line-height: 1.5; color: var(--t2); }
+.ens-instr b { color: var(--t1); }
+.amostras .tag { position: absolute; left: 3px; top: 3px; font-size: 10px; font-weight: 800; padding: 1px 5px; border-radius: 6px; background: rgba(0,0,0,.65); color: #fff; }
+.assist { display: grid; gap: 8px; margin-bottom: 10px; }
+.assist .passo { display: grid; grid-template-columns: 26px 1fr; gap: 10px; border: 1px solid var(--linha); border-radius: 10px; padding: 10px 12px; }
+.assist .passo > b { width: 26px; height: 26px; border-radius: 50%; background: var(--fade); color: #fff; display: grid; place-items: center; font-size: 13px; }
+.assist .passo strong { display: block; font-size: 13.5px; margin-bottom: 2px; }
+.assist .passo span { display: block; font-size: 12.5px; color: var(--t2); margin-bottom: 6px; line-height: 1.45; }
+.assist .passo .cont { display: inline-block; margin-left: 6px; font-weight: 800; color: var(--verde-clr); }
+.assist select.mini { display: inline-block; width: auto; min-width: 0; padding: 2px 6px; font-size: 12px; height: auto; }
+.trein-off { background: var(--erro-bg); border: 1px solid var(--erro-bd); color: var(--erro); padding: 8px 10px; border-radius: 8px; font-size: 12px; }
 .modelo-ok { background: var(--fade-suave); border: 1px solid rgba(38,178,71,.3); border-radius: 10px; padding: 10px 12px; font-size: 12.5px; }
 .qr img { width: 240px; height: 240px; background: #fff; border-radius: 12px; padding: 8px; }
 .qr code { display: block; margin-top: 10px; font-size: 13px; word-break: break-all; background: var(--sup); padding: 8px; border-radius: 8px; }
@@ -185,24 +202,24 @@ td img { width: 72px; height: 54px; object-fit: cover; border-radius: 6px; curso
     <!-- ═══ Ensinar a IA ═══ -->
     <div class="ens" id="cfgIa" style="display:none">
       <div>
-        <div class="palco"><img id="ensImg" alt=""><div class="semimg" id="ensSem">Capture um quadro da câmera para começar a marcar.</div><canvas id="ensCanvas"></canvas></div>
-        <div class="modo" style="margin-top:0;margin-bottom:8px">
-          <span class="rotulo" style="align-self:center">Modo</span>
-          <select class="controle" id="ensModo" style="min-width:300px"><option value="det">Contar cada caixa/peça no pallet (recomendado)</option><option value="cls">Só pallet vazio × com peças (+1 por pallet)</option></select>
+        <div class="passos-ens">
+          <button class="passo-ens sel" data-passo="vazio"><b>1</b><span><strong>Pallet vazio</strong><small id="nVazio">0 fotos</small></span></button>
+          <button class="passo-ens" data-passo="peca"><b>2</b><span><strong>Peça</strong><small id="nPeca">0 fotos</small></span></button>
+          <div class="passo-ens fim"><b>3</b><span><strong>Treinar</strong><small id="nProg">—</small></span></div>
         </div>
+        <div class="ens-instr" id="ensInstr"></div>
+        <div class="palco"><img id="ensImg" alt=""><div class="semimg" id="ensSem">Clique em 📸 Capturar para começar.</div><canvas id="ensCanvas"></canvas></div>
         <div class="modo">
-          <button class="btn btn-sm btn-primario" id="ensCapturar">📸 Capturar quadro da câmera</button>
-          <button class="btn btn-sm btn-fantasma" id="ensCapVazio">📸 Capturar: pallet VAZIO</button>
-          <button class="btn btn-sm btn-ok" id="ensCapCom">📸 Capturar: COM PEÇAS</button>
-          <button class="btn btn-sm btn-fantasma" id="ensRotVazio" disabled>→ marcar como VAZIO</button>
-          <button class="btn btn-sm btn-fantasma" id="ensRotCom" disabled>→ marcar como COM PEÇAS</button>
-          <span class="classes-ens" id="ensClasses"><button class="btn btn-sm cls-caixa sel" data-classe="caixa">▢ Caixa</button><button class="btn btn-sm cls-peca" data-classe="peca">▢ Peça</button><button class="btn btn-sm cls-pallet" data-classe="pallet">▢ Pallet</button></span>
-          <button class="btn btn-sm btn-fantasma" id="ensSalvar" disabled>💾 Salvar marcações</button>
-          <button class="btn btn-sm btn-fantasma" id="ensLimpar" disabled>Limpar</button>
-          <button class="btn btn-sm btn-fantasma" id="ensExcluir" disabled>🗑 Excluir quadro</button>
-          <span class="ajuda" id="ensDica" style="align-self:center">Arraste um retângulo em volta de <b>cada</b> caixa/peça no pallet. Clique num retângulo para apagar.</span>
+          <button class="btn btn-primario" id="ensCapturar">📸 Capturar</button>
+          <button class="btn btn-ok" id="ensConfirmar" disabled>✓ Confirmar</button>
+          <span class="classes-ens" id="ensClasses" style="display:none"><button class="btn btn-sm cls-peca sel" data-classe="peca">Contornar peça</button><button class="btn btn-sm cls-pallet" data-classe="pallet">Contornar pallet</button></span>
+          <button class="btn btn-sm btn-fantasma" id="ensApagar" disabled title="Apaga o contorno selecionado (tecla Delete)">✕ Apagar contorno</button>
+          <button class="btn btn-sm btn-fantasma" id="ensAchar" disabled title="Compara de novo com o pallet vazio">⟳ Achar a peça de novo</button>
+          <button class="btn btn-sm btn-fantasma" id="ensSugerir" disabled title="A IA já treinada propõe os contornos; você só corrige">🪄 Sugerir</button>
+          <label class="btn btn-sm btn-fantasma" id="ensImportarLbl" title="Fotos tiradas no celular ou guardadas no PC">📁 Importar fotos<input type="file" id="ensImportar" accept="image/*" multiple hidden></label>
+          <button class="btn btn-sm btn-fantasma" id="ensExcluir" disabled>🗑 Excluir foto</button>
         </div>
-        <div class="ajuda" style="margin-top:8px" id="ensComo"></div>
+        <div class="ajuda" id="ensDica" style="margin-top:8px"></div>
       </div>
       <div class="lado">
         <div class="grupo"><h5>Quadros marcados <span id="ensResumo"></span></h5><div class="amostras" id="ensLista"></div></div>
@@ -260,6 +277,7 @@ td img { width: 72px; height: 54px; object-fit: cover; border-radius: 6px; curso
 <div class="ampliado" id="ampliado"><div class="leg" id="ampLeg"></div><img id="ampImg" alt=""></div>
 
 <script src="/js/core.js"></script>
+<script src="/js/contorno.js"></script>
 <script src="/js/chart.umd.js"></script>
 <script>
 const $ = id => document.getElementById(id);
@@ -465,103 +483,305 @@ document.querySelectorAll('.cmds [data-cmd]').forEach(b => b.onclick = async () 
   try { await API.post('/api/contador/linhas/' + cfgLinha.id + '/comando', { tipo: b.dataset.cmd }); $('cfgStatus').textContent = 'Comando enviado: ' + b.textContent; } catch (e) { avisoErro(e.message); }
 });
 
-/* ───────── ENSINAR A IA ───────── */
+/* ───────── ENSINAR A IA ─────────
+   Um fluxo só, com duas coisas para ensinar:
+   1) PALLET VAZIO — contorna o pallet uma vez; as próximas fotos vazias já vêm contornadas.
+   2) PEÇA — coloca a peça e captura: a diferença com o pallet vazio vira o CONTORNO da peça.
+   Cada marcação é um polígono { c: 'peca'|'pallet', pts: [[x,y],…] } (0–1). A IA de contorno
+   (segmentação) aprende o formato exato da peça e do pallet. */
 document.querySelectorAll('[data-cfgaba]').forEach(b => b.onclick = () => { document.querySelectorAll('[data-cfgaba]').forEach(x => x.classList.toggle('sel', x === b)); $('cfgArea').style.display = b.dataset.cfgaba === 'area' ? '' : 'none'; $('cfgIa').style.display = b.dataset.cfgaba === 'ia' ? '' : 'none'; if (b.dataset.cfgaba === 'ia') abrirEnsinar(); });
-let ensAmostra = null, ensCaixas = [], ensIni = null, ensDesenho = null, ensTimer = null, ensSujo = false;
-const ensModo = () => $('ensModo').value;
-const COR_CL = { caixa: '#F0B429', peca: '#56B6E0', pallet: '#A78BFA' }, NOME_CL = { caixa: 'CAIXA', peca: 'PEÇA', pallet: 'PALLET' };
-let ensClasse = 'caixa';
-document.querySelectorAll('#ensClasses [data-classe]').forEach(b => b.onclick = () => { ensClasse = b.dataset.classe; document.querySelectorAll('#ensClasses [data-classe]').forEach(x => x.classList.toggle('sel', x === b)); desenharEns(); });
-function aplicarModoEns() {
-  const cls = ensModo() === 'cls';
-  ['ensCapVazio', 'ensCapCom', 'ensRotVazio', 'ensRotCom'].forEach(id => $(id).style.display = cls ? '' : 'none');
-  ['ensCapturar', 'ensSalvar', 'ensLimpar', 'ensClasses'].forEach(id => $(id).style.display = cls ? 'none' : '');
-  $('ensComo').innerHTML = cls
-    ? 'Como ensinar: com a área do pallet marcada (aba <i>Área e câmera</i>), capture <b>10 ou mais quadros do pallet VAZIO</b> e <b>10 ou mais COM PEÇAS</b> (quantidades e posições diferentes, com e sem gente ao redor, luz diferente). Depois <b>Treinar</b> (2–5 min). A câmera conta <b>+1 cada vez que o pallet sai de vazio para com peças</b>; quando volta a vazio, registra pallet liberado. Se mudar a área marcada, treine de novo.'
-    : 'Como ensinar: capture 20–40 quadros variados — <b>pallet vazio</b>, com 1 caixa, com várias, com peças soltas, pallet cheio, gente passando. Em <b>cada</b> quadro escolha a classe e arraste um retângulo em volta de <b>tudo</b> que aparece: o <b style="color:#A78BFA">PALLET</b> (a base de madeira), cada <b style="color:#F0B429">CAIXA</b> e cada <b style="color:#56B6E0">PEÇA</b>. Quadro de pallet vazio = só o retângulo do pallet. Depois <b>Treinar</b> (5–15 min). A câmera conta +1 a cada caixa/peça colocada em cima do pallet, −1 a cada retirada, e sabe quando o pallet está vazio ou foi trocado — não precisa marcar área.';
-  listarAmostras();
-}
-$('ensModo').onchange = () => { localStorage.setItem('ens.modo', ensModo()); aplicarModoEns(); };
+let ensAmostra = null, ensCaixas = [], ensTimer = null, ensSujo = false, ensSel = -1, ensPasso = 'vazio', ensClasse = 'peca';
+let ensArrasto = null;   // { tipo: 'vertice', i, k } | { tipo: 'laco', pts: [] } | { tipo: 'clique', p }
+const COR_CL = { caixa: '#56B6E0', peca: '#56B6E0', pallet: '#A78BFA' }, NOME_CL = { caixa: 'PEÇA', peca: 'PEÇA', pallet: 'PALLET' };
 const ensCanvas = $('ensCanvas'), ectx = ensCanvas.getContext('2d');
+const chaveAs = k => `assist.${k}.${cfgLinha.id}`;
+const lerAs = k => { try { return JSON.parse(localStorage.getItem(chaveAs(k)) || 'null'); } catch (_) { return null; } };
+const gravarAs = (k, v) => { try { localStorage.setItem(chaveAs(k), JSON.stringify(v)); } catch (_) {} };
+const comPts = c => ({ c: c.c === 'pallet' ? 'pallet' : 'peca', pts: c.pts && c.pts.length >= 3 ? c.pts.map(p => [p[0], p[1]]) : Contorno.retangulo(c) });
+const tipoAmostra = a => { const cx = a.caixas || []; return !cx.length ? null : cx.some(c => c.c !== 'pallet') ? 'peca' : 'vazio'; };
+
+function dica(html) { const d = $('ensDica'); d.innerHTML = html; d.dataset.fixo = html ? '1' : ''; }
+function irPasso(p) {
+  ensPasso = p;
+  document.querySelectorAll('.passo-ens[data-passo]').forEach(b => b.classList.toggle('sel', b.dataset.passo === p));
+  $('ensCapturar').textContent = p === 'vazio' ? '📸 Capturar pallet VAZIO' : '📸 Capturar com peça';
+  $('ensClasses').style.display = p === 'peca' ? '' : 'none';
+  ensClasse = p === 'vazio' ? 'pallet' : 'peca';
+  document.querySelectorAll('#ensClasses [data-classe]').forEach(x => x.classList.toggle('sel', x.dataset.classe === ensClasse));
+  $('ensInstr').innerHTML = p === 'vazio'
+    ? (lerAs('pallet')
+      ? 'Deixe o pallet <b>sem nenhuma peça</b>, ninguém na frente, e clique em <b>📸 Capturar</b>. O contorno do pallet já vem marcado — se ele mudou de lugar, arraste os pontos roxos. Capture <b>2 ou 3</b> vazios (luz diferente ajuda) e passe para o passo 2.'
+      : 'Deixe o pallet <b>sem nenhuma peça</b>, ninguém na frente, e clique em <b>📸 Capturar</b>. Depois <b>contorne o pallet</b>: segure o botão do mouse (ou o dedo) e passe em volta dele. Ajuste os pontos se precisar e clique em <b>✓ Confirmar</b>. Só precisa contornar uma vez.')
+    : 'Coloque <b>uma peça EM CIMA do pallet</b> (o pallet não sai do lugar), saia da frente e clique em <b>📸 Capturar</b>. O sistema compara com o pallet vazio e <b>desenha o contorno da peça sozinho</b>. Confira: arraste os pontos para acertar, apague o que estiver errado (clique no contorno → ✕) ou contorne à mão o que faltou. A próxima captura salva esta. Repita mudando a posição e o lado da peça, depois com 2, 3… peças — <b>15 ou mais</b> fotos. A câmera <b>não pode mexer</b>.';
+  desenharEns();
+}
+document.querySelectorAll('.passo-ens[data-passo]').forEach(b => b.onclick = () => irPasso(b.dataset.passo));
+document.querySelectorAll('#ensClasses [data-classe]').forEach(b => b.onclick = () => { ensClasse = b.dataset.classe; document.querySelectorAll('#ensClasses [data-classe]').forEach(x => x.classList.toggle('sel', x === b)); desenharEns(); });
+
 async function abrirEnsinar() {
   if (!cfgLinha) return;
   $('ensProduto').innerHTML = '<option value="">Todos os produtos desta câmera</option>' + produtos.map(p => `<option value="${p.id}">${escapar(p.nome)}</option>`).join('');
   $('ensProduto').value = cfgProduto || '';
-  $('ensModo').value = localStorage.getItem('ens.modo') || 'det'; aplicarModoEns();
+  irPasso(lerAs('ref') ? 'peca' : 'vazio');
   await listarAmostras(); await infoModelo(); acompanharTreino();
+  verificarTreino();
+}
+async function verificarTreino() {
+  $('ensStatus').innerHTML = '<span class="ajuda">Verificando se o treino está instalado… (a 1ª vez pode levar até 1 min)</span>';
+  const d = await API.get('/api/contador/treino/disponivel').catch(e => ({ ok: false, motivo: 'o servidor não respondeu (' + e.message + ')' }));
+  $('ensTreinar').disabled = !d.ok;
+  if (d.ok) { if ($('ensProg').style.display === 'none') $('ensStatus').innerHTML = `<span class="ajuda">Treino pronto (ultralytics ${escapar(d.versao || '')}).</span>`; return; }
+  $('ensStatus').innerHTML = `<div class="trein-off"><b>O treino não está funcionando neste servidor.</b><br>Motivo: <code>${escapar(d.motivo || '?')}</code><br>As fotos e contornos ficam guardados mesmo assim. Para resolver no PC: feche o servidor e rode <code>python -m pip install -r python/requirements-local.txt</code>, depois abra o servidor de novo. No Railway, a versão nova (Dockerfile) instala sozinha.<br><button class="btn btn-sm btn-fantasma" id="ensReverificar" style="margin-top:6px">↻ Verificar de novo</button></div>`;
+  $('ensReverificar').onclick = verificarTreino;
 }
 $('ensProduto').onchange = () => { listarAmostras(); infoModelo(); acompanharTreino(); };
 async function listarAmostras() {
   const pid = $('ensProduto').value;
-  const lista = await API.get(`/api/contador/linhas/${cfgLinha.id}/amostras${pid ? '?produto_id=' + pid : ''}`).catch(() => []);
-  const marc = lista.filter(a => a.n > 0).length, caixas = lista.reduce((s, a) => s + a.n, 0);
-  const nv = lista.filter(a => a.rotulo === 'vazio').length, nc = lista.filter(a => a.rotulo === 'com_pecas').length;
-  const porCl = { caixa: 0, peca: 0, pallet: 0 }; lista.forEach(a => (a.caixas || []).forEach(c => { porCl[c.c || 'caixa']++; }));
-  $('ensResumo').textContent = ensModo() === 'cls' ? `${lista.length} quadros · ${nv} vazio · ${nc} com peças` : `${lista.length} quadros · ${marc} marcados · ${porCl.pallet} pallets · ${porCl.caixa} caixas · ${porCl.peca} peças`;
+  const lista = await API.get(`/api/contador/linhas/${cfgLinha.id}/amostras${pid ? '?produto_id=' + pid : ''}`).catch(e => { avisoErro('Não consegui listar as fotos: ' + e.message); return []; });
+  const nv = lista.filter(a => tipoAmostra(a) === 'vazio').length, np = lista.filter(a => tipoAmostra(a) === 'peca').length;
+  const pecas = lista.reduce((s, a) => s + (a.caixas || []).filter(c => c.c !== 'pallet').length, 0);
+  $('nVazio').textContent = nv + (nv === 1 ? ' foto' : ' fotos') + (nv >= 1 ? ' ✓' : '');
+  $('nPeca').textContent = np + (np === 1 ? ' foto' : ' fotos') + ` · ${pecas} peça(s)` + (np >= 3 ? ' ✓' : '');
+  document.querySelector('.passo-ens[data-passo="vazio"]').classList.toggle('ok', nv >= 1);
+  document.querySelector('.passo-ens[data-passo="peca"]').classList.toggle('ok', np >= 3);
+  $('nProg').innerHTML = nv >= 1 && np >= 3 ? (np >= 15 ? 'pronto ✓' : `já dá · ideal 15+ com peça`) : `faltam ${Math.max(0, 1 - nv)} vazio, ${Math.max(0, 3 - np)} com peça`;
+  $('ensResumo').textContent = `${lista.length} fotos · ${nv} vazio · ${np} com peça`;
   const sel = a => ensAmostra && ensAmostra.id === a.id ? ' sel' : '';
-  $('ensLista').innerHTML = lista.map(a => ensModo() === 'cls'
-    ? `<div class="${a.rotulo ? '' : 'vazia'}${sel(a)}" data-id="${a.id}" title="${new Date(a.created_at).toLocaleString('pt-BR')}"><img src="/api/contador/amostras/${a.id}/jpeg" loading="lazy"><span>${a.rotulo === 'vazio' ? 'VAZIO' : a.rotulo === 'com_pecas' ? 'PEÇAS' : '?'}</span></div>`
-    : `<div class="${a.n ? '' : 'vazia'}${sel(a)}" data-id="${a.id}" title="${new Date(a.created_at).toLocaleString('pt-BR')}"><img src="/api/contador/amostras/${a.id}/jpeg" loading="lazy"><span>${a.n}</span></div>`).join('') || '<div class="ajuda" style="grid-column:1/-1">Nenhum quadro ainda.</div>';
+  $('ensLista').innerHTML = lista.map(a => { const t = tipoAmostra(a), n = (a.caixas || []).filter(c => c.c !== 'pallet').length;
+    return `<div class="${t ? '' : 'vazia'}${sel(a)}" data-id="${a.id}" title="${new Date(a.created_at).toLocaleString('pt-BR')}"><img src="/api/contador/amostras/${a.id}/jpeg" loading="lazy"><i class="tag">${t === 'vazio' ? 'VAZIO' : t === 'peca' ? 'PEÇA' : '?'}</i><span>${t === 'peca' ? n : t === 'vazio' ? '✓' : 'sem contorno'}</span></div>`; }).join('') || '<div class="ajuda" style="grid-column:1/-1">Nenhuma foto ainda.</div>';
   $('ensLista').querySelectorAll('[data-id]').forEach(d => d.onclick = () => abrirAmostra(lista.find(a => a.id === Number(d.dataset.id))));
 }
-function abrirAmostra(a) {
-  if (ensSujo && !confirm('Há marcações não salvas. Descartar?')) return;
-  ensAmostra = a; ensCaixas = (a.caixas || []).map(c => ({ ...c })); ensSujo = false;
+/* a tela de marcação segue o formato de cada foto (em pé, deitada, 4:3…) sem esticar */
+$('ensImg').addEventListener('load', () => {
+  const im = $('ensImg'), r = im.naturalWidth / im.naturalHeight, p = im.parentElement;
+  if (!r || !isFinite(r)) return;
+  p.style.aspectRatio = String(r); p.style.width = `min(100%, calc(62vh * ${r.toFixed(4)}))`;
+  desenharEns();
+});
+function abrirAmostra(a, caixas) {
+  ensAmostra = a; ensCaixas = (caixas || a.caixas || []).map(comPts); ensSujo = !!caixas; ensSel = -1;
   $('ensImg').src = `/api/contador/amostras/${a.id}/jpeg?t=${Date.now()}`; $('ensSem').style.display = 'none';
-  ['ensSalvar', 'ensLimpar', 'ensExcluir', 'ensRotVazio', 'ensRotCom'].forEach(id => $(id).disabled = false);
+  ['ensConfirmar', 'ensExcluir', 'ensSugerir', 'ensAchar'].forEach(id => $(id).disabled = false);
   $('ensLista').querySelectorAll('[data-id]').forEach(d => d.classList.toggle('sel', Number(d.dataset.id) === a.id));
+  const t = tipoAmostra({ caixas: ensCaixas }); if (t && t !== ensPasso) irPasso(t);
+  if (t === 'vazio' && !caixas) gravarAs('ref', a.id);   // abrir uma foto vazia = usar como referência
   desenharEns();
 }
+async function salvarAtual(silencioso) {
+  if (!ensAmostra) return;
+  const caixas = ensCaixas.filter(c => c.pts.length >= 3).map(c => ({ c: c.c, pts: c.pts, ...Contorno.caixaDe(c.pts) }));
+  const r = await API.put('/api/contador/amostras/' + ensAmostra.id, { caixas }); ensSujo = false; ensAmostra.caixas = caixas;
+  const pallet = caixas.find(c => c.c === 'pallet');
+  if (pallet && tipoAmostra({ caixas }) === 'vazio') { gravarAs('pallet', pallet.pts); gravarAs('ref', ensAmostra.id); }
+  if (!silencioso) avisoOk(tipoAmostra({ caixas }) === 'vazio' ? 'Pallet vazio salvo — é a referência para achar as peças.' : `Salvo: ${caixas.filter(c => c.c !== 'pallet').length} peça(s) nesta foto.`);
+  await listarAmostras(); return r;
+}
+async function capturarQuadro() {
+  if (!cfgLinha.online) throw new Error('A câmera não está transmitindo agora.');
+  return API.post(`/api/contador/linhas/${cfgLinha.id}/amostras`, { da_camera: true, produto_id: $('ensProduto').value || null, caixas: [] });
+}
 $('ensCapturar').onclick = async () => {
-  if (!cfgLinha.online) return avisoErro('A câmera não está transmitindo agora.');
+  const b = $('ensCapturar'); b.disabled = true;
   try {
-    const r = await API.post(`/api/contador/linhas/${cfgLinha.id}/amostras`, { da_camera: true, produto_id: $('ensProduto').value || null, caixas: [] });
-    await listarAmostras(); abrirAmostra({ id: r.id, caixas: [], n: 0, created_at: r.created_at });
-    avisoOk('Quadro capturado. Marque cada caixa/peça e salve.');
+    if (ensSujo && ensCaixas.length) await salvarAtual(true);   // a próxima captura salva a anterior
+    const pallet = lerAs('pallet'), palletC = pallet && pallet.length >= 3 ? [{ c: 'pallet', pts: pallet }] : (pallet && pallet.w ? [{ c: 'pallet', pts: Contorno.retangulo(pallet) }] : []);
+    if (ensPasso === 'vazio') {
+      const r = await capturarQuadro(), refAnt = lerAs('ref');
+      // o pallet continua onde estava na última foto vazia? Se mexeu, o contorno guardado não serve mais
+      const mexeu = palletC.length && refAnt ? (await acharPecas(refAnt, r.id, palletC[0].pts).catch(() => ({ palletMudou: 0 }))).palletMudou > 0.3 : false;
+      gravarAs('ref', r.id);
+      abrirAmostra({ id: r.id, caixas: [], created_at: r.created_at }, mexeu ? [] : palletC);
+      if (mexeu) dica('<b style="color:var(--alerta)">O pallet mudou de lugar</b> desde a última foto vazia. <b>Contorne o pallet de novo</b> (segure e passe em volta) e clique em <b>✓ Confirmar</b>. Depois disso, não mexa mais no pallet nem na câmera.');
+      else if (palletC.length) { await salvarAtual(true); dica('✓ Pallet vazio capturado e contornado. Se o pallet mudou de lugar, arraste os pontos e clique em <b>✓ Confirmar</b>. Capture mais 1 ou 2, ou vá para o <b>passo 2</b>.'); }
+      else dica('<b style="color:#A78BFA">Contorne o PALLET:</b> segure o botão do mouse e passe em volta do pallet, rente às bordas dele. Depois <b>✓ Confirmar</b>.');
+    } else {
+      const ref = lerAs('ref'); if (!ref) { irPasso('vazio'); throw new Error('Capture primeiro o pallet VAZIO (passo 1).'); }
+      const r = await capturarQuadro();
+      const { pecas: achados, palletMudou } = await acharPecas(ref, r.id, palletC.length ? palletC[0].pts : null);
+      abrirAmostra({ id: r.id, caixas: [], created_at: r.created_at }, palletMudou > 0.4 ? [] : [...palletC, ...achados]);
+      await listarAmostras();
+      if (palletMudou > 0.4) dica(`<b style="color:var(--alerta)">O pallet saiu do lugar</b> (${Math.round(palletMudou * 100)}% dele mudou). A peça tem que ser colocada <b>em cima do pallet</b>, com o pallet parado — assim o sistema acha a peça sozinho. Recoloque o pallet e capture de novo, ou contorne a peça à mão nesta foto (e o pallet, se ele aparecer).`);
+      else if (!achados.length) dica('<b style="color:var(--alerta)">Não achei peça.</b> A peça está no pallet e ninguém na frente? Contorne à mão (segure e passe em volta da peça).');
+      else if (achados.length > 6) dica(`<b style="color:var(--alerta)">Achei ${achados.length} diferenças</b> — a câmera mexeu ou a luz mudou? Capture o pallet VAZIO de novo (passo 1), ou apague as erradas.`);
+      else dica(`Achei <b>${achados.length}</b> peça(s). Confira o contorno azul; acerte os pontos se precisar. A próxima captura salva esta (ou clique em <b>✓ Confirmar</b>).`);
+    }
+  } catch (e) { avisoErro(e.message); }
+  b.disabled = false;
+};
+$('ensConfirmar').onclick = async () => {
+  if (!ensAmostra) return;
+  if (ensPasso === 'vazio' && !ensCaixas.some(c => c.c === 'pallet')) return avisoErro('Contorne o pallet antes de confirmar.');
+  try { await salvarAtual(false); } catch (e) { avisoErro(e.message); }
+};
+$('ensAchar').onclick = async () => {
+  const ref = lerAs('ref'); if (!ensAmostra || !ref) return avisoErro('Capture primeiro o pallet VAZIO (passo 1).');
+  if (ref === ensAmostra.id) return avisoErro('Esta foto é o próprio pallet vazio de referência.');
+  const pal = ensCaixas.find(c => c.c === 'pallet') || (lerAs('pallet') && lerAs('pallet').length >= 3 ? { pts: lerAs('pallet') } : null);
+  const { pecas: achados, palletMudou } = await acharPecas(ref, ensAmostra.id, pal ? pal.pts : null);
+  if (palletMudou > 0.4) return dica(`<b style="color:var(--alerta)">O pallet saiu do lugar</b> (${Math.round(palletMudou * 100)}% dele mudou) — não dá para achar a peça pela diferença. Contorne à mão.`);
+  ensCaixas = [...ensCaixas.filter(c => c.c === 'pallet'), ...achados]; ensSujo = true; ensSel = -1; desenharEns();
+};
+$('ensApagar').onclick = () => { if (ensSel < 0) return; ensCaixas.splice(ensSel, 1); ensSel = -1; ensSujo = true; desenharEns(); };
+document.addEventListener('keydown', e => { if ((e.key === 'Delete' || e.key === 'Backspace') && ensSel >= 0 && $('cfgIa').style.display !== 'none' && !/INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName)) { e.preventDefault(); $('ensApagar').onclick(); } });
+$('ensExcluir').onclick = async () => {
+  if (!ensAmostra || !confirm('Excluir esta foto?')) return;
+  try {
+    await API.del('/api/contador/amostras/' + ensAmostra.id);
+    if (lerAs('ref') === ensAmostra.id) gravarAs('ref', null);
+    ensAmostra = null; ensCaixas = []; ensSujo = false; ensSel = -1; $('ensImg').removeAttribute('src'); $('ensSem').style.display = '';
+    ['ensConfirmar', 'ensExcluir', 'ensSugerir', 'ensAchar', 'ensApagar'].forEach(id => $(id).disabled = true); listarAmostras(); desenharEns();
   } catch (e) { avisoErro(e.message); }
 };
-async function capturarRotulado(rotulo) {
-  if (!cfgLinha.online) return avisoErro('A câmera não está transmitindo agora.');
-  if (!cfgLinha.config || !cfgLinha.config.zona) return avisoErro('Marque primeiro a área do pallet (aba Área e câmera).');
-  try {
-    const r = await API.post(`/api/contador/linhas/${cfgLinha.id}/amostras`, { da_camera: true, produto_id: $('ensProduto').value || null, caixas: [], rotulo });
-    await listarAmostras(); abrirAmostra({ id: r.id, caixas: [], n: 0, rotulo, created_at: r.created_at });
-    avisoOk('Quadro capturado como ' + (rotulo === 'vazio' ? 'pallet VAZIO' : 'COM PEÇAS') + '.');
-  } catch (e) { avisoErro(e.message); }
+async function carregarPixels(id, W, H) {
+  const img = new Image(); img.src = `/api/contador/amostras/${id}/jpeg?t=${Date.now()}`; await img.decode();
+  const c = document.createElement('canvas'); c.width = W; c.height = H; const cx = c.getContext('2d', { willReadFrequently: true });
+  cx.drawImage(img, 0, 0, W, H); return cx.getImageData(0, 0, W, H).data;
 }
-$('ensCapVazio').onclick = () => capturarRotulado('vazio');
-$('ensCapCom').onclick = () => capturarRotulado('com_pecas');
-async function rotular(rotulo) { if (!ensAmostra) return; try { await API.put('/api/contador/amostras/' + ensAmostra.id, { rotulo }); ensAmostra.rotulo = rotulo; listarAmostras(); desenharEns(); } catch (e) { avisoErro(e.message); } }
-$('ensRotVazio').onclick = () => rotular('vazio');
-$('ensRotCom').onclick = () => rotular('com_pecas');
-$('ensSalvar').onclick = async () => { if (!ensAmostra) return; try { const r = await API.put('/api/contador/amostras/' + ensAmostra.id, { caixas: ensCaixas }); ensSujo = false; avisoOk(`Salvo: ${r.n} marcação(ões) neste quadro.`); listarAmostras(); } catch (e) { avisoErro(e.message); } };
-$('ensLimpar').onclick = () => { ensCaixas = []; ensSujo = true; desenharEns(); };
-$('ensExcluir').onclick = async () => { if (!ensAmostra || !confirm('Excluir este quadro?')) return; try { await API.del('/api/contador/amostras/' + ensAmostra.id); ensAmostra = null; ensCaixas = []; ensSujo = false; $('ensImg').removeAttribute('src'); $('ensSem').style.display = ''; ['ensSalvar', 'ensLimpar', 'ensExcluir'].forEach(id => $(id).disabled = true); listarAmostras(); desenharEns(); } catch (e) { avisoErro(e.message); } };
+/* compara a foto com o pallet vazio: o que mudou é peça → CONTORNO de cada mancha.
+   Devolve { pecas, palletMudou } — palletMudou = fração do pallet que mudou (pallet tirado/mexido). */
+async function acharPecas(refId, id, palletPts) {
+  const W = 320, H = 240, N = W * H;
+  const a = await carregarPixels(refId, W, H), b = await carregarPixels(id, W, H);
+  let soma = 0; for (let i = 0; i < N; i++) soma += (b[i * 4] + b[i * 4 + 1] + b[i * 4 + 2]) - (a[i * 4] + a[i * 4 + 1] + a[i * 4 + 2]);
+  const desloc = soma / N / 3;   // compensa a câmera ter clareado/escurecido tudo
+  let m = new Uint8Array(N);
+  for (let i = 0; i < N; i++) { const d = Math.max(Math.abs(b[i * 4] - a[i * 4] - desloc), Math.abs(b[i * 4 + 1] - a[i * 4 + 1] - desloc), Math.abs(b[i * 4 + 2] - a[i * 4 + 2] - desloc)); m[i] = d > 30 ? 1 : 0; }
+  const viz = (src, x, y) => { let v = 0; for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const xx = x + dx, yy = y + dy; if (xx >= 0 && yy >= 0 && xx < W && yy < H && src[yy * W + xx]) v++; } return v; };
+  const passo = (src, fn) => { const o = new Uint8Array(N); for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) o[y * W + x] = fn(viz(src, x, y), src[y * W + x]) ? 1 : 0; return o; };
+  m = passo(m, (v, s) => s && v >= 4);                     // tira pontinhos soltos
+  m = passo(m, (v, s) => s && v >= 4);
+  m = passo(m, (v, s) => s || v >= 1); m = passo(m, (v, s) => s || v >= 1);   // fecha buracos (peça com cor parecida com o fundo)
+  m = passo(m, (v, s) => s && v >= 9); m = passo(m, (v, s) => s && v >= 9);   // …e volta ao tamanho certo
+  // o pallet continua no lugar? (a peça tem que ser colocada EM CIMA dele; se ele saiu, a diferença é o buraco dele)
+  let palletMudou = 0, col = null;
+  if (palletPts && palletPts.length >= 3) {
+    const pb = Contorno.caixaDe(palletPts); let den = 0, mud = 0;
+    for (let y = Math.floor(pb.y * H); y < Math.min(H, Math.ceil((pb.y + pb.h) * H)); y++) for (let x = Math.floor(pb.x * W); x < Math.min(W, Math.ceil((pb.x + pb.w) * W)); x++)
+      if (Contorno.dentro(palletPts, (x + 0.5) / W, (y + 0.5) / H)) { den++; if (m[y * W + x]) mud++; }
+    palletMudou = den ? mud / den : 0;
+    // peça só vale perto do pallet: na "coluna" acima dele (altura de pilha ~1,6× a largura) ou sobre ele
+    const alt = pb.w * (4 / 3) * 1.6;
+    col = { x0: pb.x - pb.w * 0.06, x1: pb.x + pb.w * 1.06, y0: Math.max(0, pb.y - alt), y1: pb.y + pb.h };
+  }
+  if (palletMudou > 0.4) return { pecas: [], palletMudou };
+  let regs = Contorno.regioes(m, W, H, N * 0.0025, 1.5).filter(r => r.x1 - r.x0 >= 5 && r.y1 - r.y0 >= 5)
+    .filter(r => r.area >= (r.x1 - r.x0 + 1) * (r.y1 - r.y0 + 1) * 0.2)          // mancha rala = sombra/luz, não peça
+    .filter(r => { if (!col) return true; const cx = (r.x0 + r.x1) / 2 / W, cy = (r.y0 + r.y1) / 2 / H; return cx >= col.x0 && cx <= col.x1 && cy >= col.y0 && cy <= col.y1; });
+  // mancha "esburacada" (área bem menor que a do contorno convexo): usa o contorno convexo, que é o formato da peça
+  const areaPol = pts => Math.abs(pts.reduce((a, p, i) => { const q = pts[(i + 1) % pts.length]; return a + p[0] * q[1] - q[0] * p[1]; }, 0)) / 2;
+  regs = regs.map(r => { const h = Contorno.envoltoria(r.pts); return r.area < areaPol(h) * 0.6 ? { ...r, pts: h } : r; });
+  // pedaço da mesma peça (o retângulo do menor fica quase todo dentro do maior) vira um contorno só; peças vizinhas ficam separadas
+  let mudou = true;
+  while (mudou) { mudou = false;
+    for (let i = 0; i < regs.length && !mudou; i++) for (let j = i + 1; j < regs.length && !mudou; j++) {
+      const p = regs[i], k = regs[j], ix = Math.min(p.x1, k.x1) - Math.max(p.x0, k.x0), iy = Math.min(p.y1, k.y1) - Math.max(p.y0, k.y0);
+      const menor = Math.min((p.x1 - p.x0) * (p.y1 - p.y0), (k.x1 - k.x0) * (k.y1 - k.y0));
+      if (ix > 0 && iy > 0 && ix * iy >= menor * 0.5) { regs[i] = { x0: Math.min(p.x0, k.x0), x1: Math.max(p.x1, k.x1), y0: Math.min(p.y0, k.y0), y1: Math.max(p.y1, k.y1), area: p.area + k.area, pts: Contorno.envoltoria([...p.pts, ...k.pts]) }; regs.splice(j, 1); mudou = true; }
+    } }
+  const pecas = regs.filter(r => (r.x1 - r.x0) * (r.y1 - r.y0) < N * 0.6).sort((p, q) => p.x0 - q.x0)
+    .map(r => ({ c: 'peca', pts: r.pts.map(([x, y]) => [+(x / W).toFixed(4), +(y / H).toFixed(4)]) }));
+  return { pecas, palletMudou };
+}
+/* 📁 importar fotos (celular/PC) — reduz para no máx. 1280 px; contorne à mão (ou 🪄 depois do 1º treino) */
+$('ensImportar').onchange = async e => {
+  const arqs = [...e.target.files]; e.target.value = '';
+  if (!arqs.length || !cfgLinha) return;
+  let primeiro = null, n = 0;
+  for (const f of arqs) {
+    try {
+      const bmp = await createImageBitmap(f, { imageOrientation: 'from-image' });
+      const k = Math.min(1, 1280 / Math.max(bmp.width, bmp.height)), c = document.createElement('canvas');
+      c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k); c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
+      const r = await API.post(`/api/contador/linhas/${cfgLinha.id}/amostras`, { jpeg: c.toDataURL('image/jpeg', 0.85), largura: c.width, altura: c.height, produto_id: $('ensProduto').value || null, caixas: [] });
+      if (!primeiro) primeiro = { id: r.id, caixas: [], created_at: r.created_at };
+      n++; $('ensDica').textContent = `Importando… ${n}/${arqs.length}`;
+    } catch (err) { avisoErro(`${f.name}: ${err.message}`); }
+  }
+  await listarAmostras(); if (primeiro) abrirAmostra(primeiro);
+  dica(`${n} foto(s) importada(s). Em cada uma, <b>contorne o pallet</b> e <b>cada peça</b> (escolha "Contornar peça / pallet" no passo 2) e confirme. Foto de pallet vazio: só o pallet.`);
+};
+/* 🪄 sugestão da IA treinada: o usuário só corrige */
+$('ensSugerir').onclick = async () => {
+  if (!ensAmostra) return;
+  const b = $('ensSugerir'); b.disabled = true; b.textContent = '🪄 Pensando…';
+  try {
+    const r = await API.post(`/api/contador/amostras/${ensAmostra.id}/sugerir`, { produto_id: $('ensProduto').value || null });
+    const ja = ensCaixas.filter(c => c.c === 'pallet');
+    const novas = r.caixas.filter(s => !(s.c === 'pallet' && ja.length)).map(comPts);
+    ensCaixas = [...ja, ...novas]; ensSujo = true; ensSel = -1; desenharEns();
+    dica(`${escapar(r.fonte)} sugeriu <b>${novas.length}</b> contorno(s). Confira, corrija e confirme.` + (r.fonte === 'IA genérica' ? ' <i>(a genérica só dá retângulos e erra bastante — depois do 1º treino as sugestões vêm com o contorno da IA de vocês)</i>' : ''));
+  } catch (e) { avisoErro(e.message); }
+  b.disabled = false; b.textContent = '🪄 Sugerir';
+};
+
+/* ── desenho e edição dos contornos ──
+   segurar e arrastar = contornar (laço) · arrastar um ponto = ajustar · clicar num contorno = selecionar (✕ apaga) */
 function desenharEns() {
   const W = ensCanvas.width = ensCanvas.clientWidth, H = ensCanvas.height = ensCanvas.clientHeight;
   ectx.clearRect(0, 0, W, H);
-  ensCaixas.forEach(c => { const cor = COR_CL[c.c || 'caixa']; ectx.strokeStyle = cor; ectx.lineWidth = 2; ectx.strokeRect(c.x * W, c.y * H, c.w * W, c.h * H); ectx.fillStyle = cor + '22'; ectx.fillRect(c.x * W, c.y * H, c.w * W, c.h * H); ectx.fillStyle = cor; ectx.font = 'bold 11px sans-serif'; ectx.fillText(NOME_CL[c.c || 'caixa'], c.x * W + 4, c.y * H + 12); });
-  if (ensDesenho) { ectx.strokeStyle = COR_CL[ensClasse]; ectx.setLineDash([5, 3]); ectx.strokeRect(ensDesenho.x * W, ensDesenho.y * H, ensDesenho.w * W, ensDesenho.h * H); ectx.setLineDash([]); }
-  if (ensModo() === 'cls') { const z = cfgCfg.zona; if (z) { ectx.strokeStyle = '#35C95C'; ectx.setLineDash([6, 4]); ectx.lineWidth = 2; ectx.strokeRect(z.x * W, z.y * H, z.w * W, z.h * H); ectx.setLineDash([]); }
-    $('ensDica').innerHTML = ensAmostra ? `Este quadro está rotulado como <b>${ensAmostra.rotulo === 'vazio' ? 'pallet VAZIO' : ensAmostra.rotulo === 'com_pecas' ? 'COM PEÇAS' : 'sem rótulo'}</b> (a IA olha só a área tracejada).` : 'Capture quadros com os botões acima; cada um já entra com o rótulo.'; return; }
-  const n = k => ensCaixas.filter(c => (c.c || 'caixa') === k).length;
-  $('ensDica').innerHTML = ensAmostra ? `Neste quadro: <b>${n('pallet')}</b> pallet · <b>${n('caixa')}</b> caixa(s) · <b>${n('peca')}</b> peça(s). Marcando agora: <b style="color:${COR_CL[ensClasse]}">${NOME_CL[ensClasse]}</b>. Clique num retângulo para apagar.` : 'Capture um quadro, escolha a classe (Caixa / Peça / Pallet) e arraste um retângulo em volta de cada item.';
+  ensCaixas.forEach((c, i) => {
+    const cor = COR_CL[c.c] || COR_CL.peca, sel = i === ensSel;
+    ectx.beginPath(); c.pts.forEach(([x, y], k) => k ? ectx.lineTo(x * W, y * H) : ectx.moveTo(x * W, y * H)); ectx.closePath();
+    ectx.fillStyle = cor + (sel ? '55' : '26'); ectx.fill(); ectx.strokeStyle = sel ? '#fff' : cor; ectx.lineWidth = sel ? 3 : 2; ectx.stroke();
+    ectx.fillStyle = cor; c.pts.forEach(([x, y]) => { ectx.beginPath(); ectx.arc(x * W, y * H, sel ? 5 : 3.5, 0, Math.PI * 2); ectx.fill(); });
+    const bx = Contorno.caixaDe(c.pts); ectx.font = 'bold 11px sans-serif'; ectx.fillStyle = cor; ectx.fillText(NOME_CL[c.c] || c.c, bx.x * W + 4, Math.max(12, bx.y * H - 4));
+  });
+  if (ensArrasto && ensArrasto.tipo === 'laco' && ensArrasto.pts.length > 1) {
+    ectx.strokeStyle = COR_CL[ensClasse]; ectx.lineWidth = 2; ectx.setLineDash([5, 3]); ectx.beginPath();
+    ensArrasto.pts.forEach(([x, y], k) => k ? ectx.lineTo(x * W, y * H) : ectx.moveTo(x * W, y * H)); ectx.stroke(); ectx.setLineDash([]);
+  }
+  $('ensApagar').disabled = ensSel < 0;
+  if (!ensAmostra) { dica(''); return; }
+  const np = ensCaixas.filter(c => c.c !== 'pallet').length, temP = ensCaixas.some(c => c.c === 'pallet');
+  if (!ensArrasto && !$('ensDica').dataset.fixo) $('ensDica').innerHTML = (`Nesta foto: ${temP ? '<b style="color:#A78BFA">pallet ✓</b>' : '<b style="color:var(--alerta)">sem pallet contornado</b>'} · <b>${np}</b> peça(s)${ensSujo ? ' · <i>não salvo</i>' : ''}. Segure e passe em volta para contornar ${ensPasso === 'peca' ? (ensClasse === 'pallet' ? 'o <b>pallet</b>' : 'uma <b>peça</b>') : 'o <b>pallet</b>'}; arraste um ponto para ajustar; clique num contorno para selecionar.`);
 }
-const normEns = e => { const r = ensCanvas.getBoundingClientRect(); return { x: Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)), y: Math.min(1, Math.max(0, (e.clientY - r.top) / r.height)) }; };
-ensCanvas.addEventListener('pointerdown', e => { if (!ensAmostra || ensModo() === 'cls') return; e.preventDefault(); try { ensCanvas.setPointerCapture(e.pointerId); } catch (_) {} ensIni = normEns(e); ensDesenho = { ...ensIni, w: 0, h: 0 }; });
-ensCanvas.addEventListener('pointermove', e => { if (!ensIni) return; const p = normEns(e); ensDesenho = { x: Math.min(ensIni.x, p.x), y: Math.min(ensIni.y, p.y), w: Math.abs(p.x - ensIni.x), h: Math.abs(p.y - ensIni.y) }; desenharEns(); });
+const normEns = e => { const r = ensCanvas.getBoundingClientRect(); return [Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)), Math.min(1, Math.max(0, (e.clientY - r.top) / r.height))]; };
+function verticePerto(p) {
+  const W = ensCanvas.clientWidth, H = ensCanvas.clientHeight; let melhor = null, dm = 11 * 11;
+  ensCaixas.forEach((c, i) => c.pts.forEach(([x, y], k) => { const d = ((x - p[0]) * W) ** 2 + ((y - p[1]) * H) ** 2; if (d < dm) { dm = d; melhor = { i, k }; } }));
+  return melhor;
+}
+ensCanvas.addEventListener('pointerdown', e => {
+  if (!ensAmostra) return; e.preventDefault(); try { ensCanvas.setPointerCapture(e.pointerId); } catch (_) {}
+  $('ensDica').dataset.fixo = '';
+  const p = normEns(e), v = verticePerto(p);
+  ensArrasto = v ? { tipo: 'vertice', ...v } : { tipo: 'clique', p, pts: [p] };
+});
+ensCanvas.addEventListener('pointermove', e => {
+  if (!ensArrasto) { if (ensAmostra) ensCanvas.style.cursor = verticePerto(normEns(e)) ? 'grab' : 'crosshair'; return; }
+  const p = normEns(e);
+  if (ensArrasto.tipo === 'vertice') { ensCaixas[ensArrasto.i].pts[ensArrasto.k] = p; ensSujo = true; ensSel = ensArrasto.i; }
+  else {
+    const W = ensCanvas.clientWidth, H = ensCanvas.clientHeight, u = ensArrasto.pts[ensArrasto.pts.length - 1];
+    if (ensArrasto.tipo === 'clique' && Math.hypot((p[0] - ensArrasto.p[0]) * W, (p[1] - ensArrasto.p[1]) * H) > 6) ensArrasto.tipo = 'laco';
+    if (Math.hypot((p[0] - u[0]) * W, (p[1] - u[1]) * H) > 3) ensArrasto.pts.push(p);
+  }
+  desenharEns();
+});
 const soltarEns = () => {
-  if (!ensIni) return; const d = ensDesenho, p0 = ensIni; ensIni = null; ensDesenho = null;
-  if (d && d.w > 0.015 && d.h > 0.015) { ensCaixas.push({ ...d, c: ensClasse }); ensSujo = true; }
-  else { const i = ensCaixas.findIndex(c => p0.x >= c.x && p0.x <= c.x + c.w && p0.y >= c.y && p0.y <= c.y + c.h); if (i >= 0) { ensCaixas.splice(i, 1); ensSujo = true; } }   // clique: apaga
+  const a = ensArrasto; ensArrasto = null; if (!a) return;
+  if (a.tipo === 'clique') {   // clique: seleciona o contorno de cima (peças antes do pallet)
+    const ordem = ensCaixas.map((c, i) => i).sort((i, j) => (ensCaixas[i].c === 'pallet') - (ensCaixas[j].c === 'pallet'));
+    const i = ordem.find(i => Contorno.dentro(ensCaixas[i].pts, a.p[0], a.p[1]));
+    ensSel = i == null ? -1 : (i === ensSel ? -1 : i);
+  } else if (a.tipo === 'laco') {
+    const W = ensCanvas.clientWidth, H = ensCanvas.clientHeight;
+    const px = Contorno.simplificar(a.pts.map(([x, y]) => [x * W, y * H]), 2.5);
+    const bx = Contorno.caixaDe(a.pts);
+    if (px.length >= 3 && bx.w > 0.015 && bx.h > 0.015) {
+      const novo = { c: ensClasse, pts: px.map(([x, y]) => [+(x / W).toFixed(4), +(y / H).toFixed(4)]) };
+      if (novo.c === 'pallet') ensCaixas = ensCaixas.filter(c => c.c !== 'pallet');   // pallet é um só
+      ensCaixas.push(novo); ensSel = ensCaixas.length - 1; ensSujo = true;
+    }
+  }
   desenharEns();
 };
 ensCanvas.addEventListener('pointerup', soltarEns); ensCanvas.addEventListener('pointercancel', soltarEns);
 $('ensTreinar').onclick = async () => {
-  if (ensSujo) await $('ensSalvar').onclick();
+  if (ensSujo && ensCaixas.length) await salvarAtual(true).catch(() => {});
   try {
-    const r = await API.post(`/api/contador/linhas/${cfgLinha.id}/treinar`, { produto_id: $('ensProduto').value || null, epocas: Number($('ensEpocas').value), modo: ensModo(), todas_cameras: $('ensTodas').checked });
-    $('ensStatus').textContent = `Treinando com ${r.amostras} quadros…`; acompanharTreino();
+    const r = await API.post(`/api/contador/linhas/${cfgLinha.id}/treinar`, { produto_id: $('ensProduto').value || null, epocas: Number($('ensEpocas').value), modo: 'seg', todas_cameras: $('ensTodas').checked });
+    $('ensStatus').textContent = `Treinando com ${r.amostras} fotos… (5–15 min; pode fechar esta tela)`; acompanharTreino();
   } catch (e) { avisoErro(e.message); $('ensStatus').textContent = e.message; }
 };
 async function acompanharTreino() {
@@ -585,7 +805,7 @@ async function infoModelo() {
   const m = await API.get(`/api/contador/linhas/${cfgLinha.id}/modelo?info=1${pid ? '&produto_id=' + pid : ''}`).catch(() => null);
   if (!m) { $('ensModelo').innerHTML = 'Nenhum modelo treinado — a câmera usa diferença de imagem.'; $('ensModelo').className = 'ajuda'; $('ensRemoverModelo').style.display = 'none'; return; }
   const k = m.metricas || {};
-  $('ensModelo').innerHTML = `<b>IA treinada</b> (${m.tipo === 'cls' ? 'pallet vazio × com peças' : (m.classes || ['objeto']).map(c => NOME_CL[c] || c).join(' / ')}) em ${new Date(m.created_at).toLocaleString('pt-BR')} com ${m.amostras} quadros${m.produto_id ? '' : ' (vale para todos os produtos)'}.<br>Acerto no treino: ${m.tipo === 'cls' ? (k.acerto != null ? Math.round(k.acerto * 100) + '%' : '—') : (k.map50 != null ? Math.round(k.map50 * 100) + '%' : '—') + ' · recall ' + (k.recall != null ? Math.round(k.recall * 100) + '%' : '—') + (k.por_classe ? ' · ' + Object.entries(k.por_classe).map(([c, v]) => (NOME_CL[c] || c) + ' ' + Math.round(v * 100) + '%').join(', ') : '')} · ${m.imgsz}px`;
+  $('ensModelo').innerHTML = `<b>IA treinada</b> (${m.tipo === 'cls' ? 'pallet vazio × com peças' : (m.tipo === 'seg' ? 'contorno de ' : '') + (m.classes || ['objeto']).map(c => NOME_CL[c] || c).join(' / ')}) em ${new Date(m.created_at).toLocaleString('pt-BR')} com ${m.amostras} quadros${m.produto_id ? '' : ' (vale para todos os produtos)'}.<br>Acerto no treino: ${m.tipo === 'cls' ? (k.acerto != null ? Math.round(k.acerto * 100) + '%' : '—') : (k.map50 != null ? Math.round(k.map50 * 100) + '%' : '—') + ' · recall ' + (k.recall != null ? Math.round(k.recall * 100) + '%' : '—') + (k.contorno != null ? ' · contorno ' + Math.round(k.contorno * 100) + '%' : '') + (k.por_classe ? ' · ' + Object.entries(k.por_classe).map(([c, v]) => (NOME_CL[c] || c) + ' ' + Math.round(v * 100) + '%').join(', ') : '')} · ${m.imgsz}px`;
   $('ensModelo').className = 'modelo-ok'; $('ensRemoverModelo').style.display = '';
   $('ensRemoverModelo').onclick = async () => { if (!confirm('Remover o modelo treinado? A câmera volta a usar diferença de imagem.')) return; await API.del(`/api/contador/linhas/${cfgLinha.id}/modelo/${m.id}`).catch(e => avisoErro(e.message)); infoModelo(); };
 }

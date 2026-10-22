@@ -138,6 +138,7 @@ window.ContadorCam = (function () {
       if (c.caixa) partes.push(c.caixa + (c.caixa > 1 ? ' caixas' : ' caixa'));
       if (c.peca) partes.push(c.peca + (c.peca > 1 ? ' peças' : ' peça'));
       if (c.objeto) partes.push(c.objeto + ' objeto(s)');
+      if (S.dets && !S.dets.length && S.melhorSc != null) return `IA não reconhece nada (máx. ${Math.round(S.melhorSc * 100)}% — precisa de 35%; ensine com mais fotos)`;
       if (S.temClassePallet && !S.palletOk) return 'sem pallet' + (partes.length ? ' · ' + partes.join(', ') : '');
       return partes.length ? (S.temClassePallet ? 'pallet com ' : '') + partes.join(', ') : (S.temClassePallet ? 'PALLET VAZIO' : 'nada');
     }
@@ -301,13 +302,37 @@ window.ContadorCam = (function () {
         if (!r.ok) throw new Error('modelo não encontrado');
         const buf = await r.arrayBuffer();
         const sess = await ort.InferenceSession.create(buf, { executionProviders: ['wasm'], graphOptimizationLevel: 'all' });
-        S.modelo = { id: info.id, imgsz: info.imgsz || 416, tipo: info.tipo || 'det', classes: info.classes || ['com_pecas', 'vazio'], sess, entrada: sess.inputNames[0], saida: sess.outputNames[0], metricas: info.metricas };
+        S.modelo = { id: info.id, imgsz: info.imgsz || 416, tipo: info.tipo || 'det', classes: info.classes || ['com_pecas', 'vazio'], sess, entrada: sess.inputNames[0], saida: sess.outputNames[0], saidas: sess.outputNames, metricas: info.metricas };
         S.pallet = null; S.histPallet = [];
         S.modeloId = info.id; S.contEstavel = null; S.histCont = []; S.detErro = null;
-        hud('ia', S.modelo.tipo === 'cls' ? 'IA: pallet vazio × com peças' : 'IA: ' + (S.modelo.classes || ['objeto']).map(c => ROTULO_CLASSE[c] || c).join(' / '), 'on');
+        hud('ia', S.modelo.tipo === 'cls' ? 'IA: pallet vazio × com peças' : 'IA' + (S.modelo.tipo === 'seg' ? ' (contorno)' : '') + ': ' + (S.modelo.classes || ['objeto']).map(c => ROTULO_CLASSE[c] || c).join(' / '), 'on');
         o.onModelo && o.onModelo(S.modelo); o.onConfig && o.onConfig(S.cfg, S.zona);
       } catch (e) { S.detErro = e.message; S.modelo = null; hud('ia', 'IA: falha ao carregar modelo (' + e.message + ')', 'erro'); }
       S.modeloCarregando = false;
+    }
+    /* contorno de uma detecção: máscara = coeficientes · protótipos, só dentro da caixa; vira polígono */
+    function contornoDet(b, d, A, c0, nm, pr, sz, s, ox, oy, vw, vh) {
+      try {
+        const mh = pr.dims[2], mw = pr.dims[3], P = pr.data, k = sz / mw, area = mh * mw;
+        const u0 = Math.max(0, Math.floor(b.lb[0] / k)), v0 = Math.max(0, Math.floor(b.lb[1] / k));
+        const u1 = Math.min(mw - 1, Math.ceil(b.lb[2] / k)), v1 = Math.min(mh - 1, Math.ceil(b.lb[3] / k));
+        const W = u1 - u0 + 1, H = v1 - v0 + 1; if (W < 2 || H < 2) return null;
+        const coef = new Float32Array(nm); for (let j = 0; j < nm; j++) coef[j] = d[(c0 + j) * A + b.a];
+        const mask = new Uint8Array(W * H);
+        for (let v = 0; v < H; v++) for (let u = 0; u < W; u++) {
+          const off = (v0 + v) * mw + u0 + u; let z = 0;
+          for (let j = 0; j < nm; j++) z += coef[j] * P[j * area + off];
+          mask[v * W + u] = z > 0 ? 1 : 0;           // sigmoid(z) > 0,5
+        }
+        const r = Contorno.maior(mask, W, H, 0.8); if (!r || r.pts.length < 3) return null;
+        return r.pts.map(([u, v]) => [Math.min(1, Math.max(0, ((u0 + u) * k - ox) / s / vw)), Math.min(1, Math.max(0, ((v0 + v) * k - oy) / s / vh))]);
+      } catch (_) { return null; }
+    }
+    /* desenha a marcação: contorno (se houver) ou retângulo */
+    function tracarItem(ctx, b, fx, fy) {
+      ctx.beginPath();
+      if (b.pts && b.pts.length >= 3) { b.pts.forEach(([x, y], i) => i ? ctx.lineTo(fx(x), fy(y)) : ctx.moveTo(fx(x), fy(y))); ctx.closePath(); }
+      else ctx.rect(fx(b.x), fy(b.y), fx(b.x + b.w) - fx(b.x), fy(b.y + b.h) - fy(b.y));
     }
     const det = document.createElement('canvas'); const dctx = det.getContext('2d', { willReadFrequently: true });
     async function detectar(t) {
@@ -321,19 +346,27 @@ window.ContadorCam = (function () {
         const px = dctx.getImageData(0, 0, sz, sz).data, n = sz * sz, f = new Float32Array(3 * n);
         for (let i = 0; i < n; i++) { f[i] = px[i * 4] / 255; f[n + i] = px[i * 4 + 1] / 255; f[2 * n + i] = px[i * 4 + 2] / 255; }
         const out = await m.sess.run({ [m.entrada]: new ort.Tensor('float32', f, [1, 3, sz, sz]) });
-        const o2 = out[m.saida], d = o2.data, A = o2.dims[2], C = o2.dims[1];   // [1, 4+nc, A]
+        // det: [1, 4+nc, A]  ·  seg (contorno): [1, 4+nc+32, A] + protótipos [1, 32, sz/4, sz/4]
+        const saidas = (m.saidas || [m.saida]).map(k => out[k]);
+        const o2 = saidas.find(v => v.dims.length === 3) || out[m.saida], pr = saidas.find(v => v.dims.length === 4) || null;
+        const d = o2.data, A = o2.dims[2], C = o2.dims[1];
         const nomes = m.classes || ['objeto'];
-        const cand = [];
+        const nc = pr ? Math.min(nomes.length, C - 4 - pr.dims[1]) : C - 4, nm = pr ? pr.dims[1] : 0;
+        const cand = []; let melhor = 0;
         for (let a = 0; a < A; a++) {
-          let sc = 0, ci = 0; for (let c = 4; c < C; c++) { const v = d[c * A + a]; if (v > sc) { sc = v; ci = c - 4; } }
+          let sc = 0, ci = 0; for (let c = 4; c < 4 + nc; c++) { const v = d[c * A + a]; if (v > sc) { sc = v; ci = c - 4; } }
+          if (sc > melhor) melhor = sc;
           if (sc < 0.35) continue;
           const cx = d[a], cy = d[A + a], w = d[2 * A + a], h = d[3 * A + a];
-          cand.push({ x: (cx - w / 2 - ox) / s / vw, y: (cy - h / 2 - oy) / s / vh, w: w / s / vw, h: h / s / vh, sc, classe: nomes[ci] || 'objeto' });
+          const b = { x: (cx - w / 2 - ox) / s / vw, y: (cy - h / 2 - oy) / s / vh, w: w / s / vw, h: h / s / vh, sc, classe: nomes[ci] === 'caixa' && m.tipo === 'seg' ? 'peca' : (nomes[ci] || 'objeto') };
+          if (pr) { b.a = a; b.lb = [cx - w / 2, cy - h / 2, cx + w / 2, cy + h / 2]; }
+          cand.push(b);
         }
         cand.sort((p, q) => q.sc - p.sc);
         const fin = [];
         for (const c of cand) { if (fin.every(k => k.classe !== c.classe || iou(k, c) < 0.45)) fin.push(c); if (fin.length >= 60) break; }
-        S.dets = fin;
+        if (pr && window.Contorno) for (const b of fin) b.pts = contornoDet(b, d, A, 4 + nc, nm, pr, sz, s, ox, oy, vw, vh);
+        S.dets = fin; S.melhorSc = melhor;   // maior confiança vista (diagnóstico: IA "tímida" = precisa de mais fotos)
         // pallet: o mais confiável; define a área automática (coluna acima dele) quando não há área marcada
         const pallet = fin.filter(b => b.classe === 'pallet').sort((p, q) => q.sc - p.sc)[0] || null;
         S.temClassePallet = nomes.includes('pallet');
@@ -496,7 +529,9 @@ window.ContadorCam = (function () {
         for (const b of S.dets) {
           const cx = b.x + b.w / 2, cy = b.y + b.h / 2, dentro = b.classe === 'pallet' || !za || (cx >= za.x && cx <= za.x + za.w && cy >= za.y && cy <= za.y + za.h);
           const cor = COR_CLASSE[b.classe] || COR_CLASSE.objeto;
-          sctx.strokeStyle = dentro ? cor : 'rgba(255,255,255,.3)'; sctx.strokeRect(mapX(b.x), mapY(b.y), b.w / sw * W, b.h / sh * H);
+          tracarItem(sctx, b, mapX, mapY);
+          if (dentro && b.pts) { sctx.fillStyle = cor + '33'; sctx.fill(); }
+          sctx.strokeStyle = dentro ? cor : 'rgba(255,255,255,.3)'; sctx.stroke();
           if (dentro) { sctx.fillStyle = cor; sctx.fillText(ROTULO_CLASSE[b.classe] || b.classe, mapX(b.x) + 3, mapY(b.y) + 12); }
         }
       }
@@ -541,7 +576,7 @@ window.ContadorCam = (function () {
         ectx.drawImage(video, 0, 0, 640, 480);
         const quadroLimpo = envio.toDataURL('image/jpeg', 0.6);   // sem desenhos: é o que vira amostra de treino
         if (S.zona) { ectx.strokeStyle = S.estado === 'ocupado' ? 'rgba(240,180,41,.9)' : 'rgba(53,201,92,.9)'; ectx.lineWidth = 2; ectx.strokeRect(S.zona.x * 640, S.zona.y * 480, S.zona.w * 640, S.zona.h * 480); }
-        if (S.modelo && S.modelo.tipo !== 'cls') { ectx.lineWidth = 2; ectx.font = 'bold 13px sans-serif'; for (const b of S.dets) { const cor = COR_CLASSE[b.classe] || COR_CLASSE.objeto; ectx.strokeStyle = cor; ectx.strokeRect(b.x * 640, b.y * 480, b.w * 640, b.h * 480); ectx.fillStyle = cor; ectx.fillText(ROTULO_CLASSE[b.classe] || b.classe, b.x * 640 + 3, b.y * 480 + 14); } }
+        if (S.modelo && S.modelo.tipo !== 'cls') { ectx.lineWidth = 2; ectx.font = 'bold 13px sans-serif'; for (const b of S.dets) { const cor = COR_CLASSE[b.classe] || COR_CLASSE.objeto; tracarItem(ectx, b, x => x * 640, y => y * 480); if (b.pts) { ectx.fillStyle = cor + '33'; ectx.fill(); } ectx.strokeStyle = cor; ectx.stroke(); ectx.fillStyle = cor; ectx.fillText(ROTULO_CLASSE[b.classe] || b.classe, b.x * 640 + 3, b.y * 480 + 14); } }
         ectx.fillStyle = 'rgba(10,22,32,.7)'; ectx.fillRect(0, 0, 640, 26);
         ectx.fillStyle = '#fff'; ectx.font = 'bold 14px sans-serif';
         ectx.fillText(`${(S.linha && (S.linha.nome || S.linha.celula)) || ''}  ·  ${S.contagem} un  ·  ${new Date().toLocaleTimeString('pt-BR')}`, 10, 18);

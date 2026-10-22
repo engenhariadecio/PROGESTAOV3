@@ -23,6 +23,8 @@ RUN ( pip3 install --break-system-packages --index-url https://download.pytorch.
 
 # 3) código
 COPY . .
+# peso de partida do treino de contorno (~7 MB) — baixado aqui para não precisar ficar no GitHub
+RUN python3 python/pesos_ia.py || echo "AVISO: peso da IA não baixado agora — será baixado no 1º treino"
 ENV NODE_ENV=production
 EXPOSE 3000
 CMD ["node", "server.js"]

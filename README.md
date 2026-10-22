@@ -36,6 +36,9 @@ Os sistemas eram independentes e guardavam dados em lugares diferentes. Agora co
 - As consultas de aniversariantes usavam `HAVING` sem `GROUP BY`, o que o Postgres rejeita. Reescritas com subquery.
 - Layout retematizado com a identidade da Décio.
 
+**Pasta python leve para o GitHub (22/10/2026) — v40**
+- Os pesos da IA (`python/pesos/*.pt`, ~43 MB) saíram do projeto: `python/pesos_ia.py` baixa o que precisa na 1ª vez (github.com/ultralytics/assets), e o Dockerfile já baixa o do contorno (`yolov8n-seg.pt`, 7 MB) no deploy. A pasta `python` ficou com ~30 KB. `.gitignore` ignora `python/pesos/*.pt`.
+
 **Treino que funciona com poucas fotos (22/10/2026) — v39**
 - Com poucas fotos (6–10), o treino fazia pouquíssimos ajustes e a IA ficava "tímida" (confiança abaixo de 35%: não detectava nada). Agora o `treinar.py` repete as fotos até ~100 por passada (cada repetição sai diferente pela variação automática). Nas fotos de teste do pallet/peça: de 0% para 89–97% de confiança.
 - Passo 2 (Peça): se o **pallet saiu do lugar** (foi tirado para pôr a peça), o sistema avisa e não marca nada sozinho — antes ele marcava o "buraco" do pallet como peça e o pallet onde não havia pallet, e o treino aprendia errado. Também ignora manchas ralas (sombra/luz) e tudo que estiver longe do pallet; pedaços só se juntam se um estiver quase todo dentro do outro.

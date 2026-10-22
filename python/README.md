@@ -1,7 +1,10 @@
 # IA da câmera — treino
 
-`treinar.py` ajusta um YOLOv8n (partindo de `pesos/yolov8n-oiv7.pt`, Open Images) para as
-caixas/peças marcadas no painel e exporta um ONNX que o aparelho roda localmente.
+`treinar.py` ajusta um YOLOv8n-seg (IA de contorno) para as peças e o pallet contornados no painel
+e exporta um ONNX que o aparelho roda localmente.
+
+Os **pesos** (pontos de partida, arquivos `.pt` em `pesos/`) **não ficam no GitHub**: `pesos_ia.py`
+baixa sozinho na 1ª vez (o Dockerfile já baixa no deploy). Para baixar antes: `python python/pesos_ia.py`.
 
 O servidor chama este script sozinho (botão **Treinar IA** no painel das câmeras).
 Para isso o servidor precisa de Python 3 com os pacotes de `requirements.txt`:

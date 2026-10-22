@@ -280,9 +280,25 @@ router.get('/frame/:linha', requireAuth, (req, res) => {
 
 /* ───────── Eventos ───────── */
 
-const CLASSES_DET = ['caixa', 'peca', 'pallet'];   // ordem = índice de classe no modelo
-const limparMarc = arr => (Array.isArray(arr) ? arr : []).filter(c => c && isFinite(c.x) && isFinite(c.y) && isFinite(c.w) && isFinite(c.h) && c.w > 0.005 && c.h > 0.005)
-  .map(c => ({ x: +c.x, y: +c.y, w: +c.w, h: +c.h, c: CLASSES_DET.includes(c.c) ? c.c : 'caixa' }));
+const CLASSES_DET = ['caixa', 'peca', 'pallet'];   // ordem = índice de classe no modelo antigo (retângulos)
+const CLASSES_SEG = ['peca', 'pallet'];            // modelo de contorno: caixa conta como peça
+/* marcação = { c, x, y, w, h, pts? } — pts é o contorno [[x,y],…] (0–1); o retângulo sai do contorno */
+const limparPts = pts => Array.isArray(pts) ? pts.filter(p => Array.isArray(p) && isFinite(p[0]) && isFinite(p[1])).slice(0, 300).map(p => [Math.min(1, Math.max(0, +(+p[0]).toFixed(4))), Math.min(1, Math.max(0, +(+p[1]).toFixed(4)))]) : [];
+const limparMarc = arr => (Array.isArray(arr) ? arr : []).map(c => {
+  if (!c) return null;
+  const pts = limparPts(c.pts), o = { c: CLASSES_DET.includes(c.c) ? c.c : 'peca' };
+  if (pts.length >= 3) {
+    const xs = pts.map(p => p[0]), ys = pts.map(p => p[1]);
+    Object.assign(o, { x: Math.min(...xs), y: Math.min(...ys), w: Math.max(...xs) - Math.min(...xs), h: Math.max(...ys) - Math.min(...ys), pts });
+  } else if (isFinite(c.x) && isFinite(c.y) && isFinite(c.w) && isFinite(c.h)) Object.assign(o, { x: +c.x, y: +c.y, w: +c.w, h: +c.h });
+  else return null;
+  return o.w > 0.005 && o.h > 0.005 ? o : null;
+}).filter(Boolean);
+/* linha do rótulo YOLO-seg: classe + polígono (sem contorno → os 4 cantos do retângulo) */
+const linhaSeg = c => {
+  const pts = (c.pts && c.pts.length >= 3) ? c.pts : [[c.x, c.y], [c.x + c.w, c.y], [c.x + c.w, c.y + c.h], [c.x, c.y + c.h]];
+  return `${c.c === 'pallet' ? 1 : 0} ` + pts.map(p => `${Math.min(1, Math.max(0, p[0])).toFixed(5)} ${Math.min(1, Math.max(0, p[1])).toFixed(5)}`).join(' ');
+};
 const ORIG = { ia: 1, ia_retirada: -1, manual_mais: 1, manual_menos: -1, troca_pallet: 0, estorno: -1 };   // ia_retirada: caixa tirada do pallet; estorno: a câmera desfez uma contagem
 
 router.post('/eventos', requireAuth, naoPcp, async (req, res) => {
@@ -399,7 +415,7 @@ const TREINOS = new Map();   // chave linha:produto -> { estado, progresso, tota
 const chaveTreino = (l, p) => `${l}:${p || 0}`;
 let pyDisponivel = null;
 function verificarPython(cb) {
-  if (pyDisponivel !== null) return cb(pyDisponivel);
+  if (pyDisponivel && pyDisponivel.ok) return cb(pyDisponivel);   // erro não fica guardado: dá para verificar de novo depois de instalar
   execFile(PY, ['-c', 'import ultralytics, onnx; print(ultralytics.__version__)'], { timeout: 60000 }, (err, out) => {
     pyDisponivel = err ? { ok: false, motivo: (err.message || '').split('\n')[0].slice(0, 200) } : { ok: true, versao: String(out).trim() };
     cb(pyDisponivel);
@@ -450,6 +466,37 @@ router.delete('/amostras/:id', requireAuth, naoPcp, async (req, res) => {
   catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+/* 🪄 sugere retângulos numa amostra: com o modelo treinado da câmera (se houver) ou com a IA genérica */
+router.post('/amostras/:id/sugerir', requireAuth, naoPcp, (req, res) => {
+  verificarPython(async d => {
+    if (!d.ok) return res.status(503).json({ error: 'Sugestão indisponível: o treino da IA não está instalado neste servidor.' });
+    let dir = null;
+    try {
+      const a = (await pool.query('SELECT id, linha_id, produto_id, jpeg FROM cont_amostras WHERE id = $1', [req.params.id])).rows[0];
+      if (!a) return res.status(404).json({ error: 'Quadro não encontrado' });
+      dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sugerir-'));
+      const img = path.join(dir, 'q.jpg'); fs.writeFileSync(img, a.jpeg);
+      const args = [path.join(__dirname, '..', 'python', 'sugerir.py'), '--imagem', img];
+      let fonte = 'IA genérica';
+      if (!req.body || !req.body.generica) {
+        const m = await modeloAtual(a.linha_id, idOk(req.body && req.body.produto_id) ? req.body.produto_id : a.produto_id);
+        if (m && ['det', 'seg'].includes(m.tipo || 'det')) {
+          const onnx = (await pool.query('SELECT onnx FROM cont_modelos WHERE id = $1', [m.id])).rows[0].onnx;
+          const mp = path.join(dir, 'm.onnx'); fs.writeFileSync(mp, onnx);
+          args.push('--modelo', mp, '--classes', (m.classes || CLASSES_DET).join(','), '--tipo', m.tipo || 'det');
+          fonte = 'IA treinada desta câmera';
+        }
+      }
+      execFile(PY, args, { timeout: 120000, maxBuffer: 4 * 1024 * 1024, env: { ...process.env, YOLO_VERBOSE: 'False' } }, (err, stdout) => {
+        fs.rm(dir, { recursive: true, force: true }, () => {});
+        const linha = String(stdout || '').split('\n').find(l => l.startsWith('SUGESTOES '));
+        if (!linha) return res.status(500).json({ error: 'A IA não respondeu' + (err ? ': ' + String(err.message).split('\n')[0] : '') });
+        try { res.json({ fonte, caixas: JSON.parse(linha.slice(10)) }); } catch (e) { res.status(500).json({ error: e.message }); }
+      });
+    } catch (e) { if (dir) fs.rm(dir, { recursive: true, force: true }, () => {}); res.status(500).json({ error: e.message }); }
+  });
+});
+
 /* modelo treinado (o aparelho baixa) */
 async function modeloAtual(linhaId, produtoId) {
   const r = await pool.query(
@@ -488,11 +535,24 @@ router.post('/linhas/:id/treinar', requireAuth, naoPcp, async (req, res) => {
       if (!req.body.todas_cameras) { params.push(linhaId); conds.push(`linha_id = $${params.length}`); }
       if (produtoId) { params.push(produtoId); conds.push(`produto_id = $${params.length}`); }
       const where = conds.length ? conds.join(' AND ') : 'TRUE';
-      const modo = req.body.modo === 'cls' ? 'cls' : 'det';
+      const modo = ['cls', 'det'].includes(req.body.modo) ? req.body.modo : 'seg';   // padrão: contorno
       const am = (await pool.query(`SELECT id, jpeg, largura, altura, caixas, rotulo FROM cont_amostras WHERE ${where}`, params)).rows;
       const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'treino-'));
       const args = [];
-      if (modo === 'det') {
+      if (modo === 'seg') {
+        // só entram quadros conferidos: pallet vazio (só o pallet) e quadros com peça(s)
+        const marcadas = am.filter(a => (a.caixas || []).length);
+        const comPeca = marcadas.filter(a => a.caixas.some(c => c.c !== 'pallet')).length, vazios = marcadas.length - comPeca;
+        if (comPeca < 3) return res.status(400).json({ error: `Faltam quadros com peça: há ${comPeca} (mínimo 3, ideal 15+). Use o passo 2 (Peça).` });
+        if (vazios < 1) return res.status(400).json({ error: 'Falta o pallet vazio: capture pelo menos 1 no passo 1 (ideal 3+).' });
+        fs.mkdirSync(path.join(dir, 'images')); fs.mkdirSync(path.join(dir, 'labels'));
+        for (const a of marcadas) {
+          fs.writeFileSync(path.join(dir, 'images', `a${a.id}.jpg`), a.jpeg);
+          fs.writeFileSync(path.join(dir, 'labels', `a${a.id}.txt`), a.caixas.map(linhaSeg).join('\n') + '\n');
+        }
+        args.push('--classes', CLASSES_SEG.join(','));
+        am.length = 0; am.push(...marcadas);
+      } else if (modo === 'det') {
         const marcadas = am.filter(a => (a.caixas || []).length);
         if (marcadas.length < 3) return res.status(400).json({ error: `Marque caixas em pelo menos 3 quadros (há ${marcadas.length}). O ideal são 15 ou mais, com a pilha em alturas diferentes.` });
         fs.mkdirSync(path.join(dir, 'images')); fs.mkdirSync(path.join(dir, 'labels'));
@@ -528,7 +588,7 @@ router.post('/linhas/:id/treinar', requireAuth, naoPcp, async (req, res) => {
           if (code !== 0 || !fs.existsSync(saida)) throw new Error('Treino terminou com erro (código ' + code + '): ' + t.log.filter(l => /ERRO|Error/.test(l)).slice(-2).join(' | '));
           const onnx = fs.readFileSync(saida);
           const r = await pool.query('INSERT INTO cont_modelos (linha_id, produto_id, onnx, imgsz, tipo, classes, metricas, amostras) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id',
-            [linhaId, produtoId, onnx, imgsz, modo, modo === 'cls' ? JSON.stringify((t.metricas && t.metricas.classes) || ['com_pecas', 'vazio']) : JSON.stringify(CLASSES_DET), JSON.stringify(t.metricas || {}), am.length]);
+            [linhaId, produtoId, onnx, imgsz, modo, modo === 'cls' ? JSON.stringify((t.metricas && t.metricas.classes) || ['com_pecas', 'vazio']) : JSON.stringify(modo === 'seg' ? CLASSES_SEG : CLASSES_DET), JSON.stringify(t.metricas || {}), am.length]);
           await pool.query('UPDATE cont_linhas SET updated_at = NOW() WHERE id = $1', [linhaId]);   // o aparelho vê config_ts mudar e baixa o modelo
           t.estado = 'concluido'; t.modelo_id = r.rows[0].id; t.tamanho = onnx.length;
         } catch (e) { t.estado = 'erro'; t.erro = e.message; }

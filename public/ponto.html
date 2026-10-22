@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ponto NFC — Décio</title>
+<link rel="icon" href="/assets/logo-decio.png">
+<link rel="stylesheet" href="/css/decio.css">
+<style>
+.grade { display: grid; grid-template-columns: minmax(0,420px) minmax(0,1fr); gap: 20px; align-items: start; }
+@media (max-width: 980px) { .grade { grid-template-columns: 1fr; } }
+
+/* ── Leitor: o elemento de assinatura desta tela ── */
+.leitor {
+  background: var(--card); border: 1px solid var(--linha); border-radius: 18px;
+  padding: 30px 26px; text-align: center; position: relative; overflow: hidden;
+}
+.leitor::before { content:''; position:absolute; top:0; left:0; right:0; height:3px; background: var(--fade); }
+
+.alvo {
+  width: 172px; height: 172px; margin: 6px auto 22px;
+  border-radius: 50%; display: grid; place-items: center;
+  background: radial-gradient(circle at 30% 30%, rgba(38,178,71,.16), rgba(28,73,132,.16));
+  border: 2px solid var(--linha-2);
+  position: relative; cursor: pointer;
+  transition: var(--tr);
+}
+.alvo:hover { border-color: var(--verde); }
+.alvo .icone { font-size: 54px; filter: grayscale(.15); }
+
+/* Ondas de leitura — só aparecem quando o scanner está ativo */
+.alvo.lendo::after, .alvo.lendo::before {
+  content: ''; position: absolute; inset: -2px; border-radius: 50%;
+  border: 2px solid var(--verde);
+  animation: onda 1.9s cubic-bezier(.2,.6,.3,1) infinite;
+}
+.alvo.lendo::after { animation-delay: .95s; }
+@keyframes onda {
+  0%   { transform: scale(1);   opacity: .7; }
+  100% { transform: scale(1.5); opacity: 0; }
+}
+.alvo.ok  { border-color: var(--ok);   background: radial-gradient(circle, rgba(52,211,153,.22), transparent 70%); }
+.alvo.err { border-color: var(--erro); background: radial-gradient(circle, rgba(242,109,109,.22), transparent 70%); }
+
+.estado {
+  padding: 14px 16px; border-radius: var(--r-sm);
+  background: var(--sup); border: 1px solid var(--linha);
+  font-size: 14px; font-weight: 500; min-height: 52px;
+  display: grid; place-items: center; transition: var(--tr);
+}
+.estado.ok  { background: var(--ok-bg);  border-color: var(--ok-bd);  color: var(--ok); font-weight: 600; }
+.estado.err { background: var(--erro-bg);border-color: var(--erro-bd);color: var(--erro); font-weight: 600; }
+
+.divisor { display: flex; align-items: center; gap: 12px; margin: 22px 0 16px; color: var(--t3); font-size: 11px; letter-spacing: .12em; }
+.divisor::before, .divisor::after { content: ''; flex: 1; height: 1px; background: var(--linha); }
+
+.turno-tag { margin-top: 16px; font-size: 12px; color: var(--t3); }
+.turno-tag strong { color: var(--verde-clr); }
+
+/* ── Últimas batidas ── */
+.batida { display: flex; align-items: center; gap: 12px; padding: 11px 0; border-bottom: 1px solid var(--linha); }
+.batida:last-child { border-bottom: none; }
+.batida .av { width: 34px; height: 34px; border-radius: 50%; background: var(--fade); display: grid; place-items: center; font-family: var(--display); font-size: 11px; font-weight: 800; color: #fff; flex-shrink: 0; }
+.batida .nm { flex: 1; min-width: 0; }
+.batida .nm b { display: block; font-size: 13px; font-weight: 600; color: var(--t1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.batida .nm small { font-size: 11px; color: var(--t3); }
+.batida .hr { font-family: var(--mono); font-size: 14px; font-weight: 700; color: var(--t1); }
+
+.filtros { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px,1fr)); gap: 12px; }
+</style>
+</head>
+<body>
+<header id="topo"></header>
+
+<main class="conteudo">
+  <div class="kpis">
+    <div class="kpi"><div class="kpi-valor" id="kBatidas">0</div><div class="kpi-rotulo">Batidas hoje</div></div>
+    <div class="kpi"><div class="kpi-valor" id="kPessoas">0</div><div class="kpi-rotulo">Pessoas hoje</div></div>
+    <div class="kpi"><div class="kpi-valor" id="kCrachas">0</div><div class="kpi-rotulo">Crachás ativos</div></div>
+    <div class="kpi"><div class="kpi-valor" id="kColabs">0</div><div class="kpi-rotulo">Colaboradores</div></div>
+  </div>
+
+  <div class="grade">
+    <!-- COLUNA 1 — o leitor -->
+    <section class="leitor">
+      <p class="olho">Registro de ponto</p>
+
+      <div class="alvo" id="alvo" role="button" tabindex="0" aria-label="Iniciar leitura NFC">
+        <span class="icone" aria-hidden="true">📳</span>
+      </div>
+
+      <button class="btn btn-primario btn-lg btn-bloco" id="btnLer">Aproximar crachá</button>
+
+      <div class="estado" id="estado" role="status" style="margin-top:16px">
+        Toque em “Aproximar crachá” para ativar o leitor.
+      </div>
+
+      <div class="turno-tag" id="turnoTag">Turno: identificando…</div>
+
+      <div class="divisor" id="divisorManual">OU BATIDA MANUAL</div>
+
+      <div id="blocoManual">
+        <div class="campo">
+          <label class="rotulo sr" for="selColab">Colaborador</label>
+          <select class="controle" id="selColab">
+            <option value="">Selecione seu nome…</option>
+          </select>
+        </div>
+        <button class="btn btn-fantasma btn-bloco" id="btnManual" style="margin-top:10px">Registrar ponto</button>
+      </div>
+    </section>
+
+    <!-- COLUNA 2 — acompanhamento -->
+    <div>
+      <section class="cartao">
+        <div class="cartao-topo">
+          <h2 class="cartao-titulo">Últimas batidas de hoje</h2>
+          <button class="btn btn-fantasma btn-xs" id="btnAtualizar">Atualizar</button>
+        </div>
+        <div class="cartao-corpo" id="listaRecentes">
+          <div class="vazio-bloco"><div class="girando" style="margin:0 auto"></div></div>
+        </div>
+      </section>
+
+      <section class="cartao">
+        <div class="cartao-topo">
+          <h2 class="cartao-titulo">Relatório</h2>
+          <div class="linha-flex">
+            <button class="btn btn-fantasma btn-sm" id="btnExportar">Exportar Excel</button>
+          </div>
+        </div>
+        <div class="cartao-corpo">
+          <div class="filtros" style="margin-bottom:16px">
+            <div class="campo">
+              <label class="rotulo" for="fPeriodo">Período</label>
+              <select class="controle" id="fPeriodo">
+                <option value="hoje">Hoje</option>
+                <option value="semana">Últimos 7 dias</option>
+                <option value="mes">Mês atual</option>
+                <option value="tudo">Tudo</option>
+              </select>
+            </div>
+            <div class="campo">
+              <label class="rotulo" for="fColab">Colaborador</label>
+              <select class="controle" id="fColab"><option value="">Todos</option></select>
+            </div>
+            <div class="campo">
+              <label class="rotulo" for="fTurno">Turno</label>
+              <select class="controle" id="fTurno"><option value="">Todos</option></select>
+            </div>
+          </div>
+
+          <div class="tabela-wrap">
+            <table>
+              <thead>
+                <tr><th>Data</th><th>Hora</th><th>Colaborador</th><th>Tipo</th><th>Turno</th><th>Origem</th></tr>
+              </thead>
+              <tbody id="corpoRelatorio">
+                <tr><td colspan="6" class="vazio">Carregando…</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="ajuda" id="contagem" style="margin-top:12px"></p>
+        </div>
+      </section>
+    </div>
+  </div>
+</main>
+
+<script src="/js/core.js"></script>
+<script>
+let COLABS = [];
+let TURNOS = [];
+let PERMITE_MANUAL = true;
+
+const alvo   = document.getElementById('alvo');
+const estado = document.getElementById('estado');
+
+function mostrarEstado(msg, tipo) {
+  estado.textContent = msg;
+  estado.className = 'estado' + (tipo ? ' ' + tipo : '');
+  alvo.classList.remove('ok', 'err');
+  if (tipo === 'ok')  { alvo.classList.add('ok');  setTimeout(() => alvo.classList.remove('ok'), 2200); }
+  if (tipo === 'err') { alvo.classList.add('err'); setTimeout(() => alvo.classList.remove('err'), 2200); }
+}
+
+/* ───── Envio da batida ───── */
+
+async function baterPonto(corpo) {
+  try {
+    const r = await API.post('/api/ponto/registros', corpo);
+    const acao = r.tipo === 'entrada' ? 'Entrada' : 'Saída';
+
+    mostrarEstado(`${acao} registrada — ${r.nome} às ${horaCurta(r.hora)}`, 'ok');
+    Voz.falar('Ponto registrado');
+
+    if (r.fora_de_turno) {
+      aviso('Batida fora do horário de qualquer turno ativo.', 'alerta', 5000);
+    }
+
+    await Promise.all([carregarRecentes(), carregarResumo(), carregarRelatorio()]);
+  } catch (e) {
+    mostrarEstado(e.message, 'err');
+    Voz.falar(e.codigo === 'CRACHA_DESCONHECIDO' ? 'Crachá não cadastrado' : 'Falha no registro');
+  }
+}
+
+/* ───── Leitor NFC (Web NFC — Chrome no Android) ───── */
+
+let lendo = false;
+
+async function iniciarLeitura() {
+  if (!('NDEFReader' in window)) {
+    mostrarEstado('Este navegador não lê NFC. Use o Chrome no Android ou faça a batida manual.', 'err');
+    return;
+  }
+  if (lendo) return;
+
+  try {
+    const leitor = new NDEFReader();
+    await leitor.scan();
+    lendo = true;
+    alvo.classList.add('lendo');
+    document.getElementById('btnLer').textContent = 'Leitor ativo — aproxime o crachá';
+    mostrarEstado('Leitor ativo. Aproxime o crachá do aparelho.');
+    manterTelaLigada();
+
+    leitor.onreading = (evento) => {
+      let uid = evento.serialNumber || '';
+      const texto = (evento.message?.records || []).find(r => r.recordType === 'text');
+      if (texto) {
+        try { uid = new TextDecoder(texto.encoding).decode(texto.data); } catch {}
+      }
+      if (!uid) { mostrarEstado('Crachá sem identificação legível.', 'err'); return; }
+      baterPonto({ uid, dispositivo: navigator.userAgent.slice(0, 120) });
+    };
+
+    leitor.onreadingerror = () => {
+      mostrarEstado('Falha ao ler o crachá. Aproxime novamente.', 'err');
+      Voz.falar('Erro na leitura');
+    };
+  } catch (e) {
+    lendo = false;
+    alvo.classList.remove('lendo');
+    mostrarEstado('Não foi possível ativar o leitor: ' + e.message, 'err');
+  }
+}
+
+document.getElementById('btnLer').onclick = iniciarLeitura;
+alvo.onclick = iniciarLeitura;
+alvo.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); iniciarLeitura(); } };
+
+/* ───── Batida manual ───── */
+
+document.getElementById('btnManual').onclick = () => {
+  const id = document.getElementById('selColab').value;
+  if (!id) { mostrarEstado('Selecione um colaborador na lista.', 'err'); return; }
+  baterPonto({ colaborador_id: Number(id) });
+  document.getElementById('selColab').selectedIndex = 0;
+};
+
+/* ───── Carregamentos ───── */
+
+async function carregarResumo() {
+  try {
+    const r = await API.get('/api/ponto/resumo');
+    document.getElementById('kBatidas').textContent = r.batidas_hoje;
+    document.getElementById('kPessoas').textContent = r.pessoas_hoje;
+    document.getElementById('kCrachas').textContent = r.crachas_ativos;
+    document.getElementById('kColabs').textContent  = r.colaboradores_ativos;
+  } catch {}
+}
+
+async function carregarRecentes() {
+  const caixa = document.getElementById('listaRecentes');
+  try {
+    const regs = await API.get('/api/ponto/registros/recentes');
+    if (!regs.length) {
+      caixa.innerHTML = `<div class="vazio-bloco">
+        <div class="icone">🕓</div><h3>Nenhuma batida hoje</h3>
+        <p>O primeiro registro do dia aparece aqui.</p></div>`;
+      return;
+    }
+    caixa.innerHTML = regs.map(r => `
+      <div class="batida">
+        <div class="av">${iniciais(r.nome)}</div>
+        <div class="nm">
+          <b>${escapar(r.nome)}</b>
+          <small>${r.tipo === 'entrada' ? 'Entrada' : 'Saída'}${r.turno_codigo ? ' · ' + r.turno_codigo : ''}</small>
+        </div>
+        <span class="hr">${horaCurta(r.hora)}</span>
+      </div>`).join('');
+  } catch {
+    caixa.innerHTML = '<p class="ajuda">Não foi possível carregar as batidas.</p>';
+  }
+}
+
+async function carregarRelatorio() {
+  const corpo = document.getElementById('corpoRelatorio');
+  const params = new URLSearchParams();
+  const periodo = document.getElementById('fPeriodo').value;
+  if (periodo !== 'tudo') params.set('periodo', periodo);
+  const c = document.getElementById('fColab').value;
+  const t = document.getElementById('fTurno').value;
+  if (c) params.set('colaborador_id', c);
+  if (t) params.set('turno_id', t);
+
+  try {
+    const regs = await API.get('/api/ponto/registros?' + params);
+    document.getElementById('contagem').textContent = `${regs.length} registro(s) encontrado(s).`;
+
+    if (!regs.length) {
+      corpo.innerHTML = '<tr><td colspan="6" class="vazio">Nenhum registro para este filtro.</td></tr>';
+      return;
+    }
+    corpo.innerHTML = regs.map(r => `
+      <tr>
+        <td class="num">${dataBR(r.data)}</td>
+        <td class="num destaque">${horaCurta(r.hora)}</td>
+        <td class="destaque">${escapar(r.nome)}</td>
+        <td><span class="selo ${r.tipo === 'entrada' ? 'selo-ok' : 'selo-info'}">${r.tipo === 'entrada' ? 'Entrada' : 'Saída'}</span></td>
+        <td>${r.turno_nome ? escapar(r.turno_nome) : '<span class="selo selo-alerta">Fora de turno</span>'}</td>
+        <td>${r.origem === 'nfc' ? 'NFC' : 'Manual'}</td>
+      </tr>`).join('');
+  } catch (e) {
+    corpo.innerHTML = `<tr><td colspan="6" class="vazio">${escapar(e.message)}</td></tr>`;
+  }
+}
+
+document.getElementById('btnExportar').onclick = () => {
+  const t = document.getElementById('fTurno').value;
+  window.location.href = '/api/export/ponto' + (t ? '?turno_id=' + t : '');
+};
+document.getElementById('btnAtualizar').onclick = () => { carregarRecentes(); carregarResumo(); };
+['fPeriodo', 'fColab', 'fTurno'].forEach(id =>
+  document.getElementById(id).addEventListener('change', carregarRelatorio));
+
+/* ───── Início ───── */
+
+(async () => {
+  await montarTopo({ subtitulo: 'Ponto NFC' });
+
+  const [colabs, turnos, params] = await Promise.all([
+    API.get('/api/colaboradores?status=Ativo').catch(() => []),
+    API.get('/api/config/turnos?ativos=1').catch(() => []),
+    API.get('/api/config/parametros').catch(() => ({ mapa: {} }))
+  ]);
+  COLABS = colabs; TURNOS = turnos;
+  PERMITE_MANUAL = params.mapa?.ponto_permite_manual !== 'false';
+
+  const opcoesColab = COLABS.map(c => `<option value="${c.id}">${escapar(c.nome)}</option>`).join('');
+  document.getElementById('selColab').insertAdjacentHTML('beforeend', opcoesColab);
+  document.getElementById('fColab').insertAdjacentHTML('beforeend', opcoesColab);
+  document.getElementById('fTurno').insertAdjacentHTML('beforeend',
+    TURNOS.map(t => `<option value="${t.id}">${escapar(t.nome)}</option>`).join(''));
+
+  if (!PERMITE_MANUAL) {
+    document.getElementById('blocoManual').classList.add('oculto');
+    document.getElementById('divisorManual').classList.add('oculto');
+  }
+
+  // Turno em vigor, atualizado a cada minuto
+  const atualizarTurno = async () => {
+    try {
+      const { turno } = await API.get('/api/config/turnos/atual');
+      document.getElementById('turnoTag').innerHTML = turno
+        ? `Turno em vigor: <strong>${escapar(turno.nome)}</strong>`
+        : 'Fora do horário de qualquer turno ativo';
+    } catch {}
+  };
+  atualizarTurno();
+  setInterval(atualizarTurno, 60000);
+
+  await Promise.all([carregarResumo(), carregarRecentes(), carregarRelatorio()]);
+
+  if (!('NDEFReader' in window)) {
+    mostrarEstado('Este dispositivo não lê NFC. Use a batida manual abaixo.', 'err');
+  }
+})();
+</script>
+</body>
+</html>

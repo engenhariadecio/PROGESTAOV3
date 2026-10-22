@@ -1,0 +1,683 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ProGestão – Checklist</title>
+<style>
+:root{--bg:#0A1620;--card:#14293A;--card2:#1A3347;--accent:#26B247;--accent2:#1C4984;--green:#34D399;--yellow:#F0B429;--red:#F26D6D;--orange:#E88C4A;--blue:#56B6E0;--purple:#1D6574;--text:#EAF4F1;--text2:#A2BCC3;--border:#1E3D52;--radius:12px;--panel:#14293A;--panel2:#1A3347;--fade:linear-gradient(135deg,#26B247 0%,#1D6574 55%,#1C4984 100%)}
+*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}a{color:var(--accent);text-decoration:none}
+.topbar{background:var(--card);padding:12px 24px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border)}.topbar .logo{font-size:1.2rem;font-weight:700;color:var(--accent)}.topbar .logo a{color:var(--text);font-weight:700}.topbar .right{display:flex;align-items:center;gap:16px}.topbar .clock{background:var(--card2);padding:4px 12px;border-radius:20px;font-size:.85rem;color:var(--text2)}.topbar .user{font-size:.9rem;color:var(--text2)}
+.btn-sm{padding:6px 14px;border:none;border-radius:8px;cursor:pointer;font-size:.85rem;font-weight:600;transition:.2s;display:inline-flex;align-items:center;gap:4px}.btn-danger{background:var(--red);color:#fff}.btn-primary{background:var(--accent);color:#fff}.btn-green{background:var(--green);color:#fff}.btn-ghost{background:transparent;border:1px solid var(--border);color:var(--text2)}.btn-orange{background:var(--orange);color:#fff}.btn-warning{background:var(--yellow);color:#000}.btn-primary:hover{background:#2563eb}.btn-green:hover{background:#16a34a}.btn-danger:hover{opacity:.85}.btn-ghost:hover{border-color:var(--accent);color:var(--accent)}.btn-orange:hover{opacity:.85}.btn-warning:hover{background:#ca8a04}
+.layout{display:flex;min-height:calc(100vh - 57px)}.sidebar{width:220px;background:var(--card);padding:16px 12px;border-right:1px solid var(--border);display:flex;flex-direction:column;gap:4px}.sidebar a{display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:var(--radius);color:var(--text2);font-size:.9rem;transition:.2s}.sidebar a:hover,.sidebar a.active{background:var(--accent);color:#fff}.main{flex:1;padding:24px;overflow-y:auto}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:16px;margin-bottom:24px}.kpi{background:var(--card);padding:20px;border-radius:var(--radius);text-align:center;border:1px solid var(--border)}.kpi .num{font-size:2rem;font-weight:700}.kpi .lbl{font-size:.8rem;color:var(--text2);margin-top:4px}
+.tabs{display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap}.tab{padding:8px 18px;border-radius:20px;cursor:pointer;font-size:.85rem;background:var(--card);color:var(--text2);border:1px solid var(--border);transition:.2s}.tab:hover,.tab.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.tbl-wrap{overflow-x:auto}table{width:100%;border-collapse:collapse}th,td{padding:10px 14px;text-align:left;border-bottom:1px solid var(--border);font-size:.88rem}th{background:var(--card2);color:var(--text2);font-weight:600}tr:hover{background:rgba(59,130,246,.08)}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;max-width:700px}.form-group{display:flex;flex-direction:column;gap:4px}.form-group label{font-size:.8rem;color:var(--text2)}.form-group input,.form-group select,.form-group textarea{padding:10px;border-radius:8px;border:1px solid var(--border);background:var(--card2);color:var(--text);font-size:.9rem}.form-group textarea{min-height:80px;resize:vertical}
+.badge{padding:3px 10px;border-radius:12px;font-size:.78rem;font-weight:600}.badge-green{background:rgba(34,197,94,.15);color:var(--green)}.badge-red{background:rgba(239,68,68,.15);color:var(--red)}.badge-yellow{background:rgba(234,179,8,.15);color:var(--yellow)}.badge-blue{background:rgba(59,130,246,.15);color:var(--accent)}.badge-purple{background:rgba(139,92,246,.15);color:var(--accent2)}.badge-orange{background:rgba(249,115,22,.15);color:var(--orange)}
+.toast{position:fixed;top:20px;right:20px;padding:14px 24px;border-radius:var(--radius);color:#fff;font-weight:600;z-index:9999;animation:slideIn .3s}@keyframes slideIn{from{transform:translateX(100%);opacity:0}to{transform:translateX(0);opacity:1}}
+.section{display:none}.section.active{display:block}
+.search-bar{display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;align-items:center}.search-bar input,.search-bar select{padding:8px 14px;border-radius:8px;border:1px solid var(--border);background:var(--card2);color:var(--text);font-size:.88rem}.search-bar input{flex:1;min-width:200px}
+.cl-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;margin-top:16px}
+.cl-card{background:var(--card);border-radius:var(--radius);padding:20px;border:1px solid var(--border);border-left:4px solid var(--accent)}
+.cl-card.done{border-left-color:var(--green);opacity:.75}
+.cl-card.partial{border-left-color:var(--orange)}
+.cl-card h4{margin-bottom:6px;font-size:.95rem}
+.cl-card .meta{font-size:.8rem;color:var(--text2);margin-bottom:10px;line-height:1.5}
+.cl-card .horario-info{font-size:.8rem;color:var(--accent);margin-bottom:8px}
+.cl-card .actions{display:flex;gap:8px;flex-wrap:wrap}
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:999;align-items:center;justify-content:center}
+.modal-overlay.show{display:flex}
+.modal{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:24px;max-width:500px;width:90%;max-height:90vh;overflow-y:auto}
+.modal.lg{max-width:820px}
+.modal h3{margin-bottom:12px}.modal .btns{display:flex;gap:10px;margin-top:16px;justify-content:flex-end}
+/* TOGGLE SWITCH */
+.toggle-row{display:flex;gap:10px;align-items:center;margin:10px 0 6px;flex-wrap:wrap}
+.toggle{position:relative;display:inline-block;width:42px;height:22px}
+.toggle input{opacity:0;width:0;height:0}
+.toggle-slider{position:absolute;cursor:pointer;inset:0;background:var(--card2);border:1px solid var(--border);border-radius:22px;transition:.2s}
+.toggle-slider::before{content:'';position:absolute;height:16px;width:16px;left:2px;top:50%;transform:translateY(-50%);background:var(--text2);border-radius:50%;transition:.2s}
+.toggle input:checked + .toggle-slider{background:rgba(34,197,94,.25);border-color:var(--green)}
+.toggle input:checked + .toggle-slider::before{transform:translate(20px,-50%);background:var(--green)}
+.toggle-label{font-size:.85rem;color:var(--text2)}
+/* HISTÓRICO POR DIA */
+.hist-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px;margin-top:14px}
+.hist-day-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;cursor:pointer;transition:.2s;border-left:4px solid var(--accent)}
+.hist-day-card:hover{transform:translateY(-2px);border-left-color:var(--accent2);box-shadow:0 4px 14px rgba(0,0,0,.3)}
+.hist-day-card.all-done{border-left-color:var(--green)}
+.hist-day-card.has-pend{border-left-color:var(--orange)}
+.hist-day-card .day-date{font-size:1rem;font-weight:700;margin-bottom:8px}
+.hist-day-card .day-week{font-size:.75rem;color:var(--text2);text-transform:capitalize}
+.hist-day-card .day-stats{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+.hist-day-card .stat{flex:1;min-width:60px;text-align:center;padding:6px 4px;border-radius:8px;background:var(--card2)}
+.hist-day-card .stat-num{font-size:1.2rem;font-weight:700;line-height:1}
+.hist-day-card .stat-lbl{font-size:.65rem;color:var(--text2);text-transform:uppercase;letter-spacing:.4px;margin-top:2px}
+@media(max-width:768px){.sidebar{display:none}.form-grid{grid-template-columns:1fr}.kpis{grid-template-columns:1fr 1fr}.cl-grid{grid-template-columns:1fr}.hist-grid{grid-template-columns:1fr 1fr}}
+</style>
+<link rel="icon" href="/assets/logo-decio.png">
+
+<style>
+/* ===== Tema Décio — sobreposição sobre o CSS original do módulo ===== */
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap');
+body{font-family:'Inter','Segoe UI',system-ui,sans-serif}
+h1,h2,h3,.logo{font-family:'Manrope','Segoe UI',system-ui,sans-serif;letter-spacing:-.02em}
+
+.fita-marca{position:fixed;top:0;left:0;right:0;height:3px;background:var(--fade);z-index:9999}
+
+.btn-primary,.btn-accent{
+  background:var(--fade)!important;color:#fff!important;border:none!important;
+  box-shadow:0 2px 12px rgba(38,178,71,.22)}
+.btn-primary:hover,.btn-accent:hover{filter:brightness(1.06);transform:translateY(-1px)}
+.btn-green{background:var(--green)!important;color:#062B1E!important}
+.btn-warning{background:var(--yellow)!important;color:#2B1E00!important}
+
+a{color:var(--accent)}
+.topbar{border-bottom:1px solid var(--border)}
+.logo-decio{height:26px;width:26px;border-radius:7px;vertical-align:-7px;margin-right:8px}
+.voltar-portal{
+  display:inline-flex;align-items:center;gap:6px;padding:6px 12px;margin-right:6px;
+  border:1px solid var(--border);border-radius:8px;background:var(--card2);
+  color:var(--text2)!important;font-size:12px;font-weight:600;text-decoration:none}
+.voltar-portal:hover{background:var(--panel2);color:var(--text)!important}
+
+::-webkit-scrollbar{width:8px;height:8px}
+::-webkit-scrollbar-track{background:var(--bg)}
+::-webkit-scrollbar-thumb{background:#2C5570;border-radius:99px}
+:focus-visible{outline:2px solid #35C95C;outline-offset:2px}
+@media(prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+</style>
+</head>
+<body>
+<div class="fita-marca"></div>
+<div class="topbar">
+  <div class="logo"><img src="/assets/logo-decio.png" class="logo-decio" alt=""><a href="/progestao">ProGestão</a> / Checklist</div>
+  <div class="right"><a href="/" class="voltar-portal">← Portal</a><span class="clock" id="clock"></span><span class="user" id="user-display"></span><button class="btn-sm btn-danger" onclick="doLogout()">Sair</button></div>
+</div>
+<div class="layout">
+<nav class="sidebar">
+  <a href="/progestao">🏠 Início</a><a href="/progestao/ferramentas">🔧 Ferramentas</a><a href="/progestao/epis">🦺 EPIs</a>
+  <a href="/progestao/banco-horas">⏰ Banco Horas</a><a href="/progestao/treinamentos">📚 Treinamentos</a>
+  <a href="/progestao/diario-bordo">📋 Diário Bordo</a><a href="/progestao/checklist" class="active">✅ Checklist</a>
+  <a href="/progestao/producao">📊 Produção</a><a href="/progestao/limpeza">🧹 Limpeza</a>
+</nav>
+<div class="main">
+  <h2 style="margin-bottom:20px">✅ Checklist de Atividades</h2>
+  <div class="kpis">
+    <div class="kpi"><div class="num" id="k-atividades" style="color:var(--accent)">0</div><div class="lbl">Atividades Ativas</div></div>
+    <div class="kpi"><div class="num" id="k-feitas" style="color:var(--green)">0</div><div class="lbl">Concluídas Hoje</div></div>
+    <div class="kpi"><div class="num" id="k-pendentes" style="color:var(--yellow)">0</div><div class="lbl">Pendentes Hoje</div></div>
+    <div class="kpi"><div class="num" id="k-total-exec" style="color:var(--accent2)">0</div><div class="lbl">Total Execuções</div></div>
+  </div>
+  <div class="tabs">
+    <div class="tab active" onclick="showTab('hoje')">📅 Hoje</div>
+    <div class="tab" onclick="showTab('atividades')">📋 Atividades</div>
+    <div class="tab" onclick="showTab('cadastro')">➕ Nova Atividade</div>
+    <div class="tab" onclick="showTab('historico')">📊 Histórico</div>
+  </div>
+
+  <!-- ABA HOJE -->
+  <div class="section active" id="sec-hoje">
+    <h3>Atividades de Hoje — <span id="hoje-data"></span></h3>
+    <div class="toggle-row">
+      <label class="toggle">
+        <input type="checkbox" id="chk-show-done" onchange="renderHoje()">
+        <span class="toggle-slider"></span>
+      </label>
+      <span class="toggle-label">Mostrar também as já concluídas</span>
+      <span id="resumo-hoje" style="margin-left:auto;font-size:.85rem;color:var(--text2)"></span>
+    </div>
+    <div class="cl-grid" id="grid-hoje"></div>
+  </div>
+
+  <!-- ABA ATIVIDADES -->
+  <div class="section" id="sec-atividades">
+    <div class="search-bar">
+      <input id="search-ativ" placeholder="Buscar atividade..." oninput="renderAtiv()">
+      <select id="filter-freq" onchange="renderAtiv()">
+        <option value="">Todas frequências</option>
+        <option>Todo dia</option><option>2 vezes ao dia</option>
+        <option>A cada 2 dias</option><option>A cada 3 dias</option><option>A cada 4 dias</option>
+        <option>Semanal</option><option>Quinzenal</option><option>Mensal</option>
+      </select>
+      <button class="btn-sm btn-primary" onclick="showTab('cadastro')">+ Nova</button>
+    </div>
+    <div class="tbl-wrap"><table><thead><tr><th>Foto</th><th>Horário</th><th>Nome</th><th>Frequência</th><th>Início</th><th>Status</th><th>Descrição</th><th>Ações</th></tr></thead><tbody id="tb-ativ"></tbody></table></div>
+  </div>
+
+  <!-- ABA CADASTRO -->
+  <div class="section" id="sec-cadastro">
+    <h3 id="form-title-cl">Nova Atividade</h3>
+    <div class="form-grid" style="margin-top:14px">
+      <div class="form-group"><label>Nome *</label><input id="c-nome"></div>
+      <div class="form-group">
+        <label>Frequência *</label>
+        <select id="c-freq" onchange="toggleHorario2()">
+          <option value="Todo dia">Todo dia</option><option value="2 vezes ao dia">2 vezes ao dia</option>
+          <option value="A cada 2 dias">A cada 2 dias</option><option value="A cada 3 dias">A cada 3 dias</option>
+          <option value="A cada 4 dias">A cada 4 dias</option><option value="Semanal">Semanal</option>
+          <option value="Quinzenal">Quinzenal</option><option value="Mensal">Mensal</option>
+        </select>
+      </div>
+      <div class="form-group"><label>Data Início *</label><input id="c-inicio" type="date"></div>
+      <div class="form-group"><label>Status</label><select id="c-status"><option>Ativa</option><option>Pausada</option><option>Encerrada</option></select></div>
+      <div class="form-group"><label>Horário <span style="font-size:.75rem;color:var(--text2)">(programado)</span></label><input id="c-horario" type="time"></div>
+      <div class="form-group" id="grupo-horario2" style="display:none"><label>2º Horário <span style="font-size:.75rem;color:var(--text2)">(2ª execução)</span></label><input id="c-horario2" type="time"></div>
+      <div class="form-group" style="grid-column:1/-1"><label>Descrição</label><textarea id="c-desc"></textarea></div>
+    </div>
+    <div id="fotos-ativ"></div>
+    <div style="margin-top:14px;display:flex;gap:10px">
+      <button class="btn-sm btn-green" onclick="salvarAtiv()">Salvar</button>
+      <button class="btn-sm btn-ghost" onclick="cancelarAtiv()">Cancelar</button>
+    </div>
+  </div>
+
+  <!-- ABA HISTÓRICO (NOVO LAYOUT POR DIA) -->
+  <div class="section" id="sec-historico">
+    <h3>📊 Histórico por Dia</h3>
+    <p style="font-size:.8rem;color:var(--text2);margin-top:6px">Clique em um dia para ver o detalhamento das atividades</p>
+    <div class="search-bar" style="margin-top:14px">
+      <input id="search-hist" placeholder="Buscar por data (ex: 11/11/2026) ou nome da atividade..." oninput="renderHist()">
+      <select id="filter-hist" onchange="renderHist()">
+        <option value="">Todos os dias</option>
+        <option value="all-done">Apenas dias 100% concluídos</option>
+        <option value="has-pend">Apenas dias com pendências</option>
+      </select>
+    </div>
+    <div class="hist-grid" id="grid-hist"></div>
+  </div>
+</div></div>
+
+<!-- MODAL CONFIRMAR DELETE -->
+<div class="modal-overlay" id="modal-del">
+  <div class="modal">
+    <h3>Confirmar Exclusão</h3>
+    <p id="modal-del-msg">Tem certeza?</p>
+    <div class="btns"><button class="btn-sm btn-ghost" onclick="fecharModal()">Cancelar</button><button class="btn-sm btn-danger" id="modal-del-btn">Excluir</button></div>
+  </div>
+</div>
+
+<!-- MODAL DETALHE DO DIA -->
+<div class="modal-overlay" id="modal-dia"><div class="modal lg">
+  <h3 id="dia-titulo">Detalhe do Dia</h3>
+  <div id="dia-resumo" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;margin:10px 0 16px"></div>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Horário</th><th>Atividade</th><th>Frequência</th><th>Status</th><th>Execuções</th></tr></thead>
+    <tbody id="dia-tb"></tbody>
+  </table></div>
+  <div class="btns"><button class="btn-sm btn-ghost" onclick="fecharModalDia()">Fechar</button></div>
+</div></div>
+
+<script src="/js/fotos.js"></script>
+<script>
+var atividades=[], execucoes=[];
+var editClId=null;
+var fotosAtiv={};
+var galAtiv=Fotos.galeria('#fotos-ativ',{entidade:'atividade',titulo:'Fotos da atividade (como deve ficar, referência)'});
+
+var api={
+  get:async function(u){var r=await fetch(u);if(r.status===401){location.href='/login';return null}return r.json()},
+  post:async function(u,d){var r=await fetch(u,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(d)});if(r.status===401){location.href='/login';return null}return r.json()},
+  put:async function(u,d){var r=await fetch(u,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(d)});if(r.status===401){location.href='/login';return null}return r.json()},
+  del:async function(u){var r=await fetch(u,{method:'DELETE'});if(r.status===401){location.href='/login';return null}return r.json()}
+};
+
+function toast(m,t){t=t||'success';var e=document.createElement('div');e.className='toast';e.style.background=t==='error'?'var(--red)':'var(--green)';e.textContent=m;document.body.appendChild(e);setTimeout(function(){e.remove()},3000)}
+function fmtDate(d){if(!d)return'-';var s=String(d).slice(0,10);var p=s.split('-');if(p.length!==3)return'-';return p[2]+'/'+p[1]+'/'+p[0]}
+function getDateVal(d){if(!d)return'';return String(d).slice(0,10)}
+function fmtHora(h){if(!h)return'';return String(h).slice(0,5)}
+function updateClock(){var n=new Date();document.getElementById('clock').textContent=n.toLocaleTimeString('pt-BR')+' — '+n.toLocaleDateString('pt-BR')}
+setInterval(updateClock,1000);updateClock();
+async function doLogout(){await fetch('/api/logout',{method:'POST'});location.href='/login'}
+function hoje(){var d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
+var todayStr=hoje();
+function fecharModal(){document.getElementById('modal-del').classList.remove('show')}
+function fecharModalDia(){document.getElementById('modal-dia').classList.remove('show')}
+
+function showTab(t){
+  document.querySelectorAll('.section').forEach(function(s){s.classList.remove('active')});
+  document.querySelectorAll('.tab').forEach(function(s){s.classList.remove('active')});
+  document.getElementById('sec-'+t).classList.add('active');
+  var names=['hoje','atividades','cadastro','historico'];
+  var tabs=document.querySelectorAll('.tab');
+  for(var i=0;i<names.length;i++){if(names[i]===t&&tabs[i])tabs[i].classList.add('active')}
+  if(t==='hoje')renderHoje();
+  if(t==='historico')renderHist();
+}
+
+function toggleHorario2(){
+  var freq=document.getElementById('c-freq').value;
+  var grupo=document.getElementById('grupo-horario2');
+  if(freq==='2 vezes ao dia'){grupo.style.display='flex'}else{grupo.style.display='none';document.getElementById('c-horario2').value=''}
+}
+
+async function loadAll(){
+  var results=await Promise.all([api.get('/api/cl-atividades'),api.get('/api/cl-execucoes'),Fotos.mapa('atividade')]);
+  atividades=results[0]||[];
+  execucoes=results[1]||[];
+  fotosAtiv=results[2]||{};
+  updateKPIs();renderHoje();renderAtiv();renderHist();
+}
+
+function sortByHorario(list){
+  return list.slice().sort(function(a,b){
+    var ha=a.horario||'99:99';
+    var hb=b.horario||'99:99';
+    if(ha<hb)return -1;
+    if(ha>hb)return 1;
+    return (a.nome||'').localeCompare(b.nome||'');
+  });
+}
+
+/* Verifica se uma atividade era esperada numa data específica (YYYY-MM-DD) */
+function isDueOnDate(a,dateStr){
+  if(a.status==='Encerrada')return false;
+  var freq=a.freq;
+  if(freq==='Diária')freq='Todo dia';
+  if(freq==='Todo dia'||freq==='2 vezes ao dia')return getDateVal(a.inicio)<=dateStr;
+  var inicio=new Date(getDateVal(a.inicio)+'T12:00:00');
+  var target=new Date(dateStr+'T12:00:00');
+  var diffDays=Math.round((target-inicio)/(1000*60*60*24));
+  if(diffDays<0)return false;
+  if(freq==='A cada 2 dias')return diffDays%2===0;
+  if(freq==='A cada 3 dias')return diffDays%3===0;
+  if(freq==='A cada 4 dias')return diffDays%4===0;
+  if(freq==='Semanal')return inicio.getDay()===target.getDay();
+  if(freq==='Quinzenal')return diffDays%14===0;
+  if(freq==='Mensal')return inicio.getDate()===target.getDate();
+  return true;
+}
+
+function isDueToday(a){
+  if(a.status!=='Ativa')return false;
+  return isDueOnDate(a,todayStr);
+}
+
+function getRequiredCount(a){
+  var freq=a.freq;if(freq==='Diária')freq='Todo dia';
+  if(freq==='2 vezes ao dia')return 2;return 1;
+}
+
+function getExecsOnDate(ativId,dateStr){
+  return execucoes.filter(function(e){return e.atividade_id===ativId&&e.data&&getDateVal(e.data)===dateStr});
+}
+
+function getTodayExecs(a){return getExecsOnDate(a.id,todayStr)}
+
+function updateKPIs(){
+  var ativas=atividades.filter(function(a){return a.status==='Ativa'});
+  document.getElementById('k-atividades').textContent=ativas.length;
+  var dueToday=ativas.filter(isDueToday);
+  var feitas=0,pendentes=0;
+  dueToday.forEach(function(a){
+    var needed=getRequiredCount(a);var done=getTodayExecs(a).length;
+    if(done>=needed)feitas++;else pendentes++;
+  });
+  document.getElementById('k-feitas').textContent=feitas;
+  document.getElementById('k-pendentes').textContent=pendentes;
+  document.getElementById('k-total-exec').textContent=execucoes.length;
+}
+
+/* ========= ABA HOJE — esconde concluídas por padrão ========= */
+function renderHoje(){
+  document.getElementById('hoje-data').textContent=fmtDate(todayStr);
+  var grid=document.getElementById('grid-hoje');
+  var showDone=document.getElementById('chk-show-done').checked;
+
+  var ativas=atividades.filter(function(a){return a.status==='Ativa'}).filter(isDueToday);
+  ativas=sortByHorario(ativas);
+
+  // resumo no topo (sempre considerando todas)
+  var totalDia=ativas.length;
+  var doneCountDia=0;
+  ativas.forEach(function(a){
+    if(getTodayExecs(a).length>=getRequiredCount(a))doneCountDia++;
+  });
+  var pendDia=totalDia-doneCountDia;
+  document.getElementById('resumo-hoje').innerHTML=
+    '<span class="badge badge-green">✓ '+doneCountDia+' feita(s)</span> '+
+    '<span class="badge badge-yellow">⏳ '+pendDia+' pendente(s)</span> '+
+    '<span class="badge badge-blue">Σ '+totalDia+' no dia</span>';
+
+  // filtra o que vai aparecer na grid
+  var list=ativas;
+  if(!showDone){
+    list=list.filter(function(a){
+      return getTodayExecs(a).length<getRequiredCount(a);
+    });
+  }
+
+  if(!list.length){
+    if(totalDia>0 && !showDone){
+      grid.innerHTML='<div style="grid-column:1/-1;text-align:center;padding:40px 20px;background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.3);border-radius:var(--radius)"><div style="font-size:2.5rem;margin-bottom:10px">🎉</div><h3 style="color:var(--green);margin-bottom:6px">Tudo concluído por hoje!</h3><p style="color:var(--text2);font-size:.88rem">Todas as '+totalDia+' atividades do dia foram realizadas. Ative o botão acima para visualizá-las.</p></div>';
+    } else {
+      grid.innerHTML='<p style="grid-column:1/-1;color:var(--text2);text-align:center;padding:20px">Nenhuma atividade para hoje.</p>';
+    }
+    return;
+  }
+
+  grid.innerHTML=list.map(function(a){
+    var needed=getRequiredCount(a);
+    var todayExecs=getTodayExecs(a);
+    var doneCount=todayExecs.length;
+    var allDone=doneCount>=needed;
+    var partial=doneCount>0&&doneCount<needed;
+    var cardClass='cl-card';
+    if(allDone)cardClass+=' done';
+    else if(partial)cardClass+=' partial';
+    var icon=allDone?'✅':partial?'🔶':'⬜';
+    var statusTxt=allDone?'Concluída':(partial?doneCount+'/'+needed+' feita(s)':'Pendente');
+    var horarioInfo='';
+    if(a.horario){
+      horarioInfo='🕐 '+fmtHora(a.horario);
+      if(needed===2&&a.horario2){horarioInfo+=' e '+fmtHora(a.horario2)}
+    }
+    var execInfo='';
+    if(doneCount>0){
+      execInfo='<div style="font-size:.78rem;color:var(--green);margin-bottom:6px">'+todayExecs.map(function(e,i){
+        return '✔ '+(i+1)+'ª às '+(e.hora||'--:--');
+      }).join(' &nbsp;|&nbsp; ')+'</div>';
+    }
+    var btns='';
+    if(!allDone){
+      var label=needed===2?(doneCount===0?'Marcar 1ª execução':'Marcar 2ª execução'):'Marcar Feito';
+      btns+='<button class="btn-sm btn-green" onclick="marcarFeito('+a.id+')">'+label+'</button>';
+    }
+    if(doneCount>0){
+      btns+=' <button class="btn-sm btn-ghost" onclick="desfazerUltimo('+a.id+')">Desfazer última</button>';
+    }
+    var fotosHoje=(fotosAtiv[a.id]&&fotosAtiv[a.id].length)?'<div style="margin-bottom:6px">'+Fotos.miniaturas(fotosAtiv[a.id],{max:3})+'</div>':'';
+    return '<div class="'+cardClass+'">'+
+      '<h4>'+icon+' '+a.nome+'</h4>'+fotosHoje+
+      '<div class="meta">'+a.freq+(a.descricao?' — '+a.descricao:'')+'<br><span class="badge '+(allDone?'badge-green':partial?'badge-yellow':'badge-red')+'">'+statusTxt+'</span></div>'+
+      (horarioInfo?'<div class="horario-info">'+horarioInfo+'</div>':'')+
+      execInfo+
+      '<div class="actions">'+btns+'</div>'+
+    '</div>';
+  }).join('');
+}
+
+async function marcarFeito(ativId){
+  var hora=new Date().toTimeString().slice(0,5);
+  await api.post('/api/cl-execucoes',{atividade_id:ativId,data:todayStr,hora:hora});
+  toast('Marcado como feito!');await loadAll();
+}
+
+async function desfazerUltimo(ativId){
+  var todayExecs=execucoes.filter(function(e){return e.atividade_id===ativId&&e.data&&getDateVal(e.data)===todayStr});
+  if(!todayExecs.length)return;
+  var ultima=todayExecs.reduce(function(prev,curr){return curr.id>prev.id?curr:prev});
+  await api.del('/api/cl-execucoes/desfazer-um/'+ultima.id);
+  toast('Desfeito!');await loadAll();
+}
+
+/* ========= ABA ATIVIDADES ========= */
+function renderAtiv(){
+  var q=(document.getElementById('search-ativ').value||'').toLowerCase();
+  var ff=document.getElementById('filter-freq').value;
+  var list=atividades;
+  if(q)list=list.filter(function(a){return a.nome.toLowerCase().indexOf(q)>=0||(a.descricao||'').toLowerCase().indexOf(q)>=0});
+  if(ff){
+    list=list.filter(function(a){
+      var freq=a.freq;if(freq==='Diária'&&ff==='Todo dia')return true;return freq===ff;
+    });
+  }
+  list=sortByHorario(list);
+  var tb=document.getElementById('tb-ativ');
+  if(!list.length){tb.innerHTML='<tr><td colspan="8" style="text-align:center;color:var(--text2)">Nenhuma atividade</td></tr>';return}
+  tb.innerHTML=list.map(function(a){
+    var stBadge=a.status==='Ativa'?'badge-green':a.status==='Pausada'?'badge-yellow':'badge-red';
+    var horarios=fmtHora(a.horario)||'-';
+    if(a.freq==='2 vezes ao dia'&&a.horario&&a.horario2){
+      horarios=fmtHora(a.horario)+' / '+fmtHora(a.horario2);
+    }
+    var freqLabel=a.freq==='Diária'?'Todo dia':a.freq;
+    return '<tr>'+
+      '<td>'+Fotos.miniaturas(fotosAtiv[a.id],{max:1})+'</td>'+
+      '<td><strong style="color:var(--accent)">🕐 '+horarios+'</strong></td>'+
+      '<td><strong>'+a.nome+'</strong></td>'+
+      '<td><span class="badge badge-blue">'+freqLabel+'</span></td>'+
+      '<td>'+fmtDate(a.inicio)+'</td>'+
+      '<td><span class="badge '+stBadge+'">'+a.status+'</span></td>'+
+      '<td style="max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+(a.descricao||'-')+'</td>'+
+      '<td style="white-space:nowrap"><button class="btn-sm btn-ghost" onclick="editarAtiv('+a.id+')">✏</button> <button class="btn-sm btn-danger" onclick="pedirDelAtiv('+a.id+')">🗑</button></td>'+
+    '</tr>';
+  }).join('');
+}
+
+function editarAtiv(id){
+  var a=atividades.find(function(x){return x.id===id});if(!a)return;
+  editClId=id;
+  document.getElementById('form-title-cl').textContent='Editar Atividade';
+  document.getElementById('c-nome').value=a.nome;
+  var freq=a.freq==='Diária'?'Todo dia':a.freq;
+  document.getElementById('c-freq').value=freq;
+  document.getElementById('c-inicio').value=getDateVal(a.inicio);
+  document.getElementById('c-status').value=a.status||'Ativa';
+  document.getElementById('c-desc').value=a.descricao||'';
+  document.getElementById('c-horario').value=fmtHora(a.horario);
+  document.getElementById('c-horario2').value=fmtHora(a.horario2);
+  toggleHorario2();
+  galAtiv.carregar(id);
+  showTab('cadastro');
+}
+
+function cancelarAtiv(){
+  editClId=null;
+  document.getElementById('form-title-cl').textContent='Nova Atividade';
+  document.getElementById('c-nome').value='';document.getElementById('c-desc').value='';
+  document.getElementById('c-freq').value='Todo dia';document.getElementById('c-inicio').value=todayStr;
+  document.getElementById('c-status').value='Ativa';document.getElementById('c-horario').value='';
+  document.getElementById('c-horario2').value='';toggleHorario2();
+  galAtiv.limpar();
+  showTab('atividades');
+}
+
+async function salvarAtiv(){
+  var nome=document.getElementById('c-nome').value.trim();
+  var freq=document.getElementById('c-freq').value;
+  var inicio=document.getElementById('c-inicio').value;
+  if(!nome||!freq||!inicio)return toast('Preencha campos obrigatórios','error');
+  var body={
+    nome:nome,freq:freq,inicio:inicio,
+    status:document.getElementById('c-status').value,
+    descricao:document.getElementById('c-desc').value.trim()||null,
+    horario:document.getElementById('c-horario').value||null,
+    horario2:freq==='2 vezes ao dia'?document.getElementById('c-horario2').value||null:null
+  };
+  var r=editClId?await api.put('/api/cl-atividades/'+editClId,body):await api.post('/api/cl-atividades',body);
+  if(!r||r.error)return toast(r&&r.error?r.error:'Erro ao salvar','error');
+  await galAtiv.salvar(r.id);
+  toast(editClId?'Atualizado!':'Atividade criada!');
+  cancelarAtiv();await loadAll();
+}
+
+function pedirDelAtiv(id){
+  document.getElementById('modal-del-msg').textContent='Excluir esta atividade e todas as suas execuções?';
+  document.getElementById('modal-del').classList.add('show');
+  document.getElementById('modal-del-btn').onclick=async function(){
+    await api.del('/api/cl-atividades/'+id);toast('Excluído!');fecharModal();await loadAll();
+  };
+}
+
+function pedirDelExec(id,dateStr){
+  document.getElementById('modal-del-msg').textContent='Excluir esta execução do histórico?';
+  document.getElementById('modal-del').classList.add('show');
+  document.getElementById('modal-del-btn').onclick=async function(){
+    await api.del('/api/cl-execucoes/'+id);toast('Execução excluída!');fecharModal();await loadAll();abrirDetalheDia(dateStr);
+  };
+}
+
+function pedirDelDia(dateStr){
+  var ids=execucoes.filter(function(e){return getDateVal(e.data)===dateStr}).map(function(e){return e.id});
+  if(!ids.length){toast('Nenhuma execução neste dia');return;}
+  document.getElementById('modal-del-msg').textContent='Excluir TODAS as '+ids.length+' execuções de '+fmtDate(dateStr)+'? Esta ação não pode ser desfeita.';
+  document.getElementById('modal-del').classList.add('show');
+  document.getElementById('modal-del-btn').onclick=async function(){
+    await Promise.all(ids.map(function(id){return api.del('/api/cl-execucoes/'+id)}));
+    toast(ids.length+' execuções excluídas!');fecharModal();await loadAll();
+  };
+}
+
+/* ========= ABA HISTÓRICO — POR DIA ========= */
+/* Constrói um mapa: dateStr -> { ativas:[], feitas:n, pendentes:n, parciais:n } */
+function montarHistoricoPorDia(){
+  // descobrir todos os dias relevantes: união entre datas de execucoes + (opcionalmente) dias passados que tinham atividade
+  // Vamos usar: todos os dias que aparecem em execucoes + hoje. Isso garante que dias com pendentes só apareçam se houve ao menos 1 execução (caso contrário, ficaria cheio de dias passados sem nada).
+  // Para mostrar dias passados sem nenhuma execução também, varremos do menor inicio das atividades ativas até hoje? Não — fica gigante. Manteremos o critério: dia aparece se tem ao menos 1 execução OU é o dia de hoje.
+
+  var diasSet={};
+  execucoes.forEach(function(e){
+    var d=getDateVal(e.data);
+    if(d)diasSet[d]=true;
+  });
+  diasSet[todayStr]=true;
+
+  var dias=Object.keys(diasSet).sort().reverse(); // mais recente primeiro
+
+  return dias.map(function(d){
+    var dueList=atividades.filter(function(a){return isDueOnDate(a,d)});
+    var feitas=0,pendentes=0,parciais=0;
+    dueList.forEach(function(a){
+      var needed=getRequiredCount(a);
+      var done=getExecsOnDate(a.id,d).length;
+      if(done>=needed)feitas++;
+      else if(done>0){parciais++;pendentes++;}
+      else pendentes++;
+    });
+    return {data:d, total:dueList.length, feitas:feitas, pendentes:pendentes, parciais:parciais, atividades:dueList};
+  });
+}
+
+function renderHist(){
+  var grid=document.getElementById('grid-hist');
+  if(!grid)return;
+  var q=(document.getElementById('search-hist').value||'').toLowerCase();
+  var filtro=document.getElementById('filter-hist').value;
+
+  var lista=montarHistoricoPorDia();
+
+  // filtros
+  if(filtro==='all-done'){
+    lista=lista.filter(function(d){return d.total>0 && d.pendentes===0});
+  } else if(filtro==='has-pend'){
+    lista=lista.filter(function(d){return d.pendentes>0});
+  }
+
+  // busca: por data ou por nome de atividade que tenha sido executada no dia
+  if(q){
+    lista=lista.filter(function(d){
+      if(fmtDate(d.data).indexOf(q)>=0)return true;
+      // tem alguma atividade que combine?
+      for(var i=0;i<d.atividades.length;i++){
+        if((d.atividades[i].nome||'').toLowerCase().indexOf(q)>=0)return true;
+      }
+      // ou alguma execução com nome
+      var execsDoDia=execucoes.filter(function(e){return getDateVal(e.data)===d.data});
+      for(var j=0;j<execsDoDia.length;j++){
+        if((execsDoDia[j].ativ_nome||'').toLowerCase().indexOf(q)>=0)return true;
+      }
+      return false;
+    });
+  }
+
+  if(!lista.length){
+    grid.innerHTML='<p style="grid-column:1/-1;color:var(--text2);text-align:center;padding:20px">Nenhum dia encontrado</p>';
+    return;
+  }
+
+  grid.innerHTML=lista.map(function(d){
+    var dt=new Date(d.data+'T12:00:00');
+    var diaSemana=dt.toLocaleDateString('pt-BR',{weekday:'long'});
+    var ehHoje=d.data===todayStr;
+    var classe='hist-day-card';
+    if(d.total>0 && d.pendentes===0)classe+=' all-done';
+    else if(d.pendentes>0)classe+=' has-pend';
+    var nExecsDia=execucoes.filter(function(e){return getDateVal(e.data)===d.data}).length;
+    return '<div class="'+classe+'" onclick="abrirDetalheDia(\''+d.data+'\')">'+
+      '<div class="day-date" style="display:flex;align-items:center;justify-content:space-between;gap:6px">'+
+        '<span>📅 '+fmtDate(d.data)+(ehHoje?' <span class="badge badge-blue" style="font-size:.65rem;margin-left:6px">HOJE</span>':'')+'</span>'+
+        (nExecsDia>0?'<button class="btn-sm btn-ghost" style="padding:1px 6px;line-height:1.2;font-size:.85rem" title="Excluir todas as execuções deste dia" onclick="event.stopPropagation();pedirDelDia(\''+d.data+'\')">🗑️</button>':'')+
+      '</div>'+
+      '<div class="day-week">'+diaSemana+'</div>'+
+      '<div class="day-stats">'+
+        '<div class="stat"><div class="stat-num" style="color:var(--accent)">'+d.total+'</div><div class="stat-lbl">Ativas</div></div>'+
+        '<div class="stat"><div class="stat-num" style="color:var(--green)">'+d.feitas+'</div><div class="stat-lbl">Feitas</div></div>'+
+        '<div class="stat"><div class="stat-num" style="color:'+(d.pendentes>0?'var(--red)':'var(--text2)')+'">'+d.pendentes+'</div><div class="stat-lbl">Pendentes</div></div>'+
+      '</div>'+
+    '</div>';
+  }).join('');
+}
+
+/* MODAL DETALHE DO DIA */
+function abrirDetalheDia(dateStr){
+  var dueList=atividades.filter(function(a){return isDueOnDate(a,dateStr)});
+  dueList=sortByHorario(dueList);
+
+  var feitas=0,pendentes=0;
+  dueList.forEach(function(a){
+    var needed=getRequiredCount(a);
+    var done=getExecsOnDate(a.id,dateStr).length;
+    if(done>=needed)feitas++;else pendentes++;
+  });
+
+  var dt=new Date(dateStr+'T12:00:00');
+  var diaSemana=dt.toLocaleDateString('pt-BR',{weekday:'long'});
+  document.getElementById('dia-titulo').textContent='📅 '+fmtDate(dateStr)+' — '+diaSemana.charAt(0).toUpperCase()+diaSemana.slice(1);
+
+  document.getElementById('dia-resumo').innerHTML=
+    '<div style="text-align:center;padding:10px;background:var(--card2);border-radius:8px"><div style="font-size:1.4rem;font-weight:700;color:var(--accent)">'+dueList.length+'</div><div style="font-size:.7rem;color:var(--text2);text-transform:uppercase">Atividades Ativas</div></div>'+
+    '<div style="text-align:center;padding:10px;background:var(--card2);border-radius:8px"><div style="font-size:1.4rem;font-weight:700;color:var(--green)">'+feitas+'</div><div style="font-size:.7rem;color:var(--text2);text-transform:uppercase">Concluídas</div></div>'+
+    '<div style="text-align:center;padding:10px;background:var(--card2);border-radius:8px"><div style="font-size:1.4rem;font-weight:700;color:'+(pendentes>0?'var(--red)':'var(--text2)')+'">'+pendentes+'</div><div style="font-size:.7rem;color:var(--text2);text-transform:uppercase">Pendentes</div></div>';
+
+  var tb=document.getElementById('dia-tb');
+  if(!dueList.length){
+    tb.innerHTML='<tr><td colspan="5" style="text-align:center;color:var(--text2)">Nenhuma atividade ativa neste dia</td></tr>';
+  } else {
+    tb.innerHTML=dueList.map(function(a){
+      var needed=getRequiredCount(a);
+      var execs=getExecsOnDate(a.id,dateStr);
+      var done=execs.length;
+      var statusBadge,statusTxt;
+      if(done>=needed){statusBadge='badge-green';statusTxt='✅ Concluída'}
+      else if(done>0){statusBadge='badge-yellow';statusTxt='🔶 '+done+'/'+needed}
+      else{statusBadge='badge-red';statusTxt='⬜ Pendente'}
+      var horarios=fmtHora(a.horario)||'-';
+      if(a.freq==='2 vezes ao dia'&&a.horario&&a.horario2){
+        horarios=fmtHora(a.horario)+' / '+fmtHora(a.horario2);
+      }
+      var freqLabel=a.freq==='Diária'?'Todo dia':a.freq;
+      var execTxt= execs.length
+        ? execs.map(function(e,i){
+            return '<span style="display:inline-flex;align-items:center;gap:3px;margin:2px 6px 2px 0;white-space:nowrap">'+
+                   (i+1)+'ª às '+fmtHora(e.hora||'--:--')+
+                   '<button class="btn-sm btn-ghost" style="padding:0 5px;line-height:1.3;font-size:.8rem" title="Excluir esta execução" onclick="pedirDelExec('+e.id+',\''+dateStr+'\')">🗑️</button>'+
+                   '</span>';
+          }).join('')
+        : '—';
+      return '<tr>'+
+        '<td><strong style="color:var(--accent)">🕐 '+horarios+'</strong></td>'+
+        '<td><strong>'+a.nome+'</strong>'+(a.descricao?'<div style="font-size:.75rem;color:var(--text2);margin-top:2px">'+a.descricao+'</div>':'')+'</td>'+
+        '<td><span class="badge badge-blue">'+freqLabel+'</span></td>'+
+        '<td><span class="badge '+statusBadge+'">'+statusTxt+'</span></td>'+
+        '<td style="font-size:.82rem;color:var(--green)">'+execTxt+'</td>'+
+      '</tr>';
+    }).join('');
+  }
+
+  document.getElementById('modal-dia').classList.add('show');
+}
+
+async function loadUser(){
+  try{var u=await api.get('/api/me');if(u)document.getElementById('user-display').textContent=u.nome||u.username}catch(e){}
+}
+
+async function init(){
+  updateClock();
+  document.getElementById('c-inicio').value=todayStr;
+  await loadUser();
+  await loadAll();
+}
+init();
+</script>
+</body>
+</html>

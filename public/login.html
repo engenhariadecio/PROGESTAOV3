@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Entrar — Décio Sistema Integrado</title>
+<link rel="icon" href="/assets/logo-decio.png">
+<link rel="stylesheet" href="/css/decio.css">
+<style>
+body { display: grid; place-items: center; padding: 24px; position: relative; overflow: hidden; }
+
+/* Brilho ambiente: o gradiente da logo difuso ao fundo, sem nunca competir com o cartão */
+.halo { position: fixed; border-radius: 50%; filter: blur(120px); opacity: .16; pointer-events: none; }
+.halo-1 { width: 460px; height: 460px; background: var(--verde); top: -140px; left: -120px; }
+.halo-2 { width: 380px; height: 380px; background: var(--azul); bottom: -120px; right: -100px; }
+
+.caixa { width: 100%; max-width: 400px; position: relative; z-index: 1; }
+
+.selo-logo {
+  width: 76px; height: 76px; border-radius: 20px;
+  margin: 0 auto 20px; display: block;
+  box-shadow: 0 0 44px var(--brilho);
+}
+
+.titulo { font-family: var(--display); font-size: 25px; font-weight: 800; text-align: center; letter-spacing: -.03em; }
+.subtitulo { font-size: 13px; color: var(--t3); text-align: center; margin: 4px 0 30px; }
+
+.painel { background: var(--card); border: 1px solid var(--linha); border-radius: 16px; padding: 28px; box-shadow: var(--sombra-lg); }
+
+.erro-caixa {
+  background: var(--erro-bg); border: 1px solid var(--erro-bd);
+  color: var(--erro); padding: 11px 14px; border-radius: var(--r-sm);
+  font-size: 13px; font-weight: 600; margin-bottom: 16px; text-align: center;
+}
+
+.rodape { text-align: center; margin-top: 22px; font-size: 11px; color: var(--t3); }
+
+.sistemas { display: flex; justify-content: center; gap: 6px; margin-top: 16px; flex-wrap: wrap; }
+.sistemas span { font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--t3); border: 1px solid var(--linha); padding: 4px 9px; border-radius: 99px; }
+</style>
+</head>
+<body>
+<div class="fita-marca"></div>
+<div class="halo halo-1"></div>
+<div class="halo halo-2"></div>
+
+<main class="caixa">
+  <img src="/assets/logo-decio.png" alt="Décio Indústria Metalúrgica" class="selo-logo">
+  <h1 class="titulo">Sistema Integrado</h1>
+  <p class="subtitulo">Setor de Montagem</p>
+
+  <div class="painel">
+    <div class="erro-caixa oculto" id="erro" role="alert"></div>
+
+    <form id="formLogin" novalidate>
+      <div class="campo" style="margin-bottom:16px">
+        <label class="rotulo" for="usuario">Usuário</label>
+        <input class="controle" id="usuario" name="username" autocomplete="username" required autofocus>
+      </div>
+      <div class="campo" style="margin-bottom:22px">
+        <label class="rotulo" for="senha">Senha</label>
+        <div style="position:relative">
+          <input class="controle" id="senha" name="password" type="password" autocomplete="current-password" required style="padding-right:44px">
+          <button type="button" id="btnOlho" aria-label="Mostrar senha" title="Mostrar senha" onclick="alternarSenha()"
+            style="position:absolute;right:6px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;padding:6px;color:var(--t2);display:grid;place-items:center">
+            <svg id="olhoAberto" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg>
+            <svg id="olhoFechado" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+          </button>
+        </div>
+      </div>
+      <button class="btn btn-primario btn-lg btn-bloco" id="btnEntrar" type="submit">Entrar</button>
+    </form>
+
+    <div class="sistemas">
+      <span>Ponto NFC</span>
+      <span>Cadenciador</span>
+      <span>ProGestão</span>
+    </div>
+  </div>
+
+  <p class="rodape">Décio Indústria Metalúrgica</p>
+</main>
+
+<script>
+const form = document.getElementById('formLogin');
+const btn  = document.getElementById('btnEntrar');
+const erro = document.getElementById('erro');
+
+function mostrarErro(msg) {
+  erro.textContent = msg;
+  erro.classList.remove('oculto');
+}
+
+form.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  erro.classList.add('oculto');
+
+  const username = document.getElementById('usuario').value.trim();
+  const password = document.getElementById('senha').value;
+
+  if (!username || !password) return mostrarErro('Preencha usuário e senha.');
+
+  btn.disabled = true;
+  btn.textContent = 'Entrando…';
+
+  try {
+    const r = await fetch('/api/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password })
+    });
+    const dados = await r.json();
+
+    if (r.ok && dados.success) {
+      window.location.href = dados.role === 'pcp' ? '/progestao/producao' : '/';
+      return;
+    }
+    mostrarErro(dados.error || 'Não foi possível entrar.');
+  } catch {
+    mostrarErro('Sem conexão com o servidor. Verifique a rede.');
+  }
+
+  btn.disabled = false;
+  btn.textContent = 'Entrar';
+});
+
+function alternarSenha() {
+  const inp = document.getElementById('senha');
+  const mostrar = inp.type === 'password';
+  inp.type = mostrar ? 'text' : 'password';
+  document.getElementById('olhoAberto').style.display = mostrar ? 'none' : '';
+  document.getElementById('olhoFechado').style.display = mostrar ? '' : 'none';
+  document.getElementById('btnOlho').title = document.getElementById('btnOlho').ariaLabel = mostrar ? 'Ocultar senha' : 'Mostrar senha';
+  inp.focus();
+}
+</script>
+</body>
+</html>

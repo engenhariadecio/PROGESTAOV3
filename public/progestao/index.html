@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ProGestão — Décio</title>
+<link rel="icon" href="/assets/logo-decio.png">
+<link rel="stylesheet" href="/css/decio.css">
+<style>
+.cabeca { padding: 34px 24px 26px; border-bottom: 1px solid var(--linha); text-align: center; }
+.cabeca h1 { font-size: 27px; font-weight: 800; letter-spacing: -.03em; margin: 8px 0 6px; }
+.cabeca p { color: var(--t2); font-size: 14px; }
+
+.modulos { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
+
+.modulo {
+  background: var(--card); border: 1px solid var(--linha); border-radius: 14px;
+  padding: 22px; text-decoration: none; color: inherit;
+  display: flex; flex-direction: column; gap: 8px;
+  transition: var(--tr); position: relative; overflow: hidden;
+}
+.modulo:hover { transform: translateY(-3px); border-color: var(--linha-2); box-shadow: var(--sombra); }
+.modulo .ico {
+  width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center;
+  font-size: 21px; background: var(--fade-suave); border: 1px solid rgba(38,178,71,.22);
+  margin-bottom: 6px;
+}
+.modulo h2 { font-size: 16px; font-weight: 700; }
+.modulo p { font-size: 12.5px; color: var(--t3); line-height: 1.6; flex: 1; }
+.modulo .abrir { font-size: 12.5px; font-weight: 700; color: var(--verde-clr); display: inline-flex; gap: 6px; transition: gap .2s; margin-top: 6px; }
+.modulo:hover .abrir { gap: 11px; }
+
+.aniversarios { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 8px; }
+@media (max-width: 760px) { .aniversarios { grid-template-columns: 1fr; } }
+.aniv-item { display: flex; align-items: center; gap: 11px; padding: 9px 0; border-bottom: 1px solid var(--linha); }
+.aniv-item:last-child { border-bottom: none; }
+.aniv-item .av { width: 32px; height: 32px; border-radius: 50%; background: var(--fade); display: grid; place-items: center; font-family: var(--display); font-size: 11px; font-weight: 800; color: #fff; }
+.aniv-item .nm { flex: 1; font-size: 13px; font-weight: 600; }
+.aniv-item .dias { font-family: var(--mono); font-size: 12px; color: var(--t3); }
+</style>
+</head>
+<body>
+<header id="topo"></header>
+
+<section class="cabeca">
+  <p class="olho">Sistema 03</p>
+  <h1>ProGestão</h1>
+  <p>Gestão do setor de montagem</p>
+</section>
+
+<main class="conteudo">
+  <div class="kpis">
+    <div class="kpi"><div class="kpi-valor" id="kColabs">—</div><div class="kpi-rotulo">Colaboradores ativos</div></div>
+    <div class="kpi"><div class="kpi-valor" id="kFerr">—</div><div class="kpi-rotulo">Ferramentas</div></div>
+    <div class="kpi"><div class="kpi-valor" id="kEpis">—</div><div class="kpi-rotulo">EPIs cadastrados</div></div>
+    <div class="kpi"><div class="kpi-valor" id="kTreino">—</div><div class="kpi-rotulo">Treinamentos</div></div>
+  </div>
+
+  <p class="olho" style="margin-bottom:12px">Módulos</p>
+  <div class="modulos">
+    <a class="modulo" href="/progestao/ferramentas">
+      <span class="ico">🔧</span><h2>Ferramentas</h2>
+      <p>Inventário, empréstimos, manutenções e checklist diário do ferramental.</p>
+      <span class="abrir">Abrir →</span>
+    </a>
+    <a class="modulo" href="/progestao/epis">
+      <span class="ico">🦺</span><h2>EPIs</h2>
+      <p>Cadastro, entregas por colaborador, validade e checklist de conformidade por turno.</p>
+      <span class="abrir">Abrir →</span>
+    </a>
+    <a class="modulo" href="/progestao/banco-horas">
+      <span class="ico">⏰</span><h2>Banco de Horas</h2>
+      <p>Lançamentos de crédito e débito, convites para compensação e saldos.</p>
+      <span class="abrir">Abrir →</span>
+    </a>
+    <a class="modulo" href="/progestao/treinamentos">
+      <span class="ico">📚</span><h2>Treinamentos</h2>
+      <p>Catálogo, listas de presença, validade dos certificados e agenda.</p>
+      <span class="abrir">Abrir →</span>
+    </a>
+    <a class="modulo" href="/progestao/diario-bordo">
+      <span class="ico">📓</span><h2>Diário de Bordo</h2>
+      <p>Ocorrências e pendências do turno, com fotos, envolvidos e resumo diário.</p>
+      <span class="abrir">Abrir →</span>
+    </a>
+    <a class="modulo" href="/progestao/checklist">
+      <span class="ico">✅</span><h2>Checklist</h2>
+      <p>Atividades recorrentes com frequência, horário e registro de execução.</p>
+      <span class="abrir">Abrir →</span>
+    </a>
+    <a class="modulo" href="/progestao/producao">
+      <span class="ico">🏭</span><h2>Produção</h2>
+      <p>Plano mensal por OP e apontamento detalhado por turno, célula e número de série.</p>
+      <span class="abrir">Abrir →</span>
+    </a>
+    <a class="modulo" href="/progestao/limpeza">
+      <span class="ico">🧹</span><h2>Limpeza</h2>
+      <p>Itens com frequência de limpeza, agenda por colaborador e alertas de vencimento.</p>
+      <span class="abrir">Abrir →</span>
+    </a>
+  </div>
+
+  <section class="cartao" style="margin-top:26px">
+    <div class="cartao-topo"><h2 class="cartao-titulo">Próximos 7 dias</h2></div>
+    <div class="cartao-corpo">
+      <div class="aniversarios">
+        <div>
+          <p class="olho" style="margin-bottom:8px">Aniversários de empresa</p>
+          <div id="anivEmpresa"><p class="ajuda">Carregando…</p></div>
+        </div>
+        <div>
+          <p class="olho" style="margin-bottom:8px">Aniversários pessoais</p>
+          <div id="anivPessoal"><p class="ajuda">Carregando…</p></div>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script src="/js/core.js"></script>
+<script>
+const diasTexto = d => d == 0 ? 'hoje' : d == 1 ? 'amanhã' : `em ${d} dias`;
+
+function renderAniv(alvo, lista, sufixo) {
+  const el = document.getElementById(alvo);
+  if (!lista.length) { el.innerHTML = '<p class="ajuda">Nenhum nos próximos 7 dias.</p>'; return; }
+  el.innerHTML = lista.map(p => `
+    <div class="aniv-item">
+      <div class="av">${iniciais(p.nome)}</div>
+      <div class="nm">${escapar(p.nome)}<br><small style="color:var(--t3);font-weight:400">${sufixo(p)}</small></div>
+      <span class="dias">${diasTexto(p.dias_faltam)}</span>
+    </div>`).join('');
+}
+
+(async () => {
+  await montarTopo({ subtitulo: 'ProGestão' });
+
+  const [colabs, ferr, epis, treinos] = await Promise.all([
+    API.get('/api/colaboradores?status=Ativo').catch(() => []),
+    API.get('/api/ferramentas').catch(() => []),
+    API.get('/api/epis').catch(() => []),
+    API.get('/api/treinamentos').catch(() => [])
+  ]);
+
+  document.getElementById('kColabs').textContent = colabs.length;
+  document.getElementById('kFerr').textContent   = ferr.length;
+  document.getElementById('kEpis').textContent   = epis.length;
+  document.getElementById('kTreino').textContent = treinos.length;
+
+  API.get('/api/colaboradores/aniversarios-empresa')
+    .then(l => renderAniv('anivEmpresa', l, p => `${p.anos_empresa + 1}º ano de casa`))
+    .catch(() => { document.getElementById('anivEmpresa').innerHTML = '<p class="ajuda">Indisponível.</p>'; });
+
+  API.get('/api/colaboradores/aniversarios-pessoal')
+    .then(l => renderAniv('anivPessoal', l, p => `completa ${p.idade + 1} anos`))
+    .catch(() => { document.getElementById('anivPessoal').innerHTML = '<p class="ajuda">Indisponível.</p>'; });
+})();
+</script>
+</body>
+</html>

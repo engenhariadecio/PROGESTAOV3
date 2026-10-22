@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Portal — Décio Sistema Integrado</title>
+<link rel="icon" href="/assets/logo-decio.png">
+<link rel="stylesheet" href="/css/decio.css">
+<style>
+.abertura { padding: 44px 24px 32px; text-align: center; border-bottom: 1px solid var(--linha); position: relative; overflow: hidden; }
+.abertura::after {
+  content: ''; position: absolute; inset: 0;
+  background: radial-gradient(ellipse at 20% 0%, rgba(38,178,71,.10), transparent 55%),
+              radial-gradient(ellipse at 85% 100%, rgba(28,73,132,.14), transparent 55%);
+  pointer-events: none;
+}
+.abertura-int { position: relative; z-index: 1; max-width: 680px; margin: 0 auto; }
+.abertura h1 { font-size: 32px; font-weight: 800; letter-spacing: -.035em; margin: 10px 0 8px; }
+.abertura p { color: var(--t2); font-size: 14.5px; }
+
+.turno-agora {
+  display: inline-flex; align-items: center; gap: 10px;
+  margin-top: 22px; padding: 9px 16px;
+  background: var(--card); border: 1px solid var(--linha); border-radius: 99px;
+  font-size: 13px;
+}
+.turno-agora .pulso {
+  width: 8px; height: 8px; border-radius: 50%; background: var(--verde);
+  box-shadow: 0 0 0 0 rgba(38,178,71,.55); animation: pulsa 2.2s infinite;
+}
+@keyframes pulsa {
+  0%   { box-shadow: 0 0 0 0 rgba(38,178,71,.5); }
+  70%  { box-shadow: 0 0 0 9px rgba(38,178,71,0); }
+  100% { box-shadow: 0 0 0 0 rgba(38,178,71,0); }
+}
+.turno-agora.fora .pulso { background: var(--alerta); box-shadow: none; animation: none; }
+
+/* Cartões dos sistemas */
+.sistemas { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 18px; margin-top: 8px; }
+
+.sistema {
+  background: var(--card); border: 1px solid var(--linha); border-radius: 16px;
+  padding: 26px 24px 20px; text-decoration: none; color: inherit;
+  display: flex; flex-direction: column; position: relative; overflow: hidden;
+  transition: var(--tr);
+}
+.sistema::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+  background: var(--fade); opacity: .5; transition: opacity .25s;
+}
+.sistema:hover { transform: translateY(-4px); border-color: var(--linha-2); box-shadow: var(--sombra-lg); }
+.sistema:hover::before { opacity: 1; }
+
+.sistema-num {
+  font-family: var(--mono); font-size: 11px; font-weight: 700;
+  color: var(--t3); letter-spacing: .1em;
+}
+.sistema h2 { font-size: 19px; font-weight: 800; margin: 6px 0 8px; letter-spacing: -.02em; }
+.sistema p { font-size: 13px; color: var(--t3); line-height: 1.6; flex: 1; }
+
+.sistema-itens { display: flex; flex-wrap: wrap; gap: 6px; margin: 16px 0 18px; }
+.sistema-itens span { font-size: 10.5px; color: var(--t2); background: var(--sup); border: 1px solid var(--linha); padding: 3px 9px; border-radius: 99px; }
+
+.sistema-rodape { display: flex; align-items: center; justify-content: space-between; padding-top: 14px; border-top: 1px solid var(--linha); }
+.sistema-abrir { font-size: 13px; font-weight: 700; color: var(--verde-clr); display: inline-flex; align-items: center; gap: 6px; transition: gap .2s; }
+.sistema:hover .sistema-abrir { gap: 11px; }
+.sistema-stat { font-family: var(--mono); font-size: 12px; color: var(--t3); }
+
+.faixa-admin {
+  margin-top: 24px; background: var(--card); border: 1px solid var(--linha);
+  border-radius: var(--r); padding: 20px 24px;
+  display: flex; align-items: center; gap: 18px; flex-wrap: wrap;
+}
+.faixa-admin h3 { font-size: 15px; font-weight: 700; }
+.faixa-admin p { font-size: 12.5px; color: var(--t3); margin-top: 3px; }
+</style>
+</head>
+<body>
+<header id="topo"></header>
+
+<section class="abertura">
+  <div class="abertura-int">
+    <p class="olho">Décio Indústria Metalúrgica</p>
+    <h1>Sistema Integrado da Montagem</h1>
+    <p>Ponto NFC, Cadenciador de Produção e ProGestão — um único acesso, um único banco, os mesmos turnos.</p>
+
+    <div class="turno-agora" id="turnoAgora">
+      <span class="pulso"></span>
+      <span id="turnoTexto">Identificando o turno…</span>
+    </div>
+  </div>
+</section>
+
+<main class="conteudo">
+  <div class="sistemas">
+
+    <a class="sistema" href="/ponto">
+      <span class="sistema-num">SISTEMA 01</span>
+      <h2>Ponto NFC</h2>
+      <p>Registro de entrada e saída por aproximação do crachá, com identificação automática do turno e batida manual de contingência.</p>
+      <div class="sistema-itens">
+        <span>Leitura NFC</span><span>Batida manual</span><span>Relatórios</span><span>Exportar Excel</span>
+      </div>
+      <div class="sistema-rodape">
+        <span class="sistema-abrir">Abrir sistema →</span>
+        <span class="sistema-stat" id="statPonto">—</span>
+      </div>
+    </a>
+
+    <a class="sistema" href="/cadenciador">
+      <span class="sistema-num">SISTEMA 02</span>
+      <h2>Cadenciador de Produção</h2>
+      <p>Cadência da linha por takt time com avisos de voz, parada cronometrada e câmera do pallet que conta a produção (colocada/retirada) e compara com o takt em tempo real.</p>
+      <div class="sistema-itens">
+        <span>Takt por turno</span><span>Avisos de voz</span><span>Câmera do pallet</span><span>Painel das câmeras</span>
+      </div>
+      <div class="sistema-rodape">
+        <span class="sistema-abrir">Abrir sistema →</span>
+        <span class="sistema-stat" id="statCad">—</span>
+      </div>
+    </a>
+
+    <a class="sistema" href="/progestao">
+      <span class="sistema-num">SISTEMA 03</span>
+      <h2>ProGestão</h2>
+      <p>Gestão do setor: ferramentas, EPIs, banco de horas, treinamentos, diário de bordo, checklist e planejamento de produção.</p>
+      <div class="sistema-itens">
+        <span>Ferramentas</span><span>EPIs</span><span>Banco de horas</span><span>+4 módulos</span>
+      </div>
+      <div class="sistema-rodape">
+        <span class="sistema-abrir">Abrir sistema →</span>
+        <span class="sistema-stat" id="statColab">—</span>
+      </div>
+    </a>
+
+  </div>
+
+  <div class="faixa-admin oculto" id="faixaAdmin">
+    <div style="flex:1;min-width:240px">
+      <h3>Painel de Administração</h3>
+      <p>Turnos e intervalos, células, colaboradores, crachás NFC, takt times, produtos, usuários e parâmetros — tudo em um lugar.</p>
+    </div>
+    <a class="btn btn-primario" href="/admin">Configurar sistema</a>
+  </div>
+</main>
+
+<script src="/js/core.js"></script>
+<script>
+(async () => {
+  const usuario = await montarTopo({ subtitulo: 'Portal' });
+  if (!usuario) return;
+
+  if (usuario.role === 'admin') {
+    document.getElementById('faixaAdmin').classList.remove('oculto');
+  }
+
+  // Turno em vigor agora
+  try {
+    const { turno } = await API.get('/api/config/turnos/atual');
+    const caixa = document.getElementById('turnoAgora');
+    const txt = document.getElementById('turnoTexto');
+
+    if (turno) {
+      txt.innerHTML = `Em <strong>${escapar(turno.nome)}</strong> · ${horaCurta(turno.hora_inicio)} às ${horaCurta(turno.hora_fim)}`;
+    } else {
+      caixa.classList.add('fora');
+      txt.textContent = 'Fora do horário de qualquer turno ativo';
+    }
+  } catch {
+    document.getElementById('turnoTexto').textContent = 'Turno indisponível';
+  }
+
+  // Números de apoio, cada um falha em silêncio se o módulo não tiver dados
+  API.get('/api/ponto/resumo')
+    .then(r => { document.getElementById('statPonto').textContent = `${r.batidas_hoje} batidas hoje`; })
+    .catch(() => {});
+
+  API.get('/api/cadenciador/produtos')
+    .then(p => { document.getElementById('statCad').textContent = `${p.length} produtos`; })
+    .catch(() => {});
+
+  API.get('/api/colaboradores?status=Ativo')
+    .then(c => { document.getElementById('statColab').textContent = `${c.length} colaboradores`; })
+    .catch(() => {});
+})();
+</script>
+</body>
+</html>

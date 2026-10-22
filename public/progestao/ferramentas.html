@@ -1,0 +1,872 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ProGestão – Ferramentas</title>
+<style>
+:root{--bg:#0A1620;--card:#14293A;--card2:#1A3347;--accent:#26B247;--accent2:#1C4984;--green:#34D399;--yellow:#F0B429;--red:#F26D6D;--orange:#E88C4A;--blue:#56B6E0;--purple:#1D6574;--text:#EAF4F1;--text2:#A2BCC3;--border:#1E3D52;--radius:12px;--panel:#14293A;--panel2:#1A3347;--fade:linear-gradient(135deg,#26B247 0%,#1D6574 55%,#1C4984 100%)}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+a{color:var(--accent);text-decoration:none}
+.topbar{background:var(--card);padding:12px 24px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border)}
+.topbar .logo{font-size:1.2rem;font-weight:700;color:var(--accent)}
+.topbar .right{display:flex;align-items:center;gap:16px}
+.topbar .clock{background:var(--card2);padding:4px 12px;border-radius:20px;font-size:.85rem;color:var(--text2)}
+.topbar .user{font-size:.9rem;color:var(--text2)}
+.btn-sm{padding:6px 14px;border:none;border-radius:8px;cursor:pointer;font-size:.85rem;font-weight:600;transition:.2s}
+.btn-danger{background:var(--red);color:#fff}.btn-danger:hover{opacity:.85}
+.btn-primary{background:var(--accent);color:#fff}.btn-primary:hover{background:#2563eb}
+.btn-green{background:var(--green);color:#fff}.btn-green:hover{background:#16a34a}
+.btn-ghost{background:transparent;border:1px solid var(--border);color:var(--text2)}.btn-ghost:hover{border-color:var(--accent);color:var(--accent)}
+.btn-warning{background:var(--yellow);color:#000}.btn-warning:hover{background:#ca8a04}
+.btn-orange{background:var(--orange);color:#fff}.btn-orange:hover{opacity:.85}
+.layout{display:flex;min-height:calc(100vh - 57px)}
+.sidebar{width:220px;background:var(--card);padding:16px 12px;border-right:1px solid var(--border);display:flex;flex-direction:column;gap:4px}
+.sidebar a{display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:var(--radius);color:var(--text2);font-size:.9rem;transition:.2s}
+.sidebar a:hover,.sidebar a.active{background:var(--accent);color:#fff}
+.main{flex:1;padding:24px;overflow-y:auto}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:16px;margin-bottom:24px}
+.kpi{background:var(--card);padding:20px;border-radius:var(--radius);text-align:center}
+.kpi .num{font-size:2rem;font-weight:700}
+.kpi .lbl{font-size:.8rem;color:var(--text2);margin-top:4px}
+.tabs{display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap}
+.tab{padding:8px 18px;border-radius:20px;cursor:pointer;font-size:.85rem;background:var(--card);color:var(--text2);border:1px solid var(--border);transition:.2s}
+.tab:hover,.tab.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.tbl-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse}
+th,td{padding:10px 14px;text-align:left;border-bottom:1px solid var(--border);font-size:.88rem}
+th{background:var(--card2);color:var(--text2);font-weight:600;position:sticky;top:0}
+tr:hover{background:rgba(59,130,246,.08)}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;max-width:700px}
+.form-grid.full{grid-template-columns:1fr}
+.form-group{display:flex;flex-direction:column;gap:4px}
+.form-group label{font-size:.8rem;color:var(--text2)}
+.form-group input,.form-group select,.form-group textarea{padding:10px;border-radius:8px;border:1px solid var(--border);background:var(--card2);color:var(--text);font-size:.9rem}
+.form-group textarea{min-height:80px;resize:vertical}
+.badge{padding:3px 10px;border-radius:12px;font-size:.78rem;font-weight:600}
+.badge-green{background:rgba(34,197,94,.15);color:var(--green)}
+.badge-yellow{background:rgba(234,179,8,.15);color:var(--yellow)}
+.badge-red{background:rgba(239,68,68,.15);color:var(--red)}
+.badge-blue{background:rgba(59,130,246,.15);color:var(--accent)}
+.badge-orange{background:rgba(249,115,22,.15);color:var(--orange)}
+.badge-purple{background:rgba(139,92,246,.15);color:var(--accent2)}
+.toast{position:fixed;top:20px;right:20px;padding:14px 24px;border-radius:var(--radius);color:#fff;font-weight:600;z-index:9999;animation:slideIn .3s}
+@keyframes slideIn{from{transform:translateX(100%);opacity:0}to{transform:translateX(0);opacity:1}}
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1000;align-items:center;justify-content:center}
+.modal-overlay.show{display:flex}
+.modal{background:var(--card);border-radius:var(--radius);padding:28px;max-width:440px;width:90%}
+.modal h3{margin-bottom:12px}
+.modal .btns{display:flex;gap:10px;margin-top:18px;justify-content:flex-end}
+.search-bar{display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;align-items:center}
+.search-bar input,.search-bar select{padding:8px 14px;border-radius:8px;border:1px solid var(--border);background:var(--card2);color:var(--text);font-size:.88rem}
+.search-bar input{flex:1;min-width:200px}
+.section{display:none}.section.active{display:block}
+/* CHECKLIST PROGRESS */
+.cl-bar-wrap{display:flex;align-items:center;gap:12px;margin-bottom:16px}
+.cl-track{flex:1;height:10px;background:var(--card2);border-radius:20px;overflow:hidden}
+.cl-fill{height:100%;background:var(--green);border-radius:20px;transition:width .4s}
+.cl-pct{font-size:.9rem;font-weight:700;color:var(--green);min-width:40px}
+.cl-stats{display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap}
+.cl-pill{padding:4px 12px;border-radius:20px;font-size:.8rem;font-weight:600}
+.cl-cb{appearance:none;width:22px;height:22px;border:2px solid var(--border);border-radius:6px;cursor:pointer;background:var(--card2);position:relative;flex-shrink:0}
+.cl-cb:checked{background:var(--green);border-color:var(--green)}
+.cl-cb:checked::after{content:'✓';position:absolute;color:#fff;font-size:13px;font-weight:800;top:50%;left:50%;transform:translate(-50%,-50%)}
+.cl-checked td{opacity:.5}
+.cl-checked .td-hi{text-decoration:line-through}
+.cl-sit{display:inline-flex;gap:4px}
+.cl-sit button{padding:5px 9px;border-radius:7px;border:1px solid var(--border);background:var(--card2);color:var(--text2);font-size:.78rem;font-weight:600;cursor:pointer;white-space:nowrap}
+.cl-sit button:hover{border-color:var(--accent);color:var(--text)}
+.cl-sit button.on-ok{background:rgba(52,211,153,.18);border-color:var(--green);color:var(--green)}
+.cl-sit button.on-problema{background:rgba(232,140,74,.18);border-color:var(--orange);color:var(--orange)}
+.cl-sit button.on-nao_encontrada{background:rgba(242,109,109,.18);border-color:var(--red);color:var(--red)}
+tr.cl-ok td{opacity:.6}
+.cl-res{display:inline-flex;gap:4px;flex-wrap:wrap}
+.cl-det{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;margin:8px 0 14px}
+.cl-det div{background:var(--card2);border-radius:8px;padding:8px 10px;font-size:.8rem}
+.cl-det div b{display:block;font-size:.95rem;color:var(--text)}
+.modal.lg{max-width:900px}
+.cl-obs{padding:6px 10px;border:1px solid var(--border);border-radius:6px;background:var(--card2);color:var(--text);font-size:.82rem;width:100%;min-width:120px}
+/* COLAB GRID */
+.colab-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-top:14px}
+.colab-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;display:flex;align-items:center;gap:12px}
+.colab-av{width:42px;height:42px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;color:#fff;flex-shrink:0}
+.colab-info .cn{font-weight:600;font-size:.9rem}.colab-info .cm{font-size:.78rem;color:var(--accent);margin-top:2px}.colab-info .cc{font-size:.75rem;color:var(--text2)}
+/* REPORT GRID */
+.report-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px}
+.report-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;cursor:pointer;transition:.2s}
+.report-card:hover{border-color:var(--accent);transform:translateY(-2px)}
+.rc-icon{font-size:28px;margin-bottom:8px}
+.rc-title{font-weight:700;margin-bottom:4px}
+.rc-desc{font-size:.8rem;color:var(--text2);margin-bottom:12px}
+/* ALERT CARD */
+.alert-card{display:flex;align-items:flex-start;gap:12px;padding:14px;border-radius:var(--radius);margin-bottom:10px;border:1px solid transparent}
+.a-warn{background:rgba(234,179,8,.08);border-color:rgba(234,179,8,.3)}
+.a-dang{background:rgba(239,68,68,.08);border-color:rgba(239,68,68,.3)}
+.alert-ico{font-size:20px;flex-shrink:0}
+.alert-title{font-size:.88rem;font-weight:700}.alert-sub{font-size:.8rem;color:var(--text2);margin-top:2px}
+@media(max-width:768px){.sidebar{display:none}.form-grid{grid-template-columns:1fr}.kpis{grid-template-columns:1fr 1fr}}
+</style>
+<link rel="icon" href="/assets/logo-decio.png">
+
+<style>
+/* ===== Tema Décio — sobreposição sobre o CSS original do módulo ===== */
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap');
+body{font-family:'Inter','Segoe UI',system-ui,sans-serif}
+h1,h2,h3,.logo{font-family:'Manrope','Segoe UI',system-ui,sans-serif;letter-spacing:-.02em}
+
+.fita-marca{position:fixed;top:0;left:0;right:0;height:3px;background:var(--fade);z-index:9999}
+
+.btn-primary,.btn-accent{
+  background:var(--fade)!important;color:#fff!important;border:none!important;
+  box-shadow:0 2px 12px rgba(38,178,71,.22)}
+.btn-primary:hover,.btn-accent:hover{filter:brightness(1.06);transform:translateY(-1px)}
+.btn-green{background:var(--green)!important;color:#062B1E!important}
+.btn-warning{background:var(--yellow)!important;color:#2B1E00!important}
+
+a{color:var(--accent)}
+.topbar{border-bottom:1px solid var(--border)}
+.logo-decio{height:26px;width:26px;border-radius:7px;vertical-align:-7px;margin-right:8px}
+.voltar-portal{
+  display:inline-flex;align-items:center;gap:6px;padding:6px 12px;margin-right:6px;
+  border:1px solid var(--border);border-radius:8px;background:var(--card2);
+  color:var(--text2)!important;font-size:12px;font-weight:600;text-decoration:none}
+.voltar-portal:hover{background:var(--panel2);color:var(--text)!important}
+
+::-webkit-scrollbar{width:8px;height:8px}
+::-webkit-scrollbar-track{background:var(--bg)}
+::-webkit-scrollbar-thumb{background:#2C5570;border-radius:99px}
+:focus-visible{outline:2px solid #35C95C;outline-offset:2px}
+@media(prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+</style>
+</head>
+<body>
+<div class="fita-marca"></div>
+
+<!-- TOP BAR -->
+<div class="topbar">
+  <div class="logo"><img src="/assets/logo-decio.png" class="logo-decio" alt=""><a href="/progestao">ProGestão</a> / Ferramentas</div>
+  <div class="right">
+    <a href="/" class="voltar-portal">← Portal</a><span class="clock" id="clock"></span>
+    <span class="user" id="user-display"></span>
+    <button class="btn-sm btn-danger" onclick="doLogout()">Sair</button>
+  </div>
+</div>
+
+<div class="layout">
+<!-- SIDEBAR -->
+<nav class="sidebar">
+  <a href="/progestao">🏠 Início</a>
+  <a href="/progestao/ferramentas" class="active">🔧 Ferramentas</a>
+  <a href="/progestao/epis">🦺 EPIs</a>
+  <a href="/progestao/banco-horas">⏰ Banco Horas</a>
+  <a href="/progestao/treinamentos">📚 Treinamentos</a>
+  <a href="/progestao/diario-bordo">📋 Diário Bordo</a>
+  <a href="/progestao/checklist">✅ Checklist</a>
+  <a href="/progestao/producao">🏭 Produção</a><a href="/progestao/limpeza">🧹 Limpeza</a>
+</nav>
+
+<!-- MAIN -->
+<div class="main">
+  <h2 style="margin-bottom:20px">🔧 Gestão de Ferramentas</h2>
+
+  <!-- KPIs -->
+  <div class="kpis">
+    <div class="kpi"><div class="num" id="kpi-tot" style="color:var(--accent)">0</div><div class="lbl">Total</div></div>
+    <div class="kpi"><div class="num" id="kpi-disp" style="color:var(--green)">0</div><div class="lbl">Disponíveis</div></div>
+    <div class="kpi"><div class="num" id="kpi-uso" style="color:var(--yellow)">0</div><div class="lbl">Em Uso</div></div>
+    <div class="kpi"><div class="num" id="kpi-man" style="color:var(--orange)">0</div><div class="lbl">Manutenção</div></div>
+    <div class="kpi"><div class="num" id="kpi-alerta" style="color:var(--red)">0</div><div class="lbl">Alertas</div></div>
+  </div>
+
+  <!-- TABS -->
+  <div class="tabs">
+    <div class="tab active" onclick="showTab('lista')">📋 Inventário</div>
+    <div class="tab" onclick="showTab('cadastro')">➕ Cadastrar</div>
+    <div class="tab" onclick="showTab('emprestimos')">🤝 Empréstimos</div>
+    <div class="tab" onclick="showTab('manutencoes')">🔩 Manutenções</div>
+    <div class="tab" onclick="showTab('checklist')">☑ Checklist</div>
+    <div class="tab" onclick="showTab('alertas')">🔔 Alertas</div>
+    <div class="tab" onclick="showTab('colaboradores')">👷 Colaboradores</div>
+    <div class="tab" onclick="showTab('relatorios')">📊 Relatórios</div>
+  </div>
+
+  <!-- INVENTARIO -->
+  <div class="section active" id="sec-lista">
+    <div class="search-bar">
+      <input id="busca" placeholder="Buscar por nome ou código..." oninput="renderLista()">
+      <select id="fl-st" onchange="renderLista()"><option value="">Todos status</option><option>Disponível</option><option>Em Uso</option><option>Manutenção</option><option>Inativo</option></select>
+      <select id="fl-cat" onchange="renderLista()"><option value="">Todas categorias</option></select>
+      <button class="btn-sm btn-primary" onclick="showTab('cadastro')">+ Nova Ferramenta</button>
+    </div>
+    <div class="tbl-wrap">
+      <table><thead><tr><th>Foto</th><th>Código</th><th>Nome</th><th>Categoria</th><th>Localização</th><th>Status</th><th>Calibração</th><th>Preventiva</th><th>Ações</th></tr></thead>
+      <tbody id="lista-body"></tbody></table>
+    </div>
+  </div>
+
+  <!-- CADASTRO -->
+  <div class="section" id="sec-cadastro">
+    <h3 id="form-titulo">Nova Ferramenta</h3>
+    <input type="hidden" id="edit-id">
+    <div class="form-grid" style="margin-top:14px">
+      <div class="form-group"><label>Nome *</label><input id="f-nome" placeholder="Ex: Furadeira de Impacto"></div>
+      <div class="form-group"><label>Código *</label><input id="f-cod" placeholder="Ex: FER-001"></div>
+      <div class="form-group"><label>Categoria *</label>
+        <select id="f-cat"><option value="">Selecione...</option><option>Elétrica</option><option>Manual</option><option>Medição e Precisão</option><option>Corte</option><option>Fixação</option><option>Elevação</option><option>Pneumática</option><option>Outro</option></select>
+      </div>
+      <div class="form-group"><label>Localização *</label><input id="f-loc" placeholder="Ex: Almoxarifado A"></div>
+      <div class="form-group"><label>Status</label>
+        <select id="f-sta"><option>Disponível</option><option>Em Uso</option><option>Manutenção</option><option>Inativo</option></select>
+      </div>
+      <div class="form-group"><label>Venc. Calibração</label><input type="date" id="f-cal"></div>
+      <div class="form-group"><label>Venc. Preventiva</label><input type="date" id="f-prev"></div>
+      <div class="form-group"><label>Observações</label><textarea id="f-obs" placeholder="Informações adicionais..."></textarea></div>
+    </div>
+    <div id="fotos-ferr"></div>
+    <div style="margin-top:16px;display:flex;gap:10px">
+      <button class="btn-sm btn-green" onclick="salvar()">Salvar</button>
+      <button class="btn-sm btn-ghost" onclick="resetForm()">Cancelar</button>
+    </div>
+  </div>
+
+  <!-- EMPRESTIMOS -->
+  <div class="section" id="sec-emprestimos">
+    <h3>Registrar Retirada</h3>
+    <div class="form-grid" style="margin-top:14px">
+      <div class="form-group"><label>Ferramenta *</label><select id="emp-ferr"></select></div>
+      <div class="form-group"><label>Colaborador *</label><select id="emp-colab"></select></div>
+      <div class="form-group"><label>Data e Hora *</label><input type="datetime-local" id="emp-dt"></div>
+      <div class="form-group"><label>Observação</label><input id="emp-obs" placeholder="Ex: Uso na linha 3"></div>
+    </div>
+    <div style="margin-top:14px"><button class="btn-sm btn-green" onclick="registrarEmp()">Registrar Retirada</button></div>
+
+    <h3 style="margin-top:28px">Retiradas em Aberto</h3>
+    <div class="tbl-wrap" style="margin-top:10px">
+      <table><thead><tr><th>Ferramenta</th><th>Colaborador</th><th>Retirada em</th><th>Observação</th><th>Ação</th></tr></thead>
+      <tbody id="emp-body"></tbody></table>
+    </div>
+  </div>
+
+  <!-- MANUTENCOES -->
+  <div class="section" id="sec-manutencoes">
+    <h3>Registrar Manutenção</h3>
+    <div class="form-grid" style="margin-top:14px">
+      <div class="form-group"><label>Ferramenta *</label><select id="man-ferr"></select></div>
+      <div class="form-group"><label>Tipo *</label><select id="man-tipo"><option>Corretiva</option><option>Preventiva</option><option>Calibração</option></select></div>
+      <div class="form-group"><label>Responsável</label><select id="man-resp"></select></div>
+      <div class="form-group"><label>Data Envio *</label><input type="date" id="man-env"></div>
+      <div class="form-group"><label>Data Retorno</label><input type="date" id="man-ret"></div>
+      <div class="form-group"><label>Descrição *</label><textarea id="man-desc" placeholder="Descreva o problema..."></textarea></div>
+    </div>
+    <div style="margin-top:14px"><button class="btn-sm btn-green" onclick="registrarMan()">Registrar Manutenção</button></div>
+
+    <h3 style="margin-top:28px">Histórico de Manutenções</h3>
+    <div class="tbl-wrap" style="margin-top:10px">
+      <table><thead><tr><th>Ferramenta</th><th>Tipo</th><th>Responsável</th><th>Envio</th><th>Retorno</th><th>Descrição</th><th>Status</th><th>Ações</th></tr></thead>
+      <tbody id="man-body"></tbody></table>
+    </div>
+  </div>
+
+  <!-- CHECKLIST -->
+  <div class="section" id="sec-checklist">
+    <h3>☑ Conferência do Ferramental</h3>
+    <p style="color:var(--text2);font-size:.85rem;margin-top:4px">Marque a situação de cada ferramenta e salve. A conferência fica no histórico com data, hora, responsável e o que foi encontrado.</p>
+
+    <div class="form-grid" style="margin-top:14px;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));max-width:900px">
+      <div class="form-group"><label>Data *</label><input type="date" id="cl-data"></div>
+      <div class="form-group"><label>Hora *</label><input type="time" id="cl-hora"></div>
+      <div class="form-group"><label>Turno</label><select id="cl-turno"><option value="">—</option><option>1º Turno</option><option>2º Turno</option><option>3º Turno</option></select></div>
+      <div class="form-group" style="grid-column:span 2"><label>Observação geral</label><input id="cl-obs" placeholder="Ex: armário 2 sem cadeado"></div>
+    </div>
+
+    <div class="cl-stats" style="margin-top:16px">
+      <span class="cl-pill badge-blue">🔧 <span id="cl-tot">0</span> total</span>
+      <span class="cl-pill badge-green">✓ <span id="cl-ok">0</span> ok</span>
+      <span class="cl-pill badge-orange">⚠ <span id="cl-prob">0</span> com problema</span>
+      <span class="cl-pill badge-red">✗ <span id="cl-nao">0</span> não encontradas</span>
+      <span class="cl-pill badge-yellow">⏳ <span id="cl-pend">0</span> pendentes</span>
+    </div>
+    <div class="cl-bar-wrap">
+      <div class="cl-track"><div class="cl-fill" id="cl-bar" style="width:0%"></div></div>
+      <span class="cl-pct" id="cl-pct">0%</span>
+    </div>
+    <div style="margin-bottom:12px;display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+      <button class="btn-sm btn-ghost" onclick="clTodas('ok')">✓ Marcar todas como OK</button>
+      <button class="btn-sm btn-ghost" onclick="clTodas('pendente')">↺ Desmarcar</button>
+      <input id="cl-busca" placeholder="Filtrar por nome ou código..." oninput="renderChecklist()" style="flex:1;min-width:180px;padding:7px 12px;border-radius:8px;border:1px solid var(--border);background:var(--card2);color:var(--text);font-size:.85rem">
+      <span id="cl-rascunho" style="font-size:.75rem;color:var(--text2)"></span>
+    </div>
+    <div class="tbl-wrap">
+      <table><thead><tr><th style="min-width:250px">Situação</th><th>Código</th><th>Nome</th><th>Localização</th><th>Status</th><th>Observação</th></tr></thead>
+      <tbody id="cl-body"></tbody></table>
+    </div>
+    <div style="margin-top:16px;display:flex;gap:10px;flex-wrap:wrap">
+      <button class="btn-sm btn-green" id="cl-salvar" onclick="salvarChecklist()">💾 Salvar conferência</button>
+      <button class="btn-sm btn-ghost" onclick="limparChecklist()">Limpar</button>
+    </div>
+
+    <h3 style="margin-top:32px">📜 Histórico de conferências</h3>
+    <div class="tbl-wrap" style="margin-top:10px">
+      <table><thead><tr><th>Data</th><th>Hora</th><th>Turno</th><th>Responsável</th><th>Resultado</th><th>Obs</th><th>Ações</th></tr></thead>
+      <tbody id="cl-hist-body"></tbody></table>
+    </div>
+  </div>
+
+  <!-- ALERTAS -->
+  <div class="section" id="sec-alertas">
+    <h3>🔔 Alertas de Vencimento</h3>
+    <div id="alerta-body" style="margin-top:14px"></div>
+  </div>
+
+  <!-- COLABORADORES -->
+  <div class="section" id="sec-colaboradores">
+    <h3>👷 Colaboradores</h3>
+    <div class="search-bar" style="margin-top:14px">
+      <input id="colab-busca" placeholder="Buscar colaborador..." oninput="renderColabs()">
+    </div>
+    <div class="colab-grid" id="colab-grid"></div>
+  </div>
+
+  <!-- RELATORIOS -->
+  <div class="section" id="sec-relatorios">
+    <h3>📊 Relatórios</h3>
+    <div class="report-grid" style="margin-top:14px">
+      <div class="report-card" onclick="exportCSV('ferramentas')"><div class="rc-icon">📦</div><div class="rc-title">Inventário Geral</div><div class="rc-desc">Todas as ferramentas</div><button class="btn-sm btn-primary">⬇ CSV</button></div>
+      <div class="report-card" onclick="exportCSV('emprestimos')"><div class="rc-icon">🤝</div><div class="rc-title">Empréstimos</div><div class="rc-desc">Histórico completo</div><button class="btn-sm btn-primary">⬇ CSV</button></div>
+      <div class="report-card" onclick="exportCSV('manutencoes')"><div class="rc-icon">🔩</div><div class="rc-title">Manutenções</div><div class="rc-desc">Histórico de manutenções</div><button class="btn-sm btn-primary">⬇ CSV</button></div>
+      <div class="report-card" onclick="exportExcelChecklists()"><div class="rc-icon">☑</div><div class="rc-title">Conferências</div><div class="rc-desc">Histórico do checklist, ferramenta por ferramenta</div><button class="btn-sm btn-green">⬇ Excel</button></div>
+      <div class="report-card" onclick="exportExcel()"><div class="rc-icon">📊</div><div class="rc-title">Excel Completo</div><div class="rc-desc">Exportar via servidor</div><button class="btn-sm btn-green">⬇ Excel</button></div>
+    </div>
+  </div>
+
+</div><!-- /main -->
+</div><!-- /layout -->
+
+<!-- MODAL DETALHE CHECKLIST -->
+<div class="modal-overlay" id="modal-cl" onclick="if(event.target===this)this.classList.remove('show')">
+  <div class="modal lg">
+    <h3 id="modal-cl-titulo">Conferência</h3>
+    <div id="modal-cl-corpo"></div>
+    <div class="btns"><button class="btn-sm btn-ghost" onclick="document.getElementById('modal-cl').classList.remove('show')">Fechar</button></div>
+  </div>
+</div>
+
+<!-- MODAL DELETE -->
+<div class="modal-overlay" id="modal-del">
+  <div class="modal">
+    <h3>Confirmar Exclusão</h3>
+    <p id="modal-del-msg">Tem certeza?</p>
+    <div class="btns">
+      <button class="btn-sm btn-ghost" onclick="fecharModal()">Cancelar</button>
+      <button class="btn-sm btn-danger" id="modal-del-btn">Excluir</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL DEVOLUCAO -->
+<div class="modal-overlay" id="modal-dev">
+  <div class="modal">
+    <h3>Registrar Devolução</h3>
+    <div class="form-group" style="margin-top:10px"><label>Data/Hora Devolução</label><input type="datetime-local" id="dev-dt" style="padding:10px;border-radius:8px;border:1px solid var(--border);background:var(--card2);color:var(--text);font-size:.9rem;width:100%"></div>
+    <div class="form-group" style="margin-top:10px"><label>Observação</label><input id="dev-obs" placeholder="Estado da ferramenta..." style="padding:10px;border-radius:8px;border:1px solid var(--border);background:var(--card2);color:var(--text);font-size:.9rem;width:100%"></div>
+    <div class="btns">
+      <button class="btn-sm btn-ghost" onclick="fecharModalDev()">Cancelar</button>
+      <button class="btn-sm btn-green" id="modal-dev-btn">Devolver</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL RETORNO MANUTENCAO -->
+<div class="modal-overlay" id="modal-ret">
+  <div class="modal">
+    <h3>Registrar Retorno</h3>
+    <div class="form-group" style="margin-top:10px"><label>Data Retorno</label><input type="date" id="ret-dt" style="padding:10px;border-radius:8px;border:1px solid var(--border);background:var(--card2);color:var(--text);font-size:.9rem;width:100%"></div>
+    <div class="btns">
+      <button class="btn-sm btn-ghost" onclick="fecharModalRet()">Cancelar</button>
+      <button class="btn-sm btn-green" id="modal-ret-btn">Confirmar Retorno</button>
+    </div>
+  </div>
+</div>
+
+<script src="/js/fotos.js"></script>
+<script>
+/* ============ GLOBALS ============ */
+let ferramentas=[],emprestimos=[],manutencoes=[],colabs=[],colabsTodos=[],clData={};   // colabs = sem desligados
+let editId=null;
+let fotosFerr={};   // { id_ferramenta: [ids das fotos] }
+const galFerr=Fotos.galeria('#fotos-ferr',{entidade:'ferramenta',titulo:'Fotos da ferramenta'});
+
+/* ============ API ============ */
+const api={
+  async get(u){const r=await fetch(u);if(r.status===401)return location.href='/login';return r.json()},
+  async post(u,d){const r=await fetch(u,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(d)});if(r.status===401)return location.href='/login';return r.json()},
+  async put(u,d){const r=await fetch(u,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(d)});if(r.status===401)return location.href='/login';return r.json()},
+  async del(u){const r=await fetch(u,{method:'DELETE'});if(r.status===401)return location.href='/login';return r.json()}
+};
+
+/* ============ UTILS ============ */
+function toast(msg,type='success'){const t=document.createElement('div');t.className='toast';t.style.background=type==='error'?'var(--red)':'var(--green)';t.textContent=msg;document.body.appendChild(t);setTimeout(()=>t.remove(),3000)}
+function fmt(d){if(!d)return'-';return new Date(d).toLocaleDateString('pt-BR')}
+function fmtDT(d){if(!d)return'-';const dt=new Date(d);return dt.toLocaleDateString('pt-BR')+' '+dt.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}
+function diffDays(d){if(!d)return null;return Math.ceil((new Date(d)-new Date())/(1000*60*60*24))}
+function initials(n){return(n||'?').split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase()}
+
+function stBadge(s){
+  const m={'Disponível':'badge-green','Em Uso':'badge-yellow','Manutenção':'badge-orange','Inativo':'badge-red'};
+  return `<span class="badge ${m[s]||'badge-blue'}">${s||'-'}</span>`;
+}
+
+/* ============ CLOCK ============ */
+function updateClock(){const n=new Date();document.getElementById('clock').textContent=n.toLocaleTimeString('pt-BR')+' — '+n.toLocaleDateString('pt-BR')}
+setInterval(updateClock,1000);updateClock();
+
+/* ============ LOGOUT ============ */
+async function doLogout(){await fetch('/api/logout',{method:'POST'});location.href='/login'}
+
+/* ============ TABS ============ */
+function showTab(t){
+  document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(s=>s.classList.remove('active'));
+  document.getElementById('sec-'+t).classList.add('active');
+  if(event&&event.target)event.target.classList.add('active');
+  if(t==='emprestimos')populateEmpSelects();
+  if(t==='manutencoes')populateManSelects();
+  if(t==='checklist')abrirChecklist();
+  if(t==='alertas')renderAlertas();
+  if(t==='colaboradores')renderColabs();
+}
+
+/* ============ LOAD ============ */
+async function loadAll(){
+  [ferramentas,emprestimos,manutencoes,colabs,fotosFerr]=await Promise.all([
+    api.get('/api/ferramentas'),
+    api.get('/api/ferramentas/emprestimos/todos'),
+    api.get('/api/ferramentas/manutencoes/todos'),
+    api.get('/api/colaboradores'),
+    Fotos.mapa('ferramenta')
+  ]);
+  colabsTodos=colabs;colabs=colabs.filter(c=>c.status!=='Desligado');
+  updateKPIs();renderLista();renderEmp();renderMan();populateCatFilter();
+}
+
+/* ============ KPIs ============ */
+function updateKPIs(){
+  document.getElementById('kpi-tot').textContent=ferramentas.length;
+  document.getElementById('kpi-disp').textContent=ferramentas.filter(f=>f.status==='Disponível').length;
+  document.getElementById('kpi-uso').textContent=ferramentas.filter(f=>f.status==='Em Uso').length;
+  document.getElementById('kpi-man').textContent=ferramentas.filter(f=>f.status==='Manutenção').length;
+  let alertas=0;
+  ferramentas.forEach(f=>{
+    if(f.calibracao_venc){const d=diffDays(f.calibracao_venc);if(d!==null&&d<=30)alertas++}
+    if(f.preventiva_venc){const d=diffDays(f.preventiva_venc);if(d!==null&&d<=30)alertas++}
+  });
+  document.getElementById('kpi-alerta').textContent=alertas;
+}
+
+function populateCatFilter(){
+  const cats=[...new Set(ferramentas.map(f=>f.categoria).filter(Boolean))].sort();
+  const sel=document.getElementById('fl-cat');
+  const cur=sel.value;
+  sel.innerHTML='<option value="">Todas categorias</option>'+cats.map(c=>`<option>${c}</option>`).join('');
+  sel.value=cur;
+}
+
+/* ============ INVENTARIO ============ */
+function renderLista(){
+  const q=(document.getElementById('busca').value||'').toLowerCase();
+  const fSt=document.getElementById('fl-st').value;
+  const fCat=document.getElementById('fl-cat').value;
+  let list=ferramentas;
+  if(q)list=list.filter(f=>(f.nome||'').toLowerCase().includes(q)||(f.codigo||'').toLowerCase().includes(q));
+  if(fSt)list=list.filter(f=>f.status===fSt);
+  if(fCat)list=list.filter(f=>f.categoria===fCat);
+  const tb=document.getElementById('lista-body');
+  if(!list.length){tb.innerHTML='<tr><td colspan="9" style="text-align:center;color:var(--text2)">Nenhuma ferramenta encontrada</td></tr>';return}
+  tb.innerHTML=list.map(f=>{
+    let calBadge='-',prevBadge='-';
+    if(f.calibracao_venc){const d=diffDays(f.calibracao_venc);calBadge=d<0?`<span class="badge badge-red">${fmt(f.calibracao_venc)}</span>`:d<=30?`<span class="badge badge-yellow">${fmt(f.calibracao_venc)}</span>`:`<span class="badge badge-green">${fmt(f.calibracao_venc)}</span>`}
+    if(f.preventiva_venc){const d=diffDays(f.preventiva_venc);prevBadge=d<0?`<span class="badge badge-red">${fmt(f.preventiva_venc)}</span>`:d<=30?`<span class="badge badge-yellow">${fmt(f.preventiva_venc)}</span>`:`<span class="badge badge-green">${fmt(f.preventiva_venc)}</span>`}
+    return `<tr>
+      <td>${Fotos.miniaturas(fotosFerr[f.id],{max:1})}</td>
+      <td><strong style="font-family:monospace;color:var(--accent)">${f.codigo||'-'}</strong></td>
+      <td><strong>${f.nome}</strong></td>
+      <td>${f.categoria||'-'}</td>
+      <td>${f.localizacao||'-'}</td>
+      <td>${stBadge(f.status)}</td>
+      <td>${calBadge}</td>
+      <td>${prevBadge}</td>
+      <td>
+        <button class="btn-sm btn-ghost" onclick="editarFerr(${f.id})">✏</button>
+        <button class="btn-sm btn-danger" onclick="confirmarDel(${f.id},'${(f.nome||'').replace(/'/g,"\\'")}')">🗑</button>
+      </td></tr>`;
+  }).join('');
+}
+
+/* ============ FORM ============ */
+function editarFerr(id){
+  const f=ferramentas.find(x=>x.id===id);if(!f)return;
+  editId=id;
+  document.getElementById('edit-id').value=id;
+  document.getElementById('form-titulo').textContent='Editar Ferramenta';
+  document.getElementById('f-nome').value=f.nome||'';
+  document.getElementById('f-cod').value=f.codigo||'';
+  document.getElementById('f-cat').value=f.categoria||'';
+  document.getElementById('f-loc').value=f.localizacao||'';
+  document.getElementById('f-sta').value=f.status||'Disponível';
+  document.getElementById('f-cal').value=f.calibracao_venc?f.calibracao_venc.split('T')[0]:'';
+  document.getElementById('f-prev').value=f.preventiva_venc?f.preventiva_venc.split('T')[0]:'';
+  document.getElementById('f-obs').value=f.obs||'';
+  galFerr.carregar(id);
+  showTab('cadastro');
+}
+
+function resetForm(){
+  editId=null;
+  document.getElementById('edit-id').value='';
+  document.getElementById('form-titulo').textContent='Nova Ferramenta';
+  ['f-nome','f-cod','f-loc','f-obs'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('f-cat').value='';
+  document.getElementById('f-sta').value='Disponível';
+  document.getElementById('f-cal').value='';
+  document.getElementById('f-prev').value='';
+  galFerr.limpar();
+  showTab('lista');
+}
+
+async function salvar(){
+  const nome=document.getElementById('f-nome').value.trim();
+  const codigo=document.getElementById('f-cod').value.trim();
+  const categoria=document.getElementById('f-cat').value;
+  const localizacao=document.getElementById('f-loc').value.trim();
+  if(!nome||!codigo||!categoria||!localizacao)return toast('Preencha todos os campos obrigatórios','error');
+  const body={nome,codigo,categoria,localizacao,status:document.getElementById('f-sta').value,calibracao_venc:document.getElementById('f-cal').value||null,preventiva_venc:document.getElementById('f-prev').value||null,obs:document.getElementById('f-obs').value.trim()||null};
+  const r=editId?await api.put('/api/ferramentas/'+editId,body):await api.post('/api/ferramentas',body);
+  if(!r||r.error)return toast(r&&r.error?r.error:'Erro ao salvar','error');
+  await galFerr.salvar(r.id);
+  toast(editId?'Ferramenta atualizada!':'Ferramenta cadastrada!');
+  resetForm();await loadAll();
+}
+
+/* ============ EMPRESTIMOS ============ */
+function populateEmpSelects(){
+  const sf=document.getElementById('emp-ferr');
+  sf.innerHTML='<option value="">Selecione...</option>'+ferramentas.filter(f=>f.status==='Disponível').map(f=>`<option value="${f.id}">${f.codigo} — ${f.nome}</option>`).join('');
+  const sc=document.getElementById('emp-colab');
+  sc.innerHTML='<option value="">Selecione...</option>'+colabs.map(c=>`<option value="${c.id}">${c.nome}</option>`).join('');
+  document.getElementById('emp-dt').value=new Date().toISOString().slice(0,16);
+}
+
+function renderEmp(){
+  const abertos=emprestimos.filter(e=>!e.devolvido_em);
+  const tb=document.getElementById('emp-body');
+  if(!abertos.length){tb.innerHTML='<tr><td colspan="5" style="text-align:center;color:var(--text2)">Nenhuma retirada em aberto</td></tr>';return}
+  tb.innerHTML=abertos.map(e=>{
+    const f=ferramentas.find(x=>x.id===e.ferramenta_id);
+    return `<tr>
+      <td><strong>${f?f.nome:'?'}</strong></td>
+      <td>${e.colab_nome||'-'}</td>
+      <td>${fmtDT(e.retirado_em)}</td>
+      <td>${e.obs||'-'}</td>
+      <td><button class="btn-sm btn-green" onclick="abrirDev(${e.id})">↩ Devolver</button> <button class="btn-sm btn-danger" onclick="delEmp(${e.id})">🗑</button></td>
+    </tr>`;
+  }).join('');
+}
+
+async function registrarEmp(){
+  const ferramenta_id=document.getElementById('emp-ferr').value;
+  const colaborador_id=document.getElementById('emp-colab').value;
+  const retirado_em=document.getElementById('emp-dt').value;
+  const obs=document.getElementById('emp-obs').value;
+  if(!ferramenta_id||!colaborador_id||!retirado_em)return toast('Preencha campos obrigatórios','error');
+  await api.post('/api/ferramentas/emprestimos',{ferramenta_id:+ferramenta_id,colaborador_id:+colaborador_id,retirado_em,obs});
+  toast('Retirada registrada!');document.getElementById('emp-obs').value='';await loadAll();populateEmpSelects();
+}
+
+let devId=0;
+function abrirDev(id){devId=id;document.getElementById('dev-dt').value=new Date().toISOString().slice(0,16);document.getElementById('dev-obs').value='';document.getElementById('modal-dev').classList.add('show');document.getElementById('modal-dev-btn').onclick=async()=>{await api.put('/api/ferramentas/emprestimos/'+devId+'/devolver',{devolvido_em:document.getElementById('dev-dt').value,obs_dev:document.getElementById('dev-obs').value});toast('Devolução registrada!');fecharModalDev();await loadAll()}}
+function fecharModalDev(){document.getElementById('modal-dev').classList.remove('show')}
+
+async function delEmp(id){if(!confirm('Excluir empréstimo?'))return;await api.del('/api/ferramentas/emprestimos/'+id);toast('Excluído!');await loadAll()}
+
+/* ============ MANUTENCOES ============ */
+function populateManSelects(){
+  const sf=document.getElementById('man-ferr');
+  sf.innerHTML='<option value="">Selecione...</option>'+ferramentas.map(f=>`<option value="${f.id}">${f.codigo} — ${f.nome}</option>`).join('');
+  const sr=document.getElementById('man-resp');
+  sr.innerHTML='<option value="">Selecione...</option>'+colabs.map(c=>`<option value="${c.id}">${c.nome}</option>`).join('');
+  document.getElementById('man-env').value=new Date().toISOString().split('T')[0];
+}
+
+function renderMan(){
+  const tb=document.getElementById('man-body');
+  if(!manutencoes.length){tb.innerHTML='<tr><td colspan="8" style="text-align:center;color:var(--text2)">Nenhuma manutenção</td></tr>';return}
+  tb.innerHTML=manutencoes.map(m=>{
+    const f=ferramentas.find(x=>x.id===m.ferramenta_id);
+    const stBadge2=m.dt_retorno?'<span class="badge badge-green">Retornou</span>':'<span class="badge badge-yellow">Em andamento</span>';
+    return `<tr>
+      <td><strong>${f?f.nome:'?'}</strong></td>
+      <td><span class="badge badge-blue">${m.tipo||'-'}</span></td>
+      <td>${m.colab_nome||'-'}</td>
+      <td>${fmt(m.dt_envio)}</td>
+      <td>${fmt(m.dt_retorno)}</td>
+      <td style="max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${m.descricao||'-'}</td>
+      <td>${stBadge2}</td>
+      <td>${!m.dt_retorno?`<button class="btn-sm btn-green" onclick="abrirRet(${m.id})">↩ Retorno</button> `:''}<button class="btn-sm btn-danger" onclick="delMan(${m.id})">🗑</button></td>
+    </tr>`;
+  }).join('');
+}
+
+async function registrarMan(){
+  const ferramenta_id=document.getElementById('man-ferr').value;
+  const tipo=document.getElementById('man-tipo').value;
+  const dt_envio=document.getElementById('man-env').value;
+  const descricao=document.getElementById('man-desc').value.trim();
+  if(!ferramenta_id||!dt_envio||!descricao)return toast('Preencha campos obrigatórios','error');
+  const responsavel_id=document.getElementById('man-resp').value||null;
+  const dt_retorno=document.getElementById('man-ret').value||null;
+  await api.post('/api/ferramentas/manutencoes',{ferramenta_id:+ferramenta_id,tipo,responsavel_id:responsavel_id?+responsavel_id:null,dt_envio,dt_retorno,descricao});
+  toast('Manutenção registrada!');document.getElementById('man-desc').value='';document.getElementById('man-ret').value='';await loadAll();populateManSelects();
+}
+
+let retId=0;
+function abrirRet(id){retId=id;document.getElementById('ret-dt').value=new Date().toISOString().split('T')[0];document.getElementById('modal-ret').classList.add('show');document.getElementById('modal-ret-btn').onclick=async()=>{await api.put('/api/ferramentas/manutencoes/'+retId,{dt_retorno:document.getElementById('ret-dt').value});toast('Retorno registrado!');fecharModalRet();await loadAll()}}
+function fecharModalRet(){document.getElementById('modal-ret').classList.remove('show')}
+
+async function delMan(id){if(!confirm('Excluir manutenção?'))return;await api.del('/api/ferramentas/manutencoes/'+id);toast('Excluído!');await loadAll()}
+
+/* ============ CHECKLIST ============ */
+/* clSit: { id_ferramenta: { situacao, obs } } — rascunho da conferência em andamento.
+   Fica no localStorage do aparelho para não se perder num F5 ou troca de aba. */
+let clSit={}, clHist=[];
+const CL_RASCUNHO='decio.ferr.checklist.rascunho';
+const CL_SIT={ok:{txt:'✓ OK',cls:'on-ok'},problema:{txt:'⚠ Problema',cls:'on-problema'},nao_encontrada:{txt:'✗ Não achei',cls:'on-nao_encontrada'}};
+const CL_NOME={ok:'OK',problema:'Com problema',nao_encontrada:'Não encontrada',pendente:'Não conferida'};
+
+function clGuardarRascunho(){
+  try{localStorage.setItem(CL_RASCUNHO,JSON.stringify({sit:clSit,data:document.getElementById('cl-data').value,hora:document.getElementById('cl-hora').value,turno:document.getElementById('cl-turno').value,obs:document.getElementById('cl-obs').value,em:Date.now()}))}catch(e){}
+  const n=Object.values(clSit).filter(x=>x.situacao&&x.situacao!=='pendente').length;
+  document.getElementById('cl-rascunho').textContent=n?'Rascunho guardado neste aparelho':'';
+}
+function clLerRascunho(){
+  try{
+    const r=JSON.parse(localStorage.getItem(CL_RASCUNHO)||'null');
+    if(!r||!r.sit||Date.now()-(r.em||0)>36*3600*1000)return false;   // rascunho de mais de 36h não vale mais
+    clSit=r.sit;
+    if(r.data)document.getElementById('cl-data').value=r.data;
+    if(r.hora)document.getElementById('cl-hora').value=r.hora;
+    document.getElementById('cl-turno').value=r.turno||'';
+    document.getElementById('cl-obs').value=r.obs||'';
+    return true;
+  }catch(e){return false}
+}
+function clIniciarForm(){
+  const n=new Date();
+  document.getElementById('cl-data').value=n.getFullYear()+'-'+String(n.getMonth()+1).padStart(2,'0')+'-'+String(n.getDate()).padStart(2,'0');
+  document.getElementById('cl-hora').value=n.toTimeString().slice(0,5);
+  document.getElementById('cl-turno').value='';document.getElementById('cl-obs').value='';
+}
+
+async function abrirChecklist(){
+  if(!document.getElementById('cl-data').value){clIniciarForm();clLerRascunho()}
+  renderChecklist();
+  await carregarHistChecklist();
+}
+
+function renderChecklist(){
+  const q=(document.getElementById('cl-busca').value||'').toLowerCase();
+  const tb=document.getElementById('cl-body');
+  if(!ferramentas.length){tb.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--text2)">Nenhuma ferramenta cadastrada</td></tr>';renderClStats();return}
+  const lista=ferramentas.filter(f=>f.status!=='Inativo').filter(f=>!q||(f.nome||'').toLowerCase().includes(q)||(f.codigo||'').toLowerCase().includes(q));
+  tb.innerHTML=lista.map(f=>{
+    const st=clSit[f.id]||{};
+    const sit=st.situacao||'pendente';
+    const botoes=Object.keys(CL_SIT).map(k=>`<button type="button" class="${sit===k?CL_SIT[k].cls:''}" onclick="clMarcar(${f.id},'${k}')">${CL_SIT[k].txt}</button>`).join('');
+    return `<tr class="${sit==='ok'?'cl-ok':''}">
+      <td><span class="cl-sit">${botoes}</span></td>
+      <td><strong style="font-family:monospace;color:var(--accent)">${f.codigo||'-'}</strong></td>
+      <td>${f.nome}</td>
+      <td>${f.localizacao||'-'}</td>
+      <td>${stBadge(f.status)}</td>
+      <td><input class="cl-obs" value="${(st.obs||'').replace(/"/g,'&quot;')}" placeholder="Obs..." onchange="clObs(${f.id},this.value)"></td>
+    </tr>`;
+  }).join('');
+  if(!lista.length)tb.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--text2)">Nada encontrado</td></tr>';
+  renderClStats();
+}
+function clMarcar(id,sit){
+  const atual=clSit[id]||{};
+  clSit[id]={situacao:atual.situacao===sit?'pendente':sit,obs:atual.obs||''};   // clicar de novo desmarca
+  clGuardarRascunho();renderChecklist();
+}
+function clObs(id,v){clSit[id]=Object.assign(clSit[id]||{situacao:'pendente'},{obs:v});clGuardarRascunho()}
+function clTodas(sit){
+  ferramentas.filter(f=>f.status!=='Inativo').forEach(f=>{clSit[f.id]=Object.assign(clSit[f.id]||{},{situacao:sit})});
+  clGuardarRascunho();renderChecklist();
+}
+function clContar(){
+  const c={total:0,ok:0,problema:0,nao_encontrada:0,pendente:0};
+  ferramentas.filter(f=>f.status!=='Inativo').forEach(f=>{c.total++;const s=(clSit[f.id]||{}).situacao||'pendente';c[s]=(c[s]||0)+1});
+  return c;
+}
+function renderClStats(){
+  const c=clContar();
+  document.getElementById('cl-tot').textContent=c.total;
+  document.getElementById('cl-ok').textContent=c.ok;
+  document.getElementById('cl-prob').textContent=c.problema;
+  document.getElementById('cl-nao').textContent=c.nao_encontrada;
+  document.getElementById('cl-pend').textContent=c.pendente;
+  const pct=c.total?Math.round((c.total-c.pendente)/c.total*100):0;
+  document.getElementById('cl-bar').style.width=pct+'%';
+  document.getElementById('cl-pct').textContent=pct+'%';
+}
+function limparChecklist(){
+  const c=clContar();
+  if(c.total-c.pendente>0&&!confirm('Descartar as marcações desta conferência?'))return;
+  clSit={};try{localStorage.removeItem(CL_RASCUNHO)}catch(e){}
+  clIniciarForm();document.getElementById('cl-rascunho').textContent='';renderChecklist();
+}
+
+async function salvarChecklist(){
+  const data=document.getElementById('cl-data').value,hora=document.getElementById('cl-hora').value;
+  if(!data||!hora)return toast('Informe data e hora','error');
+  const c=clContar();
+  if(c.total-c.pendente===0)return toast('Marque pelo menos uma ferramenta','error');
+  if(c.pendente>0&&!confirm(c.pendente+' ferramenta(s) ainda sem marcação. Salvar mesmo assim? Elas ficam como "não conferida".'))return;
+  const itens=ferramentas.filter(f=>f.status!=='Inativo').map(f=>({ferramenta_id:f.id,situacao:(clSit[f.id]||{}).situacao||'pendente',obs:(clSit[f.id]||{}).obs||''}));
+  const btn=document.getElementById('cl-salvar');btn.disabled=true;
+  try{
+    const r=await api.post('/api/ferramentas/checklists',{data,hora,turno:document.getElementById('cl-turno').value||null,obs:document.getElementById('cl-obs').value,itens});
+    if(!r||r.error)return toast(r&&r.error?r.error:'Erro ao salvar','error');
+    toast('Conferência salva!');
+    clSit={};try{localStorage.removeItem(CL_RASCUNHO)}catch(e){}
+    clIniciarForm();document.getElementById('cl-rascunho').textContent='';renderChecklist();
+    await carregarHistChecklist();
+  }finally{btn.disabled=false}
+}
+
+/* --- histórico --- */
+function clResultadoHTML(c){
+  let h='<span class="cl-res">';
+  h+=`<span class="badge badge-green">✓ ${c.ok}</span>`;
+  if(c.problema)h+=`<span class="badge badge-orange">⚠ ${c.problema}</span>`;
+  if(c.nao_encontrada)h+=`<span class="badge badge-red">✗ ${c.nao_encontrada}</span>`;
+  if(c.pendente)h+=`<span class="badge badge-yellow">⏳ ${c.pendente}</span>`;
+  return h+`<span style="font-size:.78rem;color:var(--text2);align-self:center">de ${c.total}</span></span>`;
+}
+async function carregarHistChecklist(){
+  clHist=await api.get('/api/ferramentas/checklists')||[];
+  const tb=document.getElementById('cl-hist-body');
+  if(!clHist.length){tb.innerHTML='<tr><td colspan="7" style="text-align:center;color:var(--text2)">Nenhuma conferência salva ainda</td></tr>';return}
+  tb.innerHTML=clHist.map(c=>`<tr>
+    <td>${fmt(c.data)}</td><td>${String(c.hora||'').slice(0,5)}</td><td>${c.turno||'-'}</td><td>${c.responsavel_nome||'-'}</td>
+    <td>${clResultadoHTML(c)}</td>
+    <td style="max-width:220px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${c.obs||'-'}</td>
+    <td style="white-space:nowrap"><button class="btn-sm btn-ghost" onclick="verChecklist(${c.id})">👁 Ver</button> <button class="btn-sm btn-danger" onclick="delChecklist(${c.id})">🗑</button></td>
+  </tr>`).join('');
+}
+async function verChecklist(id){
+  const c=await api.get('/api/ferramentas/checklists/'+id);
+  if(!c||c.error)return toast('Não foi possível abrir','error');
+  document.getElementById('modal-cl-titulo').textContent='Conferência de '+fmt(c.data)+' às '+String(c.hora||'').slice(0,5);
+  const badge={ok:'badge-green',problema:'badge-orange',nao_encontrada:'badge-red',pendente:'badge-yellow'};
+  const ordem={problema:0,nao_encontrada:1,pendente:2,ok:3};
+  const itens=(c.itens||[]).slice().sort((a,b)=>(ordem[a.situacao]??9)-(ordem[b.situacao]??9)||String(a.cod).localeCompare(String(b.cod)));
+  let h=`<div class="cl-det"><div>Responsável<b>${c.responsavel_nome||'-'}</b></div><div>Turno<b>${c.turno||'-'}</b></div><div>Resultado<b>${clResultadoHTML(c)}</b></div></div>`;
+  if(c.obs)h+=`<p style="font-size:.85rem;margin-bottom:12px"><span style="color:var(--text2)">Obs:</span> ${c.obs}</p>`;
+  h+='<div class="tbl-wrap" style="max-height:55vh;overflow:auto"><table><thead><tr><th>Situação</th><th>Código</th><th>Nome</th><th>Localização</th><th>Status na hora</th><th>Obs</th></tr></thead><tbody>';
+  h+=itens.map(i=>`<tr><td><span class="badge ${badge[i.situacao]||'badge-blue'}">${CL_NOME[i.situacao]||i.situacao}</span></td><td style="font-family:monospace;color:var(--accent)">${i.cod||'-'}</td><td>${i.nome||'-'}</td><td>${i.loc||'-'}</td><td>${stBadge(i.status_ferr)}</td><td>${i.obs||'-'}</td></tr>`).join('');
+  h+='</tbody></table></div>';
+  document.getElementById('modal-cl-corpo').innerHTML=h;
+  document.getElementById('modal-cl').classList.add('show');
+}
+async function delChecklist(id){
+  if(!confirm('Excluir esta conferência do histórico?'))return;
+  await api.del('/api/ferramentas/checklists/'+id);toast('Excluída!');await carregarHistChecklist();
+}
+
+/* ============ ALERTAS ============ */
+function renderAlertas(){
+  const body=document.getElementById('alerta-body');
+  const rows=[];
+  ferramentas.forEach(f=>{
+    if(f.calibracao_venc){const d=diffDays(f.calibracao_venc);if(d!==null&&d<=30)rows.push({f,tipo:'Calibração',data:f.calibracao_venc,dd:d})}
+    if(f.preventiva_venc){const d=diffDays(f.preventiva_venc);if(d!==null&&d<=30)rows.push({f,tipo:'Preventiva',data:f.preventiva_venc,dd:d})}
+  });
+  rows.sort((a,b)=>a.dd-b.dd);
+  if(!rows.length){body.innerHTML='<p style="color:var(--text2);text-align:center;padding:20px">Nenhum alerta de vencimento.</p>';return}
+  body.innerHTML=rows.map(r=>{
+    const cls=r.dd<0?'a-dang':'a-warn';
+    const ico=r.dd<0?'🚨':'⚠️';
+    const status=r.dd<0?'VENCIDO há '+Math.abs(r.dd)+' dias':'Vence em '+r.dd+' dias';
+    return `<div class="alert-card ${cls}"><div class="alert-ico">${ico}</div><div><div class="alert-title">${r.f.codigo} — ${r.f.nome}</div><div class="alert-sub">${r.tipo}: ${fmt(r.data)} — ${status}</div></div></div>`;
+  }).join('');
+}
+
+/* ============ COLABORADORES ============ */
+function renderColabs(){
+  const q=(document.getElementById('colab-busca').value||'').toLowerCase();
+  const list=colabs.filter(c=>(c.nome||'').toLowerCase().includes(q));
+  const grid=document.getElementById('colab-grid');
+  if(!list.length){grid.innerHTML='<p style="color:var(--text2)">Nenhum colaborador encontrado.</p>';return}
+  grid.innerHTML=list.map(c=>`<div class="colab-card"><div class="colab-av">${initials(c.nome)}</div><div class="colab-info"><div class="cn">${c.nome}</div><div class="cm">${c.cargo||'-'}</div><div class="cc">${c.turno||'-'}</div></div></div>`).join('');
+}
+
+/* ============ RELATORIOS ============ */
+function exportCSV(tipo){
+  let csv='';
+  if(tipo==='ferramentas'){
+    csv='Código;Nome;Categoria;Localização;Status;Calibração;Preventiva\n';
+    ferramentas.forEach(f=>csv+=`${f.codigo||''};${f.nome};${f.categoria||''};${f.localizacao||''};${f.status||''};${fmt(f.calibracao_venc)};${fmt(f.preventiva_venc)}\n`);
+  }else if(tipo==='emprestimos'){
+    csv='Ferramenta;Colaborador;Retirada;Devolução;Obs\n';
+    emprestimos.forEach(e=>{const f=ferramentas.find(x=>x.id===e.ferramenta_id);csv+=`${f?f.nome:'?'};${e.colab_nome||''};${fmtDT(e.retirado_em)};${fmtDT(e.devolvido_em)};${e.obs||''}\n`});
+  }else{
+    csv='Ferramenta;Tipo;Responsável;Envio;Retorno;Descrição\n';
+    manutencoes.forEach(m=>{const f=ferramentas.find(x=>x.id===m.ferramenta_id);csv+=`${f?f.nome:'?'};${m.tipo||''};${m.colab_nome||''};${fmt(m.dt_envio)};${fmt(m.dt_retorno)};${(m.descricao||'').replace(/;/g,',')}\n`});
+  }
+  const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=tipo+'_relatorio.csv';a.click();
+  toast('CSV exportado!');
+}
+
+async function exportExcelChecklists(){
+  try{
+    const r=await fetch('/api/export/ferr-checklists');
+    if(!r.ok)throw new Error('Erro');
+    const blob=await r.blob();
+    const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='conferencias_ferramentas.xlsx';a.click();
+    toast('Excel exportado!');
+  }catch(e){toast('Erro ao exportar Excel','error')}
+}
+
+async function exportExcel(){
+  try{
+    const r=await fetch('/api/export/ferramentas');
+    if(!r.ok)throw new Error('Erro');
+    const blob=await r.blob();
+    const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='ferramentas_completo.xlsx';a.click();
+    toast('Excel exportado!');
+  }catch(e){toast('Erro ao exportar Excel','error')}
+}
+
+/* ============ DELETE ============ */
+function confirmarDel(id,nome){
+  document.getElementById('modal-del-msg').textContent='Excluir "'+nome+'"?';
+  document.getElementById('modal-del').classList.add('show');
+  document.getElementById('modal-del-btn').onclick=async()=>{
+    await api.del('/api/ferramentas/'+id);
+    toast('Excluído!');fecharModal();await loadAll();
+  };
+}
+function fecharModal(){document.getElementById('modal-del').classList.remove('show')}
+
+/* ============ USER ============ */
+async function loadUser(){try{const u=await api.get('/api/me');document.getElementById('user-display').textContent=u.nome||u.username}catch(e){}}
+
+/* ============ INIT ============ */
+async function init(){updateClock();await loadUser();await loadAll()}
+init();
+</script>
+</body>
+</html>

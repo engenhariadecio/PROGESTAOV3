@@ -1,0 +1,793 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Administração — Décio</title>
+<link rel="icon" href="/assets/logo-decio.png">
+<link rel="stylesheet" href="/css/decio.css">
+<style>
+.mini{font-size:.74rem;color:var(--t2);margin-top:4px}
+.abas { display: flex; gap: 4px; border-bottom: 1px solid var(--linha); margin-bottom: 24px; overflow-x: auto; padding-bottom: 1px; }
+.aba {
+  background: none; border: none; border-bottom: 2px solid transparent;
+  padding: 12px 16px; font-family: var(--corpo); font-size: 13px; font-weight: 600;
+  color: var(--t3); cursor: pointer; white-space: nowrap; transition: var(--tr);
+}
+.aba:hover { color: var(--t1); }
+.aba[aria-selected="true"] { color: var(--verde-clr); border-bottom-color: var(--verde); }
+
+.painel[hidden] { display: none; }
+
+.sub { font-size: 12.5px; color: var(--t3); margin-bottom: 18px; max-width: 640px; line-height: 1.6; }
+
+/* Turnos */
+.turno-cartao { background: var(--card); border: 1px solid var(--linha); border-radius: var(--r); margin-bottom: 16px; overflow: hidden; }
+.turno-cabeca { padding: 16px 20px; display: flex; align-items: center; gap: 14px; flex-wrap: wrap; background: var(--card-2); border-bottom: 1px solid var(--linha); }
+.turno-codigo {
+  font-family: var(--mono); font-size: 13px; font-weight: 700; color: #fff;
+  background: var(--fade); padding: 5px 11px; border-radius: var(--r-xs);
+}
+.turno-nome { font-family: var(--display); font-size: 15px; font-weight: 700; }
+.turno-hora { font-family: var(--mono); font-size: 13px; color: var(--t2); }
+.turno-corpo { padding: 18px 20px; }
+
+.intervalo {
+  display: flex; align-items: center; gap: 12px; padding: 9px 12px;
+  background: var(--sup); border: 1px solid var(--linha); border-radius: var(--r-sm); margin-bottom: 8px;
+}
+.intervalo .nm { font-weight: 600; font-size: 13px; min-width: 90px; }
+.intervalo .hr { font-family: var(--mono); font-size: 12.5px; color: var(--t2); }
+.intervalo .av { font-size: 11.5px; color: var(--t3); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Takt em lote */
+.takt-linha td { padding: 8px 14px; }
+.takt-input { width: 110px; padding: 7px 10px; font-family: var(--mono); }
+.takt-input.mudou { border-color: var(--alerta); background: var(--alerta-bg); }
+.takt-input.sobrescrito { border-color: var(--info); }
+
+.busca { max-width: 280px; }
+.barra-acoes { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 16px; }
+</style>
+</head>
+<body>
+<header id="topo"></header>
+
+<main class="conteudo">
+  <p class="olho">Painel de administração</p>
+  <h1 style="font-size:26px;margin:6px 0 22px">Configurações do sistema</h1>
+
+  <div class="abas" role="tablist">
+    <button class="aba" role="tab" data-p="turnos"   aria-selected="true">Turnos</button>
+    <button class="aba" role="tab" data-p="celulas"  aria-selected="false">Células</button>
+    <button class="aba" role="tab" data-p="colabs"   aria-selected="false">Colaboradores</button>
+    <button class="aba" role="tab" data-p="crachas"  aria-selected="false">Crachás NFC</button>
+    <button class="aba" role="tab" data-p="takt"     aria-selected="false">Takt Times</button>
+    <button class="aba" role="tab" data-p="produtos" aria-selected="false">Produtos (Produção)</button>
+    <button class="aba" role="tab" data-p="usuarios" aria-selected="false">Usuários</button>
+    <button class="aba" role="tab" data-p="params"   aria-selected="false">Parâmetros</button>
+  </div>
+
+  <!-- ══════════ TURNOS ══════════ -->
+  <section class="painel" id="p-turnos" role="tabpanel">
+    <p class="sub">Os turnos definidos aqui valem para os três sistemas: o Ponto identifica o turno da batida, o Cadenciador calcula os ciclos dentro do turno e o ProGestão usa o turno nos apontamentos.</p>
+    <div class="barra-acoes">
+      <button class="btn btn-primario btn-sm" onclick="abrirTurno()">Novo turno</button>
+    </div>
+    <div id="listaTurnos"></div>
+  </section>
+
+  <!-- ══════════ CÉLULAS ══════════ -->
+  <section class="painel" id="p-celulas" role="tabpanel" hidden>
+    <p class="sub">Células produtivas usadas no apontamento detalhado de produção e na associação de produtos do cadenciador.</p>
+    <div class="barra-acoes">
+      <button class="btn btn-primario btn-sm" onclick="abrirCelula()">Nova célula</button>
+    </div>
+    <div class="cartao"><div class="tabela-wrap">
+      <table><thead><tr><th>Nome</th><th>Descrição</th><th>Status</th><th style="width:140px"></th></tr></thead>
+      <tbody id="corpoCelulas"></tbody></table>
+    </div></div>
+  </section>
+
+  <!-- ══════════ COLABORADORES ══════════ -->
+  <section class="painel" id="p-colabs" role="tabpanel" hidden>
+    <p class="sub">Cadastro único de colaboradores. É a mesma lista usada pelo Ponto NFC, pelo banco de horas, EPIs, treinamentos e empréstimos de ferramentas.</p>
+    <div class="barra-acoes">
+      <button class="btn btn-primario btn-sm" onclick="abrirColab()">Novo colaborador</button>
+      <input class="controle busca" id="buscaColab" placeholder="Buscar por nome…">
+      <label style="display:flex;align-items:center;gap:6px;font-size:.85rem;cursor:pointer;white-space:nowrap"><input type="checkbox" id="verDesligados" onchange="renderColabs()"> <span id="lblDesligados">Mostrar desligados</span></label>
+      <a class="btn btn-fantasma btn-sm empurra" href="/api/export/colaboradores">Exportar Excel</a>
+    </div>
+    <div class="cartao"><div class="tabela-wrap">
+      <table><thead><tr><th>Nome</th><th>Matrícula</th><th>Cargo</th><th>Turno</th><th>Status</th><th style="width:140px"></th></tr></thead>
+      <tbody id="corpoColabs"></tbody></table>
+    </div></div>
+  </section>
+
+  <!-- ══════════ CRACHÁS ══════════ -->
+  <section class="painel" id="p-crachas" role="tabpanel" hidden>
+    <p class="sub">Cada crachá NFC é identificado pelo UID lido pelo aparelho. Antes ficavam fixos no código; agora são cadastráveis e podem ser desativados sem perder o histórico de batidas.</p>
+    <div class="barra-acoes">
+      <button class="btn btn-primario btn-sm" onclick="abrirCracha()">Novo crachá</button>
+      <a class="btn btn-fantasma btn-sm empurra" href="/api/export/crachas">Exportar Excel</a>
+    </div>
+    <div class="cartao"><div class="tabela-wrap">
+      <table><thead><tr><th>UID</th><th>Colaborador</th><th>Turno</th><th>Status</th><th style="width:140px"></th></tr></thead>
+      <tbody id="corpoCrachas"></tbody></table>
+    </div></div>
+  </section>
+
+  <!-- ══════════ TAKT ══════════ -->
+  <section class="painel" id="p-takt" role="tabpanel" hidden>
+    <p class="sub">Takt time em minutos por produto. Escolha <strong>Padrão</strong> para o valor usado em qualquer turno, ou um turno específico para sobrescrever apenas nele — útil quando um turno roda com equipe reduzida.</p>
+    <div class="barra-acoes">
+      <div class="campo" style="min-width:220px">
+        <label class="rotulo" for="taktEscopo">Escopo do takt</label>
+        <select class="controle" id="taktEscopo"><option value="">Padrão (todos os turnos)</option></select>
+      </div>
+      <input class="controle busca" id="buscaTakt" placeholder="Buscar produto…" style="align-self:flex-end">
+      <button class="btn btn-primario btn-sm empurra" id="btnSalvarTakt" style="align-self:flex-end" disabled>Salvar alterações</button>
+      <button class="btn btn-fantasma btn-sm" onclick="abrirProdutoCad()" style="align-self:flex-end">Novo produto</button>
+      <a class="btn btn-fantasma btn-sm" href="/api/export/takt" style="align-self:flex-end">Exportar</a>
+    </div>
+    <div class="cartao"><div class="tabela-wrap" style="max-height:600px;overflow-y:auto">
+      <table><thead><tr><th>Produto</th><th style="width:170px">Takt (min)</th><th style="width:150px">Célula</th><th style="width:110px">Status</th><th style="width:120px"></th></tr></thead>
+      <tbody id="corpoTakt"></tbody></table>
+    </div></div>
+  </section>
+
+  <!-- ══════════ PRODUTOS PRODUÇÃO ══════════ -->
+  <section class="painel" id="p-produtos" role="tabpanel" hidden>
+    <p class="sub">Cadastro de produtos do módulo de Produção do ProGestão — código Décio, código Intelbras, valor e tempo reportado.</p>
+    <div class="barra-acoes">
+      <button class="btn btn-primario btn-sm" onclick="abrirProdutoProd()">Novo produto</button>
+      <input class="controle busca" id="buscaProduto" placeholder="Buscar por código ou descrição…">
+    </div>
+    <div class="cartao"><div class="tabela-wrap">
+      <table><thead><tr><th>Cód. Décio</th><th>Cód. Intelbras</th><th>Descrição</th><th>Categoria</th><th>Min. reportados</th><th style="width:140px"></th></tr></thead>
+      <tbody id="corpoProdutos"></tbody></table>
+    </div></div>
+  </section>
+
+  <!-- ══════════ USUÁRIOS ══════════ -->
+  <section class="painel" id="p-usuarios" role="tabpanel" hidden>
+    <p class="sub">Quem acessa o sistema. <strong>Administrador</strong> configura tudo nesta página; <strong>Operação</strong> usa os três sistemas mas não altera cadastros estruturais; <strong>PCP</strong> só visualiza ProGestão › Produção, sem editar nada.</p>
+    <div class="barra-acoes">
+      <button class="btn btn-primario btn-sm" onclick="abrirUsuario()">Novo usuário</button>
+    </div>
+    <div class="cartao"><div class="tabela-wrap">
+      <table><thead><tr><th>Usuário</th><th>Nome</th><th>Perfil</th><th>Status</th><th style="width:200px"></th></tr></thead>
+      <tbody id="corpoUsuarios"></tbody></table>
+    </div></div>
+  </section>
+
+  <!-- ══════════ PARÂMETROS ══════════ -->
+  <section class="painel" id="p-params" role="tabpanel" hidden>
+    <p class="sub">Ajustes gerais de comportamento dos sistemas.</p>
+    <div class="cartao"><div class="cartao-corpo">
+      <div class="grade-form">
+        <div class="campo campo-full">
+          <label class="chave">
+            <input type="checkbox" id="pManual"><span class="chave-tri"></span>
+            <span class="chave-txt">Permitir batida de ponto manual (sem crachá)</span>
+          </label>
+          <p class="ajuda">Desligue para exigir a leitura do crachá NFC em toda batida.</p>
+        </div>
+        <div class="campo">
+          <label class="rotulo" for="pBloqueio">Bloqueio entre batidas (min)</label>
+          <input class="controle" type="number" id="pBloqueio" min="0" max="60">
+          <p class="ajuda">Evita batida duplicada acidental. Use 0 para desativar.</p>
+        </div>
+        <div class="campo">
+          <label class="rotulo" for="pLimite">Máximo de ciclos por turno</label>
+          <input class="controle" type="number" id="pLimite" min="10" max="2000">
+          <p class="ajuda">Teto de segurança do Cadenciador.</p>
+        </div>
+        <div class="campo campo-full">
+          <label class="chave">
+            <input type="checkbox" id="pVoz"><span class="chave-tri"></span>
+            <span class="chave-txt">Avisos de voz ligados por padrão no Cadenciador</span>
+          </label>
+        </div>
+      </div>
+      <div class="acoes-form"><button class="btn btn-primario" id="btnSalvarParams">Salvar parâmetros</button></div>
+    </div></div>
+  </section>
+</main>
+
+<!-- ══════════ MODAL GENÉRICO ══════════ -->
+<div class="modal-fundo" id="modal">
+  <div class="modal modal-lg">
+    <div class="modal-topo">
+      <h2 class="modal-titulo" id="modalTitulo">—</h2>
+      <button class="modal-fechar" onclick="fecharModal('modal')" aria-label="Fechar">×</button>
+    </div>
+    <div class="modal-corpo" id="modalCorpo"></div>
+  </div>
+</div>
+
+<script src="/js/core.js"></script>
+<script>
+/* ═══════════ Estado ═══════════ */
+let TURNOS = [], CELULAS = [], COLABS = [], CRACHAS = [], CAD_PRODUTOS = [], PRODUTOS = [], USUARIOS = [];
+let taktEscopoAtual = '';
+const taktAlterados = new Map();
+
+/* ═══════════ Abas ═══════════ */
+document.querySelectorAll('.aba').forEach(aba => {
+  aba.onclick = () => {
+    document.querySelectorAll('.aba').forEach(a => a.setAttribute('aria-selected', a === aba));
+    document.querySelectorAll('.painel').forEach(p => p.hidden = p.id !== 'p-' + aba.dataset.p);
+    location.hash = aba.dataset.p;
+  };
+});
+
+/* ═══════════ Modal ═══════════ */
+function modal(titulo, html, aoSalvar) {
+  document.getElementById('modalTitulo').textContent = titulo;
+  document.getElementById('modalCorpo').innerHTML = html + `
+    <div class="acoes-form">
+      <button class="btn btn-fantasma" onclick="fecharModal('modal')">Cancelar</button>
+      <button class="btn btn-primario" id="mSalvar">Salvar</button>
+    </div>`;
+  document.getElementById('mSalvar').onclick = aoSalvar;
+  abrirModal('modal');
+  setTimeout(() => document.querySelector('#modalCorpo .controle')?.focus(), 60);
+}
+const val = id => document.getElementById(id).value.trim();
+const chk = id => document.getElementById(id).checked;
+
+/* ══════════════════ TURNOS ══════════════════ */
+
+async function carregarTurnos() {
+  TURNOS = await API.get('/api/config/turnos');
+  const alvo = document.getElementById('listaTurnos');
+
+  if (!TURNOS.length) {
+    alvo.innerHTML = `<div class="vazio-bloco"><div class="icone">🕐</div>
+      <h3>Nenhum turno cadastrado</h3><p>Os três sistemas dependem de pelo menos um turno ativo.</p>
+      <button class="btn btn-primario" onclick="abrirTurno()">Criar primeiro turno</button></div>`;
+    return;
+  }
+
+  alvo.innerHTML = TURNOS.map(t => `
+    <div class="turno-cartao">
+      <div class="turno-cabeca">
+        <span class="turno-codigo">${escapar(t.codigo)}</span>
+        <div style="flex:1;min-width:150px">
+          <div class="turno-nome">${escapar(t.nome)}</div>
+          <div class="turno-hora">${horaCurta(t.hora_inicio)} → ${horaCurta(t.hora_fim)}${t.cruza_meia_noite ? ' (vira o dia)' : ''} · tolerância ${t.tolerancia_min} min</div>
+        </div>
+        <span class="selo ${t.ativo ? 'selo-ok' : 'selo-neutro'}">${t.ativo ? 'Ativo' : 'Inativo'}</span>
+        <button class="btn btn-fantasma btn-xs" onclick="abrirTurno(${t.id})">Editar</button>
+        <button class="btn btn-fantasma btn-xs" onclick="alternarTurno(${t.id}, ${!t.ativo})">${t.ativo ? 'Desativar' : 'Ativar'}</button>
+        <button class="btn btn-erro btn-xs" onclick="excluirTurno(${t.id})">Excluir</button>
+      </div>
+      <div class="turno-corpo">
+        <div class="linha-flex" style="margin-bottom:12px">
+          <span class="olho">Intervalos do turno</span>
+          <button class="btn btn-fantasma btn-xs empurra" onclick="abrirIntervalo(${t.id})">Adicionar intervalo</button>
+        </div>
+        ${t.intervalos.length ? t.intervalos.map(i => `
+          <div class="intervalo">
+            <span class="nm">${escapar(i.nome)}</span>
+            <span class="hr">${horaCurta(i.hora_inicio)} – ${horaCurta(i.hora_fim)}</span>
+            <span class="av">${escapar(i.aviso_voz || 'sem aviso de voz')}</span>
+            <button class="btn btn-fantasma btn-xs" onclick="abrirIntervalo(${t.id}, ${i.id})">Editar</button>
+            <button class="btn btn-erro btn-xs" onclick="excluirIntervalo(${i.id})">Remover</button>
+          </div>`).join('')
+          : '<p class="ajuda">Nenhum intervalo. O Cadenciador vai cadenciar o turno inteiro sem pausas.</p>'}
+      </div>
+    </div>`).join('');
+}
+
+function abrirTurno(id) {
+  const t = TURNOS.find(x => x.id === id) || {};
+  modal(id ? 'Editar turno' : 'Novo turno', `
+    <div class="grade-form">
+      <div class="campo"><label class="rotulo" for="tCodigo">Código <span class="obrig">*</span></label>
+        <input class="controle" id="tCodigo" maxlength="10" value="${escapar(t.codigo || '')}" placeholder="T1">
+        <p class="ajuda">Sigla curta usada nos relatórios.</p></div>
+      <div class="campo"><label class="rotulo" for="tNome">Nome <span class="obrig">*</span></label>
+        <input class="controle" id="tNome" value="${escapar(t.nome || '')}" placeholder="Turno 1"></div>
+      <div class="campo"><label class="rotulo" for="tIni">Início <span class="obrig">*</span></label>
+        <input class="controle" type="time" id="tIni" step="60" value="${horaCurta(t.hora_inicio) === '—' ? '06:00' : horaCurta(t.hora_inicio)}"></div>
+      <div class="campo"><label class="rotulo" for="tFim">Fim <span class="obrig">*</span></label>
+        <input class="controle" type="time" id="tFim" step="60" value="${horaCurta(t.hora_fim) === '—' ? '17:30' : horaCurta(t.hora_fim)}"></div>
+      <div class="campo"><label class="rotulo" for="tTol">Tolerância (min)</label>
+        <input class="controle" type="number" id="tTol" min="0" max="60" value="${t.tolerancia_min ?? 5}">
+        <p class="ajuda">Margem antes/depois para o Ponto ainda associar a batida a este turno.</p></div>
+      <div class="campo"><label class="rotulo" for="tOrdem">Ordem de exibição</label>
+        <input class="controle" type="number" id="tOrdem" value="${t.ordem ?? 0}"></div>
+      <div class="campo campo-full">
+        <label class="chave"><input type="checkbox" id="tCruza" ${t.cruza_meia_noite ? 'checked' : ''}>
+        <span class="chave-tri"></span><span class="chave-txt">Este turno vira a meia-noite</span></label>
+        <p class="ajuda">Marque quando o fim for menor que o início, como 22:00 → 06:00.</p>
+      </div>
+      <div class="campo campo-full">
+        <label class="chave"><input type="checkbox" id="tAtivo" ${t.ativo !== false ? 'checked' : ''}>
+        <span class="chave-tri"></span><span class="chave-txt">Turno ativo</span></label>
+      </div>
+    </div>`, async () => {
+    const corpo = {
+      codigo: val('tCodigo'), nome: val('tNome'),
+      hora_inicio: val('tIni'), hora_fim: val('tFim'),
+      tolerancia_min: Number(val('tTol')), ordem: Number(val('tOrdem')),
+      cruza_meia_noite: chk('tCruza'), ativo: chk('tAtivo')
+    };
+    if (!corpo.codigo || !corpo.nome) return avisoErro('Informe código e nome.');
+    const r = await tentar(() => id ? API.put('/api/config/turnos/' + id, corpo) : API.post('/api/config/turnos', corpo),
+                           id ? 'Turno atualizado.' : 'Turno criado.');
+    if (r) { fecharModal('modal'); carregarTurnos(); carregarEscopoTakt(); }
+  });
+}
+
+async function alternarTurno(id, ativo) {
+  const r = await tentar(() => API.put('/api/config/turnos/' + id, { ativo }), ativo ? 'Turno ativado.' : 'Turno desativado.');
+  if (r) carregarTurnos();
+}
+async function excluirTurno(id) {
+  if (!confirm('Excluir este turno? Os intervalos dele também serão removidos.')) return;
+  const r = await tentar(() => API.del('/api/config/turnos/' + id), 'Turno excluído.');
+  if (r) { carregarTurnos(); carregarEscopoTakt(); }
+}
+
+function abrirIntervalo(turnoId, id) {
+  const t = TURNOS.find(x => x.id === turnoId);
+  const i = (t?.intervalos || []).find(x => x.id === id) || {};
+  modal(id ? 'Editar intervalo' : 'Novo intervalo', `
+    <div class="grade-form">
+      <div class="campo"><label class="rotulo" for="iNome">Nome <span class="obrig">*</span></label>
+        <input class="controle" id="iNome" value="${escapar(i.nome || '')}" placeholder="Café 1"></div>
+      <div class="campo"><label class="rotulo" for="iIni">Início <span class="obrig">*</span></label>
+        <input class="controle" type="time" id="iIni" step="60" value="${horaCurta(i.hora_inicio) === '—' ? '' : horaCurta(i.hora_inicio)}"></div>
+      <div class="campo"><label class="rotulo" for="iFim">Fim <span class="obrig">*</span></label>
+        <input class="controle" type="time" id="iFim" step="60" value="${horaCurta(i.hora_fim) === '—' ? '' : horaCurta(i.hora_fim)}"></div>
+      <div class="campo campo-full"><label class="rotulo" for="iAviso">Aviso de voz</label>
+        <input class="controle" id="iAviso" value="${escapar(i.aviso_voz || '')}" placeholder="Intervalo iniciado, bom café a todos!">
+        <p class="ajuda">Frase que o Cadenciador fala em voz alta no horário de início.</p></div>
+    </div>`, async () => {
+    const corpo = { nome: val('iNome'), hora_inicio: val('iIni'), hora_fim: val('iFim'), aviso_voz: val('iAviso') || null };
+    if (!corpo.nome || !corpo.hora_inicio || !corpo.hora_fim) return avisoErro('Preencha nome e horários.');
+    const r = await tentar(() => id ? API.put('/api/config/intervalos/' + id, corpo)
+                                    : API.post(`/api/config/turnos/${turnoId}/intervalos`, corpo), 'Intervalo salvo.');
+    if (r) { fecharModal('modal'); carregarTurnos(); }
+  });
+}
+async function excluirIntervalo(id) {
+  if (!confirm('Remover este intervalo?')) return;
+  const r = await tentar(() => API.del('/api/config/intervalos/' + id), 'Intervalo removido.');
+  if (r) carregarTurnos();
+}
+
+/* ══════════════════ CÉLULAS ══════════════════ */
+
+async function carregarCelulas() {
+  CELULAS = await API.get('/api/config/celulas');
+  const c = document.getElementById('corpoCelulas');
+  c.innerHTML = CELULAS.length ? CELULAS.map(x => `
+    <tr>
+      <td class="destaque">${escapar(x.nome)}</td>
+      <td>${escapar(x.descricao || '—')}</td>
+      <td><span class="selo ${x.ativa ? 'selo-ok' : 'selo-neutro'}">${x.ativa ? 'Ativa' : 'Inativa'}</span></td>
+      <td><button class="btn btn-fantasma btn-xs" onclick="abrirCelula(${x.id})">Editar</button>
+          <button class="btn btn-erro btn-xs" onclick="excluirCelula(${x.id})">Excluir</button></td>
+    </tr>`).join('') : '<tr><td colspan="4" class="vazio">Nenhuma célula cadastrada.</td></tr>';
+}
+
+function abrirCelula(id) {
+  const c = CELULAS.find(x => x.id === id) || {};
+  modal(id ? 'Editar célula' : 'Nova célula', `
+    <div class="grade-form">
+      <div class="campo"><label class="rotulo" for="cNome">Nome <span class="obrig">*</span></label>
+        <input class="controle" id="cNome" value="${escapar(c.nome || '')}"></div>
+      <div class="campo"><label class="rotulo" for="cDesc">Descrição</label>
+        <input class="controle" id="cDesc" value="${escapar(c.descricao || '')}"></div>
+      <div class="campo campo-full"><label class="chave"><input type="checkbox" id="cAtiva" ${c.ativa !== false ? 'checked' : ''}>
+        <span class="chave-tri"></span><span class="chave-txt">Célula ativa</span></label></div>
+    </div>`, async () => {
+    const corpo = { nome: val('cNome'), descricao: val('cDesc') || null, ativa: chk('cAtiva') };
+    if (!corpo.nome) return avisoErro('Informe o nome.');
+    const r = await tentar(() => id ? API.put('/api/config/celulas/' + id, corpo) : API.post('/api/config/celulas', corpo), 'Célula salva.');
+    if (r) { fecharModal('modal'); carregarCelulas(); }
+  });
+}
+async function excluirCelula(id) {
+  if (!confirm('Excluir esta célula?')) return;
+  const r = await tentar(() => API.del('/api/config/celulas/' + id), 'Célula excluída.');
+  if (r) carregarCelulas();
+}
+
+/* ══════════════════ COLABORADORES ══════════════════ */
+
+async function carregarColabs() {
+  COLABS = await API.get('/api/colaboradores');
+  renderColabs();
+}
+function renderColabs() {
+  const busca = document.getElementById('buscaColab').value.toLowerCase();
+  const verDesl = document.getElementById('verDesligados').checked;
+  const lista = COLABS.filter(c => (!busca || c.nome.toLowerCase().includes(busca)) && (verDesl || c.status !== 'Desligado'));
+  const nDesl = COLABS.filter(c => c.status === 'Desligado').length;
+  document.getElementById('lblDesligados').textContent = nDesl ? `Mostrar desligados (${nDesl})` : 'Mostrar desligados';
+  const c = document.getElementById('corpoColabs');
+  c.innerHTML = lista.length ? lista.map(x => `
+    <tr>
+      <td class="destaque">${escapar(x.nome)}</td>
+      <td class="num">${escapar(x.mat || '—')}</td>
+      <td>${escapar(x.cargo || '—')}</td>
+      <td>${escapar(x.turno || '—')}</td>
+      <td><span class="selo ${x.status === 'Ativo' ? 'selo-ok' : x.status === 'Desligado' ? 'selo-erro' : 'selo-neutro'}">${escapar(x.status || '—')}</span>${x.status === 'Desligado' && x.dt_desligamento ? `<div class="mini">desde ${String(x.dt_desligamento).slice(0,10).split('-').reverse().join('/')}</div>` : ''}</td>
+      <td><button class="btn btn-fantasma btn-xs" onclick="abrirColab(${x.id})">Editar</button>
+          <button class="btn btn-erro btn-xs" onclick="excluirColab(${x.id})">Excluir</button></td>
+    </tr>`).join('') : '<tr><td colspan="6" class="vazio">Nenhum colaborador encontrado.</td></tr>';
+}
+document.getElementById('buscaColab').oninput = renderColabs;
+
+function abrirColab(id) {
+  const c = COLABS.find(x => x.id === id) || {};
+  const opcTurno = ['', ...TURNOS.map(t => t.nome)]
+    .map(n => `<option value="${escapar(n)}" ${c.turno === n ? 'selected' : ''}>${n || 'Sem turno'}</option>`).join('');
+
+  modal(id ? 'Editar colaborador' : 'Novo colaborador', `
+    <div class="grade-form">
+      <div class="campo campo-full"><label class="rotulo" for="coNome">Nome completo <span class="obrig">*</span></label>
+        <input class="controle" id="coNome" value="${escapar(c.nome || '')}"></div>
+      <div class="campo"><label class="rotulo" for="coMat">Matrícula</label>
+        <input class="controle" id="coMat" value="${escapar(c.mat || '')}"></div>
+      <div class="campo"><label class="rotulo" for="coCargo">Cargo</label>
+        <input class="controle" id="coCargo" value="${escapar(c.cargo || '')}"></div>
+      <div class="campo"><label class="rotulo" for="coSetor">Setor</label>
+        <input class="controle" id="coSetor" value="${escapar(c.setor || 'Montagem')}"></div>
+      <div class="campo"><label class="rotulo" for="coTurno">Turno</label>
+        <select class="controle" id="coTurno">${opcTurno}</select></div>
+      <div class="campo"><label class="rotulo" for="coStatus">Status</label>
+        <select class="controle" id="coStatus">
+          ${['Ativo','Inativo','Afastado','Férias','Desligado'].map(s => `<option ${c.status === s ? 'selected' : ''}>${s}</option>`).join('')}
+        </select></div>
+      <div class="campo" id="campoDesl" style="display:${c.status === 'Desligado' ? '' : 'none'}"><label class="rotulo" for="coDesl">Data do desligamento</label>
+        <input class="controle" type="date" id="coDesl" value="${c.dt_desligamento ? String(c.dt_desligamento).slice(0,10) : ''}">
+        <div class="mini">O colaborador some das listas de lançamento, mas o histórico dele (ponto, EPIs, horas, treinamentos) continua.</div></div>
+      <div class="campo"><label class="rotulo" for="coAdm">Admissão</label>
+        <input class="controle" type="date" id="coAdm" value="${c.dt_admissao ? String(c.dt_admissao).slice(0,10) : ''}"></div>
+      <div class="campo"><label class="rotulo" for="coNasc">Nascimento</label>
+        <input class="controle" type="date" id="coNasc" value="${c.dt_nascimento ? String(c.dt_nascimento).slice(0,10) : ''}"></div>
+    </div>`, async () => {
+    const corpo = {
+      nome: val('coNome'), mat: val('coMat') || null, cargo: val('coCargo') || null,
+      setor: val('coSetor') || null, turno: val('coTurno') || null, status: val('coStatus'),
+      dt_admissao: val('coAdm') || null, dt_nascimento: val('coNasc') || null,
+      dt_desligamento: val('coDesl') || null
+    };
+    if (!corpo.nome) return avisoErro('Informe o nome.');
+    if (corpo.status === 'Desligado' && !corpo.dt_desligamento) return avisoErro('Informe a data do desligamento.');
+    const r = await tentar(() => id ? API.put('/api/colaboradores/' + id, corpo) : API.post('/api/colaboradores', corpo), 'Colaborador salvo.');
+    if (r) { fecharModal('modal'); carregarColabs(); carregarCrachas(); }
+  });
+  document.getElementById('coStatus').onchange = function () {
+    const desl = this.value === 'Desligado';
+    document.getElementById('campoDesl').style.display = desl ? '' : 'none';
+    if (desl && !val('coDesl')) document.getElementById('coDesl').value = new Date().toISOString().slice(0, 10);
+  };
+}
+async function excluirColab(id) {
+  if (!confirm('Excluir este colaborador?')) return;
+  const r = await tentar(() => API.del('/api/colaboradores/' + id), 'Colaborador excluído.');
+  if (r) carregarColabs();
+}
+
+/* ══════════════════ CRACHÁS ══════════════════ */
+
+async function carregarCrachas() {
+  CRACHAS = await API.get('/api/ponto/crachas');
+  const c = document.getElementById('corpoCrachas');
+  c.innerHTML = CRACHAS.length ? CRACHAS.map(x => `
+    <tr>
+      <td><code class="codigo">${escapar(x.uid)}</code></td>
+      <td class="destaque">${escapar(x.colab_nome || x.nome_cache || '<sem vínculo>')}</td>
+      <td>${escapar(x.colab_turno || '—')}</td>
+      <td><span class="selo ${x.ativo ? 'selo-ok' : 'selo-neutro'}">${x.ativo ? 'Ativo' : 'Inativo'}</span></td>
+      <td><button class="btn btn-fantasma btn-xs" onclick="abrirCracha(${x.id})">Editar</button>
+          <button class="btn btn-erro btn-xs" onclick="excluirCracha(${x.id})">Excluir</button></td>
+    </tr>`).join('') : '<tr><td colspan="5" class="vazio">Nenhum crachá cadastrado.</td></tr>';
+}
+
+function abrirCracha(id) {
+  const c = CRACHAS.find(x => x.id === id) || {};
+  // só quem está na empresa, mais o colaborador já vinculado a este crachá (mesmo que desligado)
+  const opc = COLABS.filter(x => x.status !== 'Desligado' || x.id === c.colaborador_id)
+    .map(x => `<option value="${x.id}" ${c.colaborador_id === x.id ? 'selected' : ''}>${escapar(x.nome)}${x.status === 'Desligado' ? ' (desligado)' : ''}</option>`).join('');
+  modal(id ? 'Editar crachá' : 'Novo crachá NFC', `
+    <div class="grade-form">
+      <div class="campo"><label class="rotulo" for="crUid">UID do crachá <span class="obrig">*</span></label>
+        <input class="controle" id="crUid" value="${escapar(c.uid || '')}" placeholder="44:e3:64:a2" style="font-family:var(--mono)">
+        <p class="ajuda">O mesmo número que o aparelho lê ao aproximar o crachá. Maiúsculas e minúsculas não importam.</p></div>
+      <div class="campo"><label class="rotulo" for="crColab">Colaborador <span class="obrig">*</span></label>
+        <select class="controle" id="crColab"><option value="">Selecione…</option>${opc}</select></div>
+      <div class="campo campo-full"><label class="chave"><input type="checkbox" id="crAtivo" ${c.ativo !== false ? 'checked' : ''}>
+        <span class="chave-tri"></span><span class="chave-txt">Crachá ativo</span></label>
+        <p class="ajuda">Desativar mantém todo o histórico de batidas, mas impede novos registros.</p></div>
+    </div>`, async () => {
+    const colabId = val('crColab');
+    const nome = COLABS.find(x => x.id == colabId)?.nome || null;
+    const corpo = { uid: val('crUid'), colaborador_id: colabId ? Number(colabId) : null, nome_cache: nome, ativo: chk('crAtivo') };
+    if (!corpo.uid) return avisoErro('Informe o UID.');
+    if (!corpo.colaborador_id) return avisoErro('Vincule o crachá a um colaborador.');
+    const r = await tentar(() => id ? API.put('/api/ponto/crachas/' + id, corpo) : API.post('/api/ponto/crachas', corpo), 'Crachá salvo.');
+    if (r) { fecharModal('modal'); carregarCrachas(); }
+  });
+}
+async function excluirCracha(id) {
+  if (!confirm('Excluir este crachá? As batidas antigas continuam no histórico.')) return;
+  const r = await tentar(() => API.del('/api/ponto/crachas/' + id), 'Crachá excluído.');
+  if (r) carregarCrachas();
+}
+
+/* ══════════════════ TAKT TIMES ══════════════════ */
+
+function carregarEscopoTakt() {
+  const sel = document.getElementById('taktEscopo');
+  const atual = sel.value;
+  sel.innerHTML = '<option value="">Padrão (todos os turnos)</option>' +
+    TURNOS.map(t => `<option value="${t.id}">Somente ${escapar(t.nome)}</option>`).join('');
+  if (atual) sel.value = atual;
+}
+
+async function carregarTakt() {
+  taktEscopoAtual = document.getElementById('taktEscopo').value;
+  taktAlterados.clear();
+  document.getElementById('btnSalvarTakt').disabled = true;
+
+  const url = '/api/cadenciador/produtos?todos=1' + (taktEscopoAtual ? '&turno_id=' + taktEscopoAtual : '');
+  CAD_PRODUTOS = await API.get(url);
+  renderTakt();
+}
+
+function renderTakt() {
+  const busca = document.getElementById('buscaTakt').value.toLowerCase();
+  const lista = CAD_PRODUTOS.filter(p => !busca || p.nome.toLowerCase().includes(busca));
+  const c = document.getElementById('corpoTakt');
+
+  if (!lista.length) {
+    c.innerHTML = '<tr><td colspan="5" class="vazio">Nenhum produto encontrado.</td></tr>';
+    return;
+  }
+
+  c.innerHTML = lista.map(p => {
+    const sobrescrito = taktEscopoAtual && Number(p.takt_min) !== Number(p.takt_padrao);
+    return `<tr class="takt-linha">
+      <td class="destaque">${escapar(p.nome)}
+        ${sobrescrito ? `<span class="selo selo-info" style="margin-left:8px">padrão ${p.takt_padrao}</span>` : ''}</td>
+      <td><input class="controle takt-input ${sobrescrito ? 'sobrescrito' : ''}" type="number" step="0.001" min="0.001"
+                 value="${p.takt_min}" data-id="${p.id}" data-orig="${p.takt_min}"></td>
+      <td>${escapar(p.celula_nome || '—')}</td>
+      <td><span class="selo ${p.ativo ? 'selo-ok' : 'selo-neutro'}">${p.ativo ? 'Ativo' : 'Inativo'}</span></td>
+      <td><button class="btn btn-fantasma btn-xs" onclick="abrirProdutoCad(${p.id})">Editar</button>
+        ${sobrescrito ? `<button class="btn btn-fantasma btn-xs" onclick="limparSobrescrita(${p.id})">Usar padrão</button>` : ''}
+      </td>
+    </tr>`;
+  }).join('');
+
+  c.querySelectorAll('.takt-input').forEach(el => {
+    el.oninput = () => {
+      const mudou = el.value !== el.dataset.orig;
+      el.classList.toggle('mudou', mudou);
+      if (mudou) taktAlterados.set(Number(el.dataset.id), parseFloat(el.value));
+      else taktAlterados.delete(Number(el.dataset.id));
+      document.getElementById('btnSalvarTakt').disabled = taktAlterados.size === 0;
+      document.getElementById('btnSalvarTakt').textContent =
+        taktAlterados.size ? `Salvar ${taktAlterados.size} alteração(ões)` : 'Salvar alterações';
+    };
+  });
+}
+
+document.getElementById('buscaTakt').oninput = renderTakt;
+document.getElementById('taktEscopo').onchange = carregarTakt;
+
+document.getElementById('btnSalvarTakt').onclick = async () => {
+  const itens = [...taktAlterados].map(([produto_id, takt_min]) => ({ produto_id, takt_min }));
+  if (itens.some(i => !(i.takt_min > 0))) return avisoErro('Todos os takts devem ser maiores que zero.');
+  const r = await tentar(() => API.put('/api/cadenciador/produtos-takt-lote',
+    { turno_id: taktEscopoAtual ? Number(taktEscopoAtual) : null, itens }),
+    `Takt salvo para ${itens.length} produto(s).`);
+  if (r) carregarTakt();
+};
+
+async function limparSobrescrita(produtoId) {
+  const r = await tentar(() => API.del(`/api/cadenciador/takt-turno?produto_id=${produtoId}&turno_id=${taktEscopoAtual}`),
+    'Produto voltou ao takt padrão.');
+  if (r) carregarTakt();
+}
+
+function abrirProdutoCad(id) {
+  const p = CAD_PRODUTOS.find(x => x.id === id) || {};
+  const opc = ['<option value="">Sem célula</option>', ...CELULAS.map(c =>
+    `<option value="${c.id}" ${p.celula_id === c.id ? 'selected' : ''}>${escapar(c.nome)}</option>`)].join('');
+
+  modal(id ? 'Editar produto do cadenciador' : 'Novo produto do cadenciador', `
+    <div class="grade-form">
+      <div class="campo campo-full"><label class="rotulo" for="cpNome">Nome do produto <span class="obrig">*</span></label>
+        <input class="controle" id="cpNome" value="${escapar(p.nome || '')}" placeholder="RACK MRD 12U 470MM"></div>
+      <div class="campo"><label class="rotulo" for="cpTakt">Takt padrão (min) <span class="obrig">*</span></label>
+        <input class="controle" type="number" step="0.001" min="0.001" id="cpTakt" value="${p.takt_padrao ?? p.takt_min ?? ''}"></div>
+      <div class="campo"><label class="rotulo" for="cpCod">Código Décio</label>
+        <input class="controle" id="cpCod" value="${escapar(p.cod_decio || '')}"></div>
+      <div class="campo"><label class="rotulo" for="cpCel">Célula</label>
+        <select class="controle" id="cpCel">${opc}</select></div>
+      <div class="campo"><label class="rotulo" for="cpOrdem">Ordem</label>
+        <input class="controle" type="number" id="cpOrdem" value="${p.ordem ?? 0}"></div>
+      <div class="campo campo-full"><label class="chave"><input type="checkbox" id="cpAtivo" ${p.ativo !== false ? 'checked' : ''}>
+        <span class="chave-tri"></span><span class="chave-txt">Produto ativo (aparece no Cadenciador)</span></label></div>
+    </div>`, async () => {
+    const corpo = {
+      nome: val('cpNome'), takt_min: parseFloat(val('cpTakt')),
+      cod_decio: val('cpCod') || null,
+      celula_id: val('cpCel') ? Number(val('cpCel')) : null,
+      ordem: Number(val('cpOrdem')), ativo: chk('cpAtivo')
+    };
+    if (!corpo.nome) return avisoErro('Informe o nome.');
+    if (!(corpo.takt_min > 0)) return avisoErro('Takt deve ser maior que zero.');
+    const r = await tentar(() => id ? API.put('/api/cadenciador/produtos/' + id, corpo) : API.post('/api/cadenciador/produtos', corpo), 'Produto salvo.');
+    if (r) { fecharModal('modal'); carregarTakt(); }
+  });
+}
+
+/* ══════════════════ PRODUTOS (PRODUÇÃO) ══════════════════ */
+
+async function carregarProdutos() {
+  PRODUTOS = await API.get('/api/prod-produtos').catch(() => []);
+  renderProdutos();
+}
+function renderProdutos() {
+  const busca = document.getElementById('buscaProduto').value.toLowerCase();
+  const lista = PRODUTOS.filter(p => !busca ||
+    (p.cod_decio || '').toLowerCase().includes(busca) || (p.descricao || '').toLowerCase().includes(busca));
+  const c = document.getElementById('corpoProdutos');
+  c.innerHTML = lista.length ? lista.map(p => `
+    <tr>
+      <td><code class="codigo">${escapar(p.cod_decio)}</code></td>
+      <td class="num">${escapar(p.cod_intelbras || '—')}</td>
+      <td class="destaque">${escapar(p.descricao || '—')}</td>
+      <td>${escapar(p.categoria || '—')}</td>
+      <td class="num">${p.minutos_reportados ?? 0}</td>
+      <td><button class="btn btn-fantasma btn-xs" onclick="abrirProdutoProd(${p.id})">Editar</button>
+          <button class="btn btn-erro btn-xs" onclick="excluirProdutoProd(${p.id})">Excluir</button></td>
+    </tr>`).join('') : '<tr><td colspan="6" class="vazio">Nenhum produto cadastrado.</td></tr>';
+}
+document.getElementById('buscaProduto').oninput = renderProdutos;
+
+function abrirProdutoProd(id) {
+  const p = PRODUTOS.find(x => x.id === id) || {};
+  modal(id ? 'Editar produto' : 'Novo produto de produção', `
+    <div class="grade-form">
+      <div class="campo"><label class="rotulo" for="ppDecio">Código Décio <span class="obrig">*</span></label>
+        <input class="controle" id="ppDecio" value="${escapar(p.cod_decio || '')}"></div>
+      <div class="campo"><label class="rotulo" for="ppIntel">Código Intelbras</label>
+        <input class="controle" id="ppIntel" value="${escapar(p.cod_intelbras || '')}"></div>
+      <div class="campo campo-full"><label class="rotulo" for="ppDesc">Descrição <span class="obrig">*</span></label>
+        <input class="controle" id="ppDesc" value="${escapar(p.descricao || '')}"></div>
+      <div class="campo"><label class="rotulo" for="ppCat">Categoria</label>
+        <input class="controle" id="ppCat" value="${escapar(p.categoria || '')}"></div>
+      <div class="campo"><label class="rotulo" for="ppValor">Valor (R$)</label>
+        <input class="controle" type="number" step="0.01" id="ppValor" value="${p.valor ?? 0}"></div>
+      <div class="campo"><label class="rotulo" for="ppMin">Minutos reportados</label>
+        <input class="controle" type="number" step="0.01" id="ppMin" value="${p.minutos_reportados ?? 0}"></div>
+      <div class="campo"><label class="rotulo" for="ppHora">Hora reportada</label>
+        <input class="controle" type="number" step="0.0001" id="ppHora" value="${p.hora_reportado ?? 0}"></div>
+    </div>`, async () => {
+    const corpo = {
+      cod_decio: val('ppDecio'), cod_intelbras: val('ppIntel') || null, descricao: val('ppDesc'),
+      categoria: val('ppCat') || null, valor: parseFloat(val('ppValor')) || 0,
+      minutos_reportados: parseFloat(val('ppMin')) || 0, hora_reportado: parseFloat(val('ppHora')) || 0
+    };
+    if (!corpo.cod_decio || !corpo.descricao) return avisoErro('Código Décio e descrição são obrigatórios.');
+    const r = await tentar(() => id ? API.put('/api/prod-produtos/' + id, corpo) : API.post('/api/prod-produtos', corpo), 'Produto salvo.');
+    if (r) { fecharModal('modal'); carregarProdutos(); }
+  });
+}
+async function excluirProdutoProd(id) {
+  if (!confirm('Excluir este produto?')) return;
+  const r = await tentar(() => API.del('/api/prod-produtos/' + id), 'Produto excluído.');
+  if (r) carregarProdutos();
+}
+
+/* ══════════════════ USUÁRIOS ══════════════════ */
+
+async function carregarUsuarios() {
+  USUARIOS = await API.get('/api/users');
+  const c = document.getElementById('corpoUsuarios');
+  c.innerHTML = USUARIOS.map(u => `
+    <tr>
+      <td class="destaque">${escapar(u.username)}</td>
+      <td>${escapar(u.nome || '—')}</td>
+      <td><span class="selo ${u.role === 'admin' ? 'selo-marca' : u.role === 'pcp' ? 'selo-alerta' : 'selo-neutro'}">${u.role === 'admin' ? 'Administrador' : u.role === 'pcp' ? 'PCP (só Produção)' : 'Operação'}</span></td>
+      <td><span class="selo ${u.ativo !== false ? 'selo-ok' : 'selo-neutro'}">${u.ativo !== false ? 'Ativo' : 'Desativado'}</span></td>
+      <td><button class="btn btn-fantasma btn-xs" onclick="abrirUsuario(${u.id})">Editar</button>
+          <button class="btn btn-fantasma btn-xs" onclick="trocarSenha(${u.id})">Trocar senha</button>
+          <button class="btn btn-erro btn-xs" onclick="excluirUsuario(${u.id})">Excluir</button></td>
+    </tr>`).join('');
+}
+
+function abrirUsuario(id) {
+  const u = USUARIOS.find(x => x.id === id) || {};
+  const novo = !id;
+  modal(novo ? 'Novo usuário' : 'Editar usuário', `
+    <div class="grade-form">
+      <div class="campo"><label class="rotulo" for="uUser">Usuário <span class="obrig">*</span></label>
+        <input class="controle" id="uUser" value="${escapar(u.username || '')}" ${novo ? '' : 'disabled'}></div>
+      <div class="campo"><label class="rotulo" for="uNome">Nome</label>
+        <input class="controle" id="uNome" value="${escapar(u.nome || '')}"></div>
+      ${novo ? `<div class="campo"><label class="rotulo" for="uSenha">Senha <span class="obrig">*</span></label>
+        <input class="controle" type="password" id="uSenha" autocomplete="new-password">
+        <p class="ajuda">Mínimo de 6 caracteres.</p></div>` : ''}
+      <div class="campo"><label class="rotulo" for="uPapel">Perfil</label>
+        <select class="controle" id="uPapel">
+          <option value="user" ${!u.role || u.role === 'user' ? 'selected' : ''}>Operação</option>
+          <option value="admin" ${u.role === 'admin' ? 'selected' : ''}>Administrador</option>
+          <option value="pcp" ${u.role === 'pcp' ? 'selected' : ''}>PCP — só visualiza Produção</option>
+        </select></div>
+      ${novo ? '' : `<div class="campo campo-full"><label class="chave"><input type="checkbox" id="uAtivo" ${u.ativo !== false ? 'checked' : ''}>
+        <span class="chave-tri"></span><span class="chave-txt">Usuário ativo</span></label></div>`}
+    </div>`, async () => {
+    if (novo) {
+      const corpo = { username: val('uUser'), password: val('uSenha'), nome: val('uNome'), role: val('uPapel') };
+      if (!corpo.username || !corpo.password) return avisoErro('Informe usuário e senha.');
+      const r = await tentar(() => API.post('/api/users', corpo), 'Usuário criado.');
+      if (r) { fecharModal('modal'); carregarUsuarios(); }
+    } else {
+      const corpo = { nome: val('uNome'), role: val('uPapel'), ativo: chk('uAtivo') };
+      const r = await tentar(() => API.put('/api/users/' + id, corpo), 'Usuário atualizado.');
+      if (r) { fecharModal('modal'); carregarUsuarios(); }
+    }
+  });
+}
+
+async function trocarSenha(id) {
+  const senha = prompt('Nova senha (mínimo 6 caracteres):');
+  if (!senha) return;
+  await tentar(() => API.put(`/api/users/${id}/password`, { password: senha }), 'Senha alterada.');
+}
+async function excluirUsuario(id) {
+  if (!confirm('Excluir este usuário?')) return;
+  const r = await tentar(() => API.del('/api/users/' + id), 'Usuário excluído.');
+  if (r) carregarUsuarios();
+}
+
+/* ══════════════════ PARÂMETROS ══════════════════ */
+
+async function carregarParams() {
+  const { mapa } = await API.get('/api/config/parametros');
+  document.getElementById('pManual').checked   = mapa.ponto_permite_manual !== 'false';
+  document.getElementById('pVoz').checked      = mapa.cad_voz_ativa !== 'false';
+  document.getElementById('pBloqueio').value   = mapa.ponto_bloqueio_min ?? 1;
+  document.getElementById('pLimite').value     = mapa.cad_limite_ciclos ?? 500;
+}
+
+document.getElementById('btnSalvarParams').onclick = async () => {
+  await tentar(() => API.put('/api/config/parametros', {
+    ponto_permite_manual: chk('pManual'),
+    cad_voz_ativa: chk('pVoz'),
+    ponto_bloqueio_min: val('pBloqueio'),
+    cad_limite_ciclos: val('pLimite')
+  }), 'Parâmetros salvos.');
+};
+
+/* ══════════════════ Início ══════════════════ */
+
+(async () => {
+  await montarTopo({ subtitulo: 'Administração' });
+
+  await carregarTurnos();
+  carregarEscopoTakt();
+
+  await Promise.all([
+    carregarCelulas(), carregarColabs(), carregarCrachas(),
+    carregarTakt(), carregarProdutos(), carregarUsuarios(), carregarParams()
+  ]);
+
+  const hash = location.hash.slice(1);
+  if (hash) document.querySelector(`.aba[data-p="${hash}"]`)?.click();
+})();
+</script>
+</body>
+</html>

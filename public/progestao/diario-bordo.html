@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ProGestão – Diário de Bordo</title>
+<style>
+:root{--bg:#0A1620;--card:#14293A;--card2:#1A3347;--accent:#26B247;--accent2:#1C4984;--green:#34D399;--yellow:#F0B429;--red:#F26D6D;--orange:#E88C4A;--blue:#56B6E0;--purple:#1D6574;--text:#EAF4F1;--text2:#A2BCC3;--border:#1E3D52;--radius:12px;--panel:#14293A;--panel2:#1A3347;--fade:linear-gradient(135deg,#26B247 0%,#1D6574 55%,#1C4984 100%)}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+a{color:var(--accent);text-decoration:none}
+.topbar{background:var(--card);padding:12px 24px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border)}
+.topbar .logo{font-size:1.2rem;font-weight:700;color:var(--accent)}
+.topbar .logo a{color:var(--text);font-weight:700}
+.topbar .right{display:flex;align-items:center;gap:16px}
+.topbar .clock{background:var(--card2);padding:4px 12px;border-radius:20px;font-size:.85rem;color:var(--text2)}
+.topbar .user{font-size:.9rem;color:var(--text2)}
+.btn-sm{padding:6px 14px;border:none;border-radius:8px;cursor:pointer;font-size:.85rem;font-weight:600;transition:.2s;display:inline-flex;align-items:center;gap:4px}
+.btn-danger{background:var(--red);color:#fff}.btn-danger:hover{opacity:.85}
+.btn-primary{background:var(--accent);color:#fff}.btn-primary:hover{background:#2563eb}
+.btn-green{background:var(--green);color:#fff}.btn-green:hover{background:#16a34a}
+.btn-ghost{background:transparent;border:1px solid var(--border);color:var(--text2)}.btn-ghost:hover{border-color:var(--accent);color:var(--accent)}
+.btn-orange{background:var(--orange);color:#fff}.btn-orange:hover{opacity:.85}
+.btn-warning{background:var(--yellow);color:#000}.btn-warning:hover{background:#ca8a04}
+.layout{display:flex;min-height:calc(100vh - 57px)}
+.sidebar{width:220px;background:var(--card);padding:16px 12px;border-right:1px solid var(--border);display:flex;flex-direction:column;gap:4px}
+.sidebar a{display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:var(--radius);color:var(--text2);font-size:.9rem;transition:.2s}
+.sidebar a:hover,.sidebar a.active{background:var(--accent);color:#fff}
+.main{flex:1;padding:24px;overflow-y:auto}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:16px;margin-bottom:24px}
+.kpi{background:var(--card);padding:20px;border-radius:var(--radius);text-align:center;border:1px solid var(--border)}
+.kpi.alert{border-color:var(--red);box-shadow:0 0 0 1px var(--red) inset}
+.kpi .num{font-size:2rem;font-weight:700}
+.kpi .lbl{font-size:.8rem;color:var(--text2);margin-top:4px}
+.tabs{display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap}
+.tab{padding:8px 18px;border-radius:20px;cursor:pointer;font-size:.85rem;background:var(--card);color:var(--text2);border:1px solid var(--border);transition:.2s}
+.tab:hover,.tab.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.section{display:none}.section.active{display:block}
+.tbl-wrap{overflow-x:auto;margin-top:10px}
+table{width:100%;border-collapse:collapse}
+th,td{padding:10px 14px;text-align:left;border-bottom:1px solid var(--border);font-size:.88rem;vertical-align:top}
+th{background:var(--card2);color:var(--text2);font-weight:600}
+tr:hover{background:rgba(59,130,246,.08)}
+tr.row-atrasada{background:rgba(239,68,68,.08)}
+tr.row-atrasada:hover{background:rgba(239,68,68,.15)}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;max-width:700px}
+.form-group{display:flex;flex-direction:column;gap:4px}
+.form-group label{font-size:.8rem;color:var(--text2)}
+.form-group input,.form-group select,.form-group textarea{padding:10px;border-radius:8px;border:1px solid var(--border);background:var(--card2);color:var(--text);font-size:.9rem}
+.form-group textarea{min-height:80px;resize:vertical}
+.search-bar{display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;align-items:center}
+.search-bar input,.search-bar select{padding:8px 14px;border-radius:8px;border:1px solid var(--border);background:var(--card2);color:var(--text);font-size:.88rem}
+.search-bar input{flex:1;min-width:200px}
+.badge{padding:3px 10px;border-radius:12px;font-size:.78rem;font-weight:600}
+.badge-green{background:rgba(34,197,94,.15);color:var(--green)}
+.badge-red{background:rgba(239,68,68,.15);color:var(--red)}
+.badge-yellow{background:rgba(234,179,8,.15);color:var(--yellow)}
+.badge-blue{background:rgba(59,130,246,.15);color:var(--accent)}
+.badge-orange{background:rgba(249,115,22,.15);color:var(--orange)}
+.badge-purple{background:rgba(139,92,246,.15);color:var(--accent2)}
+.toast{position:fixed;top:20px;right:20px;padding:14px 24px;border-radius:var(--radius);color:#fff;font-weight:600;z-index:9999;animation:slideIn .3s}
+@keyframes slideIn{from{transform:translateX(100%);opacity:0}to{transform:translateX(0);opacity:1}}
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:999;align-items:center;justify-content:center}
+.modal-overlay.show{display:flex}
+.modal{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:24px;max-width:500px;width:90%;max-height:85vh;overflow-y:auto}
+.modal h3{margin-bottom:12px}
+.modal .btns{display:flex;gap:10px;margin-top:16px;justify-content:flex-end}
+.cell-clickable{max-width:220px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;transition:.2s;position:relative}
+.cell-clickable:hover{color:var(--accent);text-decoration:underline}
+.cell-clickable::after{content:' 🔍';font-size:.7rem;opacity:.4}
+.cell-clickable:hover::after{opacity:1}
+.tags-wrap{background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:10px}
+.tags-list{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}
+.tag-chip{display:inline-flex;align-items:center;gap:4px;background:rgba(59,130,246,.18);color:var(--accent);padding:4px 10px;border-radius:20px;font-size:.8rem;font-weight:500}
+.tag-chip .tag-x{cursor:pointer;font-weight:700;margin-left:2px;font-size:.9rem;opacity:.7}
+.tag-chip .tag-x:hover{opacity:1;color:var(--red)}
+.tag-externo{background:rgba(139,92,246,.18);color:var(--accent2)}
+.tags-input-row{display:flex;gap:8px;align-items:center}
+.input-wrap{flex:1;position:relative}
+.input-wrap input{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:8px 12px;color:var(--text);font-size:.85rem}
+.suggestions{position:absolute;top:100%;left:0;right:0;background:var(--card);border:1px solid var(--border);border-radius:0 0 8px 8px;max-height:200px;overflow-y:auto;z-index:99;display:none}
+.suggestions.show{display:block}
+.sug-item{padding:8px 12px;cursor:pointer;font-size:.85rem;display:flex;justify-content:space-between;align-items:center}
+.sug-item:hover{background:var(--card2)}
+.sug-mat{font-size:.75rem;color:var(--text2)}
+.envolvidos-hint{font-size:.75rem;color:var(--text2);margin-top:6px}
+.setor-wrap{position:relative}
+.setor-wrap input{width:100%;background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:10px;color:var(--text);font-size:.9rem}
+.setor-suggestions{position:absolute;top:100%;left:0;right:0;background:var(--card);border:1px solid var(--border);border-radius:0 0 8px 8px;max-height:180px;overflow-y:auto;z-index:99;display:none}
+.setor-suggestions.show{display:block}
+.setor-sug-item{padding:8px 12px;cursor:pointer;font-size:.85rem;transition:.15s}
+.setor-sug-item:hover{background:var(--card2)}
+.setor-sug-item.novo{color:var(--green);font-style:italic}
+.galeria-detalhe{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin-top:8px}
+.galeria-detalhe img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:8px;cursor:pointer;transition:.2s}
+.galeria-detalhe img:hover{transform:scale(1.03)}
+#modal-detalhe .modal{max-width:700px}
+#modal-detalhe .detail-section{margin-bottom:14px}
+#modal-detalhe .detail-label{font-size:.78rem;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;font-weight:600}
+#modal-detalhe .detail-value{background:var(--card2);padding:12px 16px;border-radius:8px;font-size:.9rem;line-height:1.6;white-space:pre-wrap;word-wrap:break-word}
+#modal-detalhe .detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}
+#modal-detalhe .detail-grid .detail-section{margin-bottom:0}
+.tipo-toggle{display:flex;gap:0;background:var(--card2);border-radius:8px;padding:4px;width:fit-content;margin-bottom:14px}
+.tipo-toggle button{padding:8px 18px;border:none;background:transparent;color:var(--text2);cursor:pointer;border-radius:6px;font-size:.85rem;font-weight:600;transition:.2s}
+.tipo-toggle button.active{background:var(--accent);color:#fff}
+.atrasada-tag{background:var(--red);color:#fff;padding:2px 8px;border-radius:10px;font-size:.7rem;font-weight:700;margin-left:6px}
+@media(max-width:768px){.sidebar{display:none}.form-grid{grid-template-columns:1fr}.kpis{grid-template-columns:1fr 1fr}}
+</style>
+<link rel="icon" href="/assets/logo-decio.png">
+
+<style>
+/* ===== Tema Décio — sobreposição sobre o CSS original do módulo ===== */
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap');
+body{font-family:'Inter','Segoe UI',system-ui,sans-serif}
+h1,h2,h3,.logo{font-family:'Manrope','Segoe UI',system-ui,sans-serif;letter-spacing:-.02em}
+
+.fita-marca{position:fixed;top:0;left:0;right:0;height:3px;background:var(--fade);z-index:9999}
+
+.btn-primary,.btn-accent{
+  background:var(--fade)!important;color:#fff!important;border:none!important;
+  box-shadow:0 2px 12px rgba(38,178,71,.22)}
+.btn-primary:hover,.btn-accent:hover{filter:brightness(1.06);transform:translateY(-1px)}
+.btn-green{background:var(--green)!important;color:#062B1E!important}
+.btn-warning{background:var(--yellow)!important;color:#2B1E00!important}
+
+a{color:var(--accent)}
+.topbar{border-bottom:1px solid var(--border)}
+.logo-decio{height:26px;width:26px;border-radius:7px;vertical-align:-7px;margin-right:8px}
+.voltar-portal{
+  display:inline-flex;align-items:center;gap:6px;padding:6px 12px;margin-right:6px;
+  border:1px solid var(--border);border-radius:8px;background:var(--card2);
+  color:var(--text2)!important;font-size:12px;font-weight:600;text-decoration:none}
+.voltar-portal:hover{background:var(--panel2);color:var(--text)!important}
+
+::-webkit-scrollbar{width:8px;height:8px}
+::-webkit-scrollbar-track{background:var(--bg)}
+::-webkit-scrollbar-thumb{background:#2C5570;border-radius:99px}
+:focus-visible{outline:2px solid #35C95C;outline-offset:2px}
+@media(prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+</style>
+</head>
+<body>
+<div class="fita-marca"></div>
+<div class="topbar">
+  <div class="logo"><img src="/assets/logo-decio.png" class="logo-decio" alt=""><a href="/progestao">ProGestão</a> / Diário de Bordo</div>
+  <div class="right"><a href="/" class="voltar-portal">← Portal</a><span class="clock" id="clock"></span><span class="user" id="user-display"></span><button class="btn-sm btn-danger" onclick="doLogout()">Sair</button></div>
+</div>
+<div class="layout">
+<nav class="sidebar">
+  <a href="/progestao">🏠 Início</a><a href="/progestao/ferramentas">🔧 Ferramentas</a><a href="/progestao/epis">🦺 EPIs</a>
+  <a href="/progestao/banco-horas">⏰ Banco Horas</a><a href="/progestao/treinamentos">📚 Treinamentos</a>
+  <a href="/progestao/diario-bordo" class="active">📋 Diário Bordo</a><a href="/progestao/checklist">✅ Checklist</a>
+  <a href="/progestao/producao">📊 Produção</a><a href="/progestao/limpeza">🧹 Limpeza</a>
+</nav>
+<div class="main">
+  <h2 style="margin-bottom:20px">📋 Diário de Bordo</h2>
+
+  <div class="kpis">
+    <div class="kpi"><div class="num" id="k-ocorrencias" style="color:var(--accent)">0</div><div class="lbl">Ocorrências</div></div>
+    <div class="kpi"><div class="num" id="k-pendencias" style="color:var(--yellow)">0</div><div class="lbl">Pendências</div></div>
+    <div class="kpi alert"><div class="num" id="k-atrasadas" style="color:var(--red)">0</div><div class="lbl">⚠ Pendências Atrasadas</div></div>
+    <div class="kpi"><div class="num" id="k-criticas" style="color:var(--orange)">0</div><div class="lbl">Pendências Críticas/Alta</div></div>
+    <div class="kpi"><div class="num" id="k-resumos" style="color:var(--green)">0</div><div class="lbl">Resumos</div></div>
+  </div>
+
+  <div class="tabs">
+    <div class="tab active" onclick="showTab('ocorrencias')">📝 Ocorrências</div>
+    <div class="tab" onclick="showTab('pendencias')">⚠️ Pendências</div>
+    <div class="tab" onclick="showTab('novo')">➕ Novo</div>
+    <div class="tab" onclick="showTab('resumos')">📄 Resumos</div>
+    <div class="tab" onclick="showTab('relatorios')">📊 Relatórios</div>
+  </div>
+
+  <!-- ===== OCORRÊNCIAS ===== -->
+  <div class="section active" id="sec-ocorrencias">
+    <div class="search-bar">
+      <input id="search-oc" placeholder="Buscar..." oninput="renderOcorrencias()">
+      <select id="filter-oc-setor" onchange="renderOcorrencias()"><option value="">Todos os Setores</option></select>
+    </div>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>Data</th><th>Hora</th><th>Turno</th><th>Setor</th><th>Descrição</th><th>Ação</th><th>Envolvidos</th><th>Fotos</th><th>Ações</th></tr></thead>
+      <tbody id="tb-oc"></tbody>
+    </table></div>
+  </div>
+
+  <!-- ===== PENDÊNCIAS ===== -->
+  <div class="section" id="sec-pendencias">
+    <div class="search-bar">
+      <input id="search-pe" placeholder="Buscar..." oninput="renderPendencias()">
+      <select id="filter-pe-pri" onchange="renderPendencias()"><option value="">Prioridade</option><option>Baixa</option><option>Média</option><option>Alta</option><option>Crítica</option></select>
+      <select id="filter-pe-st" onchange="renderPendencias()"><option value="">Status</option><option>Pendente</option><option>Em andamento</option><option>Resolvido</option></select>
+      <select id="filter-pe-setor" onchange="renderPendencias()"><option value="">Todos os Setores</option></select>
+      <select id="filter-pe-atraso" onchange="renderPendencias()"><option value="">Todas</option><option value="atrasadas">Somente atrasadas</option><option value="no-prazo">Somente no prazo</option></select>
+    </div>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>Data</th><th>Setor</th><th>Prioridade</th><th>Status</th><th>Previsão</th><th>Descrição</th><th>Ação</th><th>Envolvidos</th><th>Fotos</th><th>Ações</th></tr></thead>
+      <tbody id="tb-pe"></tbody>
+    </table></div>
+  </div>
+
+  <!-- ===== NOVO ===== -->
+  <div class="section" id="sec-novo">
+    <h3 id="form-title-db">Novo Registro</h3>
+
+    <div class="tipo-toggle" style="margin-top:10px">
+      <button type="button" id="bt-tipo-oc" class="active" onclick="setTipo('ocorrencia')">📝 Ocorrência</button>
+      <button type="button" id="bt-tipo-pe" onclick="setTipo('pendencia')">⚠️ Pendência</button>
+    </div>
+    <p style="font-size:.78rem;color:var(--text2);margin-bottom:8px" id="tipo-hint">
+      <strong>Ocorrência:</strong> registro de evento já ocorrido — não tem prioridade nem status.
+    </p>
+
+    <div class="form-grid" style="margin-top:14px">
+      <div class="form-group"><label>Data *</label><input id="d-data" type="date"></div>
+      <div class="form-group"><label>Hora</label><input id="d-hora" type="time"></div>
+      <div class="form-group"><label>Turno</label><select id="d-turno"><option value="">Selecione...</option><option value="1º Turno">1º Turno</option><option value="2º Turno">2º Turno</option></select></div>
+      <div class="form-group">
+        <label>Setor</label>
+        <div class="setor-wrap">
+          <input id="d-setor" placeholder="Digite ou selecione o setor..." autocomplete="off" oninput="filtrarSetores()" onfocus="filtrarSetores()" onkeydown="handleSetorKey(event)">
+          <div class="setor-suggestions" id="setor-sugestoes"></div>
+        </div>
+      </div>
+      <div class="form-group" id="grp-pri" style="display:none"><label>Prioridade</label><select id="d-pri"><option>Baixa</option><option>Média</option><option>Alta</option><option>Crítica</option></select></div>
+      <div class="form-group" id="grp-st" style="display:none"><label>Status</label><select id="d-st"><option>Pendente</option><option>Em andamento</option><option>Resolvido</option></select></div>
+      <div class="form-group" id="grp-prev" style="display:none"><label>Previsão de Conclusão</label><input id="d-prev" type="date"></div>
+    </div>
+
+    <div style="margin-top:14px;max-width:700px">
+      <label style="font-size:.8rem;color:var(--text2);display:block;margin-bottom:6px">Colaboradores Envolvidos</label>
+      <div class="tags-wrap">
+        <div class="tags-list" id="tags-list"></div>
+        <div class="tags-input-row">
+          <div class="input-wrap">
+            <input id="d-envolvido-input" placeholder="Digite o nome e selecione ou pressione Enter..." autocomplete="off" oninput="filtrarSugestoes()" onkeydown="handleTagKey(event)">
+            <div class="suggestions" id="sugestoes"></div>
+          </div>
+          <button class="btn-sm btn-ghost" type="button" onclick="adicionarEnvolvidoManual()">+ Adicionar</button>
+        </div>
+        <div class="envolvidos-hint">Selecione da lista (banco de dados) ou digite um nome externo e pressione Enter.</div>
+      </div>
+    </div>
+
+    <div id="fotos-diario"></div>
+
+    <div class="form-grid" style="margin-top:14px;max-width:700px;grid-template-columns:1fr">
+      <div class="form-group"><label>Descrição *</label><textarea id="d-desc"></textarea></div>
+      <div class="form-group"><label>Ação tomada</label><textarea id="d-acao"></textarea></div>
+    </div>
+
+    <div style="margin-top:14px;display:flex;gap:10px">
+      <button class="btn-sm btn-green" onclick="salvarReg()">Salvar</button>
+      <button class="btn-sm btn-ghost" onclick="cancelarReg()">Cancelar</button>
+    </div>
+  </div>
+
+  <!-- ===== RESUMOS ===== -->
+  <div class="section" id="sec-resumos">
+    <h3 id="form-title-res">Resumo do Turno</h3>
+    <div class="form-grid" style="margin:14px 0">
+      <div class="form-group"><label>Data *</label><input id="rs-data" type="date"></div>
+      <div class="form-group"><label>Turno</label><select id="rs-turno"><option value="">Selecione...</option><option value="1º Turno">1º Turno</option><option value="2º Turno">2º Turno</option></select></div>
+      <div class="form-group"><label>Texto *</label><textarea id="rs-texto"></textarea></div>
+      <div class="form-group"><label>Obs</label><textarea id="rs-obs"></textarea></div>
+    </div>
+    <div id="fotos-resumo" style="margin:0 0 14px"></div>
+    <div style="display:flex;gap:10px">
+      <button class="btn-sm btn-green" onclick="salvarResumo()">Salvar Resumo</button>
+      <button class="btn-sm btn-ghost" id="btn-cancelar-res" onclick="cancelarResumo()" style="display:none">Cancelar Edição</button>
+    </div>
+    <div class="search-bar" style="margin-top:20px"><input id="search-res" placeholder="Buscar resumo..." oninput="renderRes()"></div>
+    <div class="tbl-wrap"><table><thead><tr><th>Data</th><th>Turno</th><th>Texto</th><th>Obs</th><th>Fotos</th><th>Ações</th></tr></thead><tbody id="tb-res"></tbody></table></div>
+  </div>
+
+  <!-- ===== RELATÓRIOS ===== -->
+  <div class="section" id="sec-relatorios">
+    <h3>📊 Relatórios</h3>
+    <p style="color:var(--text2);font-size:.9rem;margin:10px 0 16px">Exporte os dados do Diário de Bordo em formato CSV.</p>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:20px">
+      <button class="btn-sm btn-primary" onclick="exportCSVOcorrencias()">Exportar Ocorrências (CSV)</button>
+      <button class="btn-sm btn-primary" onclick="exportCSVPendencias()">Exportar Pendências (CSV)</button>
+      <button class="btn-sm btn-primary" onclick="exportCSVResumos()">Exportar Resumos (CSV)</button>
+    </div>
+    <h4 style="margin-bottom:10px">Resumo por Setor</h4>
+    <div class="tbl-wrap"><table><thead><tr><th>Setor</th><th>Ocorrências</th><th>Pendências</th><th>Resolvidas</th><th>Atrasadas</th></tr></thead><tbody id="tb-rel-cat"></tbody></table></div>
+    <h4 style="margin:20px 0 10px">Resumo por Turno</h4>
+    <div class="tbl-wrap"><table><thead><tr><th>Turno</th><th>Ocorrências</th><th>Pendências</th><th>Resumos</th></tr></thead><tbody id="tb-rel-turno"></tbody></table></div>
+  </div>
+</div></div>
+
+<div class="modal-overlay" id="modal-del"><div class="modal"><h3>Confirmar Exclusão</h3><p id="modal-del-msg">Tem certeza?</p><div class="btns"><button class="btn-sm btn-ghost" onclick="fecharModal()">Cancelar</button><button class="btn-sm btn-danger" id="modal-del-btn">Excluir</button></div></div></div>
+<div class="modal-overlay" id="modal-detalhe" onclick="this.classList.remove('show')"><div class="modal" onclick="event.stopPropagation()"><h3 id="modal-detalhe-titulo">Detalhes</h3><div id="modal-detalhe-corpo"></div><div class="btns"><button class="btn-sm btn-ghost" onclick="document.getElementById('modal-detalhe').classList.remove('show')">Fechar</button></div></div></div>
+
+<script src="/js/fotos.js"></script>
+<script>
+var registros=[],resumos=[],colabs=[],colabsTodos=[],setores=[];   // colabs = sem desligados
+var editDbId=null,editResId=null;
+var envolvidos=[];
+var fotosDiario={}, fotosResumo={};   // { id_do_registro: [ids das fotos] }
+var galDiario=Fotos.galeria('#fotos-diario',{entidade:'diario',titulo:'Fotos de evidência'});
+var galResumo=Fotos.galeria('#fotos-resumo',{entidade:'resumo',titulo:'Fotos do turno (opcional)'});
+var tipoAtual='ocorrencia';
+
+var api={
+  get:async function(u){var r=await fetch(u);if(r.status===401){location.href='/login';return null}return r.json()},
+  post:async function(u,d){var r=await fetch(u,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(d)});if(r.status===401){location.href='/login';return null}return r.json()},
+  put:async function(u,d){var r=await fetch(u,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(d)});if(r.status===401){location.href='/login';return null}return r.json()},
+  del:async function(u){var r=await fetch(u,{method:'DELETE'});if(r.status===401){location.href='/login';return null}return r.json()}
+};
+
+function toast(m,t){t=t||'success';var e=document.createElement('div');e.className='toast';e.style.background=t==='error'?'var(--red)':'var(--green)';e.textContent=m;document.body.appendChild(e);setTimeout(function(){e.remove()},3000)}
+function fmtDate(d){if(!d)return'-';var s=String(d).slice(0,10);var p=s.split('-');if(p.length!==3)return'-';return p[2]+'/'+p[1]+'/'+p[0]}
+function getDateVal(d){if(!d)return'';return String(d).slice(0,10)}
+function escHtml(s){if(s===null||s===undefined)return'';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
+function updateClock(){var n=new Date();document.getElementById('clock').textContent=n.toLocaleTimeString('pt-BR')+' — '+n.toLocaleDateString('pt-BR')}
+setInterval(updateClock,1000);updateClock();
+async function doLogout(){await fetch('/api/logout',{method:'POST'});location.href='/login'}
+function hoje(){var d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
+
+function isAtrasada(r){
+  if(r.tipo!=='pendencia')return false;
+  if(r.status==='Resolvido')return false;
+  if(!r.previsao_conclusao)return false;
+  return getDateVal(r.previsao_conclusao) < hoje();
+}
+
+function setTipo(tipo){
+  tipoAtual=tipo;
+  document.getElementById('bt-tipo-oc').classList.toggle('active',tipo==='ocorrencia');
+  document.getElementById('bt-tipo-pe').classList.toggle('active',tipo==='pendencia');
+  var mostrarPend = tipo==='pendencia';
+  document.getElementById('grp-pri').style.display = mostrarPend?'flex':'none';
+  document.getElementById('grp-st').style.display  = mostrarPend?'flex':'none';
+  document.getElementById('grp-prev').style.display= mostrarPend?'flex':'none';
+  document.getElementById('tipo-hint').innerHTML = mostrarPend
+    ? '<strong>Pendência:</strong> algo que ainda precisa ser feito — tem prioridade, status e previsão de conclusão.'
+    : '<strong>Ocorrência:</strong> registro de evento já ocorrido — não tem prioridade nem status.';
+}
+
+/* === SETORES === */
+function filtrarSetores(){
+  var input=document.getElementById('d-setor');
+  var div=document.getElementById('setor-sugestoes');
+  var q=input.value.trim().toLowerCase();
+  var filtered=setores.filter(function(s){return s.nome.toLowerCase().indexOf(q)>=0});
+  if(!q&&!filtered.length){fecharSetorSug();return}
+  var html='';
+  filtered.forEach(function(s){
+    html+='<div class="setor-sug-item" onmousedown="selecionarSetor(\''+s.nome.replace(/'/g,"\\'")+'\')">'+s.nome+'</div>';
+  });
+  if(q.length>0){
+    var existe=setores.find(function(s){return s.nome.toLowerCase()===q});
+    if(!existe){html+='<div class="setor-sug-item novo" onmousedown="criarESelecionar()">+ Criar setor: "'+escHtml(input.value.trim())+'"</div>'}
+  }
+  if(!html){fecharSetorSug();return}
+  div.innerHTML=html;div.classList.add('show');
+}
+function selecionarSetor(nome){document.getElementById('d-setor').value=nome;fecharSetorSug()}
+async function criarESelecionar(){
+  var input=document.getElementById('d-setor');var nome=input.value.trim();if(!nome)return;
+  var r=await api.post('/api/db-setores',{nome:nome});
+  if(r&&r.nome){var ja=setores.find(function(s){return s.nome.toLowerCase()===r.nome.toLowerCase()});if(!ja)setores.push(r);setores.sort(function(a,b){return a.nome.localeCompare(b.nome)});input.value=r.nome;atualizarFiltroSetores();toast('Setor "'+r.nome+'" salvo!')}
+  fecharSetorSug();
+}
+function handleSetorKey(e){
+  if(e.key==='Enter'){e.preventDefault();var input=document.getElementById('d-setor');var nome=input.value.trim();if(!nome)return;var existe=setores.find(function(s){return s.nome.toLowerCase()===nome.toLowerCase()});if(existe){input.value=existe.nome;fecharSetorSug()}else{criarESelecionar()}}
+  if(e.key==='Escape')fecharSetorSug();
+}
+function fecharSetorSug(){document.getElementById('setor-sugestoes').classList.remove('show')}
+function atualizarFiltroSetores(){
+  ['filter-oc-setor','filter-pe-setor'].forEach(function(id){
+    var sel=document.getElementById(id);if(!sel)return;
+    var val=sel.value;
+    sel.innerHTML='<option value="">Todos os Setores</option>';
+    setores.forEach(function(s){sel.innerHTML+='<option value="'+escHtml(s.nome)+'">'+escHtml(s.nome)+'</option>'});
+    sel.value=val;
+  });
+}
+document.addEventListener('click',function(e){var w=document.querySelector('.setor-wrap');if(w&&!w.contains(e.target))fecharSetorSug();var w2=document.querySelector('.input-wrap');if(w2&&!w2.contains(e.target))fecharSugestoes()});
+
+/* === FOTOS === */
+function thumbsHTML(r){return Fotos.miniaturas(fotosDiario[r.id],{max:3,vazio:'<span style="color:var(--text2)">-</span>'})}
+function galeriaHTML(r){return Fotos.grade(fotosDiario[r.id])}
+function qtdFotos(r){return (fotosDiario[r.id]||[]).length}
+
+/* === DETALHES === */
+function abrirDetalheRegistro(id){
+  var r=registros.find(function(x){return x.id===id});if(!r)return;
+  var ePend = r.tipo==='pendencia';
+  document.getElementById('modal-detalhe-titulo').textContent = ePend ? '⚠️ Detalhes da Pendência' : '📝 Detalhes da Ocorrência';
+  var h='<div class="detail-grid">';
+  h+='<div class="detail-section"><div class="detail-label">Data</div><div class="detail-value">'+fmtDate(r.data)+'</div></div>';
+  h+='<div class="detail-section"><div class="detail-label">Hora</div><div class="detail-value">'+(r.hora||'-')+'</div></div>';
+  h+='<div class="detail-section"><div class="detail-label">Turno</div><div class="detail-value">'+(r.turno||'-')+'</div></div>';
+  h+='<div class="detail-section"><div class="detail-label">Setor</div><div class="detail-value">'+(r.categoria||'-')+'</div></div>';
+  if(ePend){
+    h+='<div class="detail-section"><div class="detail-label">Prioridade</div><div class="detail-value">'+priBadge(r.prioridade)+'</div></div>';
+    h+='<div class="detail-section"><div class="detail-label">Status</div><div class="detail-value">'+stBadge(r.status)+'</div></div>';
+    h+='<div class="detail-section"><div class="detail-label">Previsão de Conclusão</div><div class="detail-value">'+(r.previsao_conclusao?fmtDate(r.previsao_conclusao)+(isAtrasada(r)?' <span class="atrasada-tag">ATRASADA</span>':''):'-')+'</div></div>';
+  }
+  h+='</div>';
+  h+='<div class="detail-section"><div class="detail-label">Descrição</div><div class="detail-value">'+escHtml(r.descricao||'-')+'</div></div>';
+  h+='<div class="detail-section"><div class="detail-label">Ação Tomada</div><div class="detail-value">'+escHtml(r.acao||'-')+'</div></div>';
+  h+='<div class="detail-section"><div class="detail-label">Envolvidos</div><div class="detail-value">'+envolvidosHTML(r.envolvidos)+'</div></div>';
+  var galeria=galeriaHTML(r);
+  if(galeria){
+    var qtd=qtdFotos(r);
+    h+='<div class="detail-section"><div class="detail-label">Fotos ('+qtd+')</div>'+galeria+'</div>';
+  }
+  document.getElementById('modal-detalhe-corpo').innerHTML=h;
+  document.getElementById('modal-detalhe').classList.add('show');
+}
+function abrirDetalheResumo(id){
+  var r=resumos.find(function(x){return x.id===id});if(!r)return;
+  document.getElementById('modal-detalhe-titulo').textContent='📄 Detalhes do Resumo';
+  var h='<div class="detail-grid">';
+  h+='<div class="detail-section"><div class="detail-label">Data</div><div class="detail-value">'+fmtDate(r.data)+'</div></div>';
+  h+='<div class="detail-section"><div class="detail-label">Turno</div><div class="detail-value">'+(r.turno||'-')+'</div></div>';
+  h+='</div>';
+  h+='<div class="detail-section"><div class="detail-label">Texto</div><div class="detail-value">'+escHtml(r.texto||'-')+'</div></div>';
+  h+='<div class="detail-section"><div class="detail-label">Observação</div><div class="detail-value">'+escHtml(r.obs||'-')+'</div></div>';
+  var galR=Fotos.grade(fotosResumo[r.id]);
+  if(galR)h+='<div class="detail-section"><div class="detail-label">Fotos ('+(fotosResumo[r.id]||[]).length+')</div>'+galR+'</div>';
+  document.getElementById('modal-detalhe-corpo').innerHTML=h;
+  document.getElementById('modal-detalhe').classList.add('show');
+}
+
+function showTab(t){
+  document.querySelectorAll('.section').forEach(function(s){s.classList.remove('active')});
+  document.querySelectorAll('.tab').forEach(function(s){s.classList.remove('active')});
+  document.getElementById('sec-'+t).classList.add('active');
+  var names=['ocorrencias','pendencias','novo','resumos','relatorios'];
+  var tabs=document.querySelectorAll('.tab');
+  for(var i=0;i<names.length;i++){if(names[i]===t&&tabs[i])tabs[i].classList.add('active')}
+  if(t==='relatorios')renderRelatorios();
+}
+
+async function loadAll(){
+  var results=await Promise.all([api.get('/api/db-registros'),api.get('/api/db-resumos'),api.get('/api/colaboradores'),api.get('/api/db-setores'),Fotos.mapa('diario'),Fotos.mapa('resumo')]);
+  fotosDiario=results[4]||{};fotosResumo=results[5]||{};
+  registros=results[0]||[];
+  registros.forEach(function(r){if(!r.tipo)r.tipo='pendencia'});
+  resumos=results[1]||[];colabsTodos=results[2]||[];colabs=colabsTodos.filter(function(c){return c.status!=='Desligado'});setores=results[3]||[];
+  atualizarFiltroSetores();updateKPIs();renderOcorrencias();renderPendencias();renderRes();
+}
+
+function updateKPIs(){
+  var oc=registros.filter(function(r){return r.tipo==='ocorrencia'});
+  var pe=registros.filter(function(r){return r.tipo==='pendencia'});
+  var atr=pe.filter(isAtrasada);
+  var crit=pe.filter(function(r){return (r.prioridade==='Crítica'||r.prioridade==='Alta') && r.status!=='Resolvido'});
+  document.getElementById('k-ocorrencias').textContent=oc.length;
+  document.getElementById('k-pendencias').textContent=pe.length;
+  document.getElementById('k-atrasadas').textContent=atr.length;
+  document.getElementById('k-criticas').textContent=crit.length;
+  document.getElementById('k-resumos').textContent=resumos.length;
+}
+
+function priBadge(p){var m={'Crítica':'badge-red','Alta':'badge-orange','Média':'badge-yellow','Baixa':'badge-blue'};return '<span class="badge '+(m[p]||'badge-blue')+'">'+(p||'-')+'</span>'}
+function stBadge(s){var m={'Resolvido':'badge-green','Pendente':'badge-yellow','Em andamento':'badge-blue'};return '<span class="badge '+(m[s]||'badge-blue')+'">'+(s||'-')+'</span>'}
+
+/* === ENVOLVIDOS === */
+function renderTags(){var list=document.getElementById('tags-list');if(!envolvidos.length){list.innerHTML='';return}list.innerHTML=envolvidos.map(function(e,i){var cls=e.tipo==='externo'?'tag-chip tag-externo':'tag-chip';var label=e.nome+(e.tipo==='externo'?' (externo)':'');return '<span class="'+cls+'">'+label+'<span class="tag-x" onclick="removerEnvolvido('+i+')">&times;</span></span>'}).join('')}
+function removerEnvolvido(i){envolvidos.splice(i,1);renderTags()}
+function adicionarEnvolvido(nome,tipo){nome=nome.trim();if(!nome)return;var ja=envolvidos.find(function(e){return e.nome.toLowerCase()===nome.toLowerCase()});if(ja)return;envolvidos.push({nome:nome,tipo:tipo||'externo'});renderTags();document.getElementById('d-envolvido-input').value='';fecharSugestoes()}
+function adicionarEnvolvidoManual(){var input=document.getElementById('d-envolvido-input');var nome=input.value.trim();if(!nome){toast('Digite um nome','error');return}var colab=colabs.find(function(c){return c.nome.toLowerCase()===nome.toLowerCase()});adicionarEnvolvido(nome,colab?'interno':'externo')}
+function handleTagKey(e){if(e.key==='Enter'){e.preventDefault();adicionarEnvolvidoManual()}if(e.key==='Escape')fecharSugestoes()}
+function filtrarSugestoes(){var input=document.getElementById('d-envolvido-input');var div=document.getElementById('sugestoes');var q=input.value.trim().toLowerCase();if(q.length<1){fecharSugestoes();return}var nomes=envolvidos.map(function(e){return e.nome.toLowerCase()});var filtered=colabs.filter(function(c){return c.nome.toLowerCase().indexOf(q)>=0&&nomes.indexOf(c.nome.toLowerCase())<0}).slice(0,8);if(!filtered.length){fecharSugestoes();return}div.innerHTML=filtered.map(function(c){return '<div class="sug-item" onmousedown="selecionarSugestao(\''+c.nome.replace(/'/g,"\\'")+'\')">'+c.nome+'<span class="sug-mat">'+(c.mat?'Mat: '+c.mat:'')+(c.cargo?' · '+c.cargo:'')+'</span></div>'}).join('');div.classList.add('show')}
+function selecionarSugestao(nome){adicionarEnvolvido(nome,'interno')}
+function fecharSugestoes(){document.getElementById('sugestoes').classList.remove('show')}
+function envolvidosTexto(env){if(!env||!env.length)return'';if(typeof env==='string'){try{env=JSON.parse(env)}catch(e){return env}}return env.map(function(e){return typeof e==='string'?e:e.nome||''}).join(', ')}
+function envolvidosHTML(env){if(!env||!env.length)return'<span style="color:var(--text2)">-</span>';if(typeof env==='string'){try{env=JSON.parse(env)}catch(e){return env}}return env.map(function(e){var nome=typeof e==='string'?e:e.nome||'';var tipo=typeof e==='object'?e.tipo:'interno';var cls=tipo==='externo'?'tag-chip tag-externo':'tag-chip';return '<span class="'+cls+'" style="font-size:.75rem;padding:2px 8px">'+nome+'</span>'}).join(' ')}
+
+/* === RENDER OCORRENCIAS === */
+function renderOcorrencias(){
+  var q=(document.getElementById('search-oc').value||'').toLowerCase();
+  var fsetor=document.getElementById('filter-oc-setor').value;
+  var list=registros.filter(function(r){return r.tipo==='ocorrencia'});
+  if(q)list=list.filter(function(r){return(r.descricao||'').toLowerCase().indexOf(q)>=0||(r.categoria||'').toLowerCase().indexOf(q)>=0||envolvidosTexto(r.envolvidos).toLowerCase().indexOf(q)>=0||(r.acao||'').toLowerCase().indexOf(q)>=0});
+  if(fsetor)list=list.filter(function(r){return r.categoria===fsetor});
+  var tb=document.getElementById('tb-oc');
+  if(!list.length){tb.innerHTML='<tr><td colspan="9" style="text-align:center;color:var(--text2)">Nenhuma ocorrência</td></tr>';return}
+  tb.innerHTML=list.map(function(r){
+    var envTxt=envolvidosHTML(r.envolvidos);
+    var fotoCol=thumbsHTML(r);
+    return '<tr><td>'+fmtDate(r.data)+'</td><td>'+(r.hora||'-')+'</td><td>'+(r.turno||'-')+'</td><td><span class="badge badge-blue">'+(r.categoria||'-')+'</span></td><td class="cell-clickable" onclick="abrirDetalheRegistro('+r.id+')">'+escHtml(r.descricao||'-')+'</td><td class="cell-clickable" onclick="abrirDetalheRegistro('+r.id+')">'+escHtml(r.acao||'-')+'</td><td style="max-width:200px">'+envTxt+'</td><td>'+fotoCol+'</td><td style="white-space:nowrap"><button class="btn-sm btn-ghost" onclick="editarReg('+r.id+')">✏</button> <button class="btn-sm btn-danger" onclick="pedirDelReg('+r.id+')">🗑</button></td></tr>';
+  }).join('');
+}
+
+/* === RENDER PENDENCIAS === */
+function renderPendencias(){
+  var q=(document.getElementById('search-pe').value||'').toLowerCase();
+  var fp=document.getElementById('filter-pe-pri').value;
+  var fs=document.getElementById('filter-pe-st').value;
+  var fsetor=document.getElementById('filter-pe-setor').value;
+  var fAtraso=document.getElementById('filter-pe-atraso').value;
+  var list=registros.filter(function(r){return r.tipo==='pendencia'});
+  if(q)list=list.filter(function(r){return(r.descricao||'').toLowerCase().indexOf(q)>=0||(r.categoria||'').toLowerCase().indexOf(q)>=0||envolvidosTexto(r.envolvidos).toLowerCase().indexOf(q)>=0||(r.acao||'').toLowerCase().indexOf(q)>=0});
+  if(fp)list=list.filter(function(r){return r.prioridade===fp});
+  if(fs)list=list.filter(function(r){return r.status===fs});
+  if(fsetor)list=list.filter(function(r){return r.categoria===fsetor});
+  if(fAtraso==='atrasadas')list=list.filter(isAtrasada);
+  if(fAtraso==='no-prazo')list=list.filter(function(r){return !isAtrasada(r)});
+  var tb=document.getElementById('tb-pe');
+  if(!list.length){tb.innerHTML='<tr><td colspan="10" style="text-align:center;color:var(--text2)">Nenhuma pendência</td></tr>';return}
+  tb.innerHTML=list.map(function(r){
+    var envTxt=envolvidosHTML(r.envolvidos);
+    var fotoCol=thumbsHTML(r);
+    var atr=isAtrasada(r);
+    var prevCol=r.previsao_conclusao?fmtDate(r.previsao_conclusao)+(atr?' <span class="atrasada-tag">ATRASADA</span>':''):'<span style="color:var(--text2)">-</span>';
+    return '<tr class="'+(atr?'row-atrasada':'')+'"><td>'+fmtDate(r.data)+'</td><td><span class="badge badge-blue">'+(r.categoria||'-')+'</span></td><td>'+priBadge(r.prioridade)+'</td><td>'+stBadge(r.status)+'</td><td style="white-space:nowrap">'+prevCol+'</td><td class="cell-clickable" onclick="abrirDetalheRegistro('+r.id+')">'+escHtml(r.descricao||'-')+'</td><td class="cell-clickable" onclick="abrirDetalheRegistro('+r.id+')">'+escHtml(r.acao||'-')+'</td><td style="max-width:200px">'+envTxt+'</td><td>'+fotoCol+'</td><td style="white-space:nowrap"><button class="btn-sm btn-ghost" onclick="editarReg('+r.id+')">✏</button> <button class="btn-sm btn-danger" onclick="pedirDelReg('+r.id+')">🗑</button></td></tr>';
+  }).join('');
+}
+
+/* === EDITAR === */
+function editarReg(id){
+  var r=registros.find(function(x){return x.id===id});if(!r)return;
+  editDbId=id;
+  document.getElementById('form-title-db').textContent=r.tipo==='pendencia'?'Editar Pendência':'Editar Ocorrência';
+  setTipo(r.tipo||'pendencia');
+  document.getElementById('d-data').value=getDateVal(r.data);
+  document.getElementById('d-hora').value=r.hora||'';
+  document.getElementById('d-turno').value=r.turno||'';
+  document.getElementById('d-setor').value=r.categoria||'';
+  document.getElementById('d-pri').value=r.prioridade||'Baixa';
+  document.getElementById('d-st').value=r.status||'Pendente';
+  document.getElementById('d-prev').value=r.previsao_conclusao?getDateVal(r.previsao_conclusao):'';
+  document.getElementById('d-desc').value=r.descricao||'';
+  document.getElementById('d-acao').value=r.acao||'';
+  envolvidos=[];
+  if(r.envolvidos&&r.envolvidos.length){var env=r.envolvidos;if(typeof env==='string'){try{env=JSON.parse(env)}catch(e){env=[]}}envolvidos=env.map(function(e){if(typeof e==='string')return{nome:e,tipo:'interno'};return{nome:e.nome||'',tipo:e.tipo||'interno'}})}
+  renderTags();
+  galDiario.carregar(id);
+  showTab('novo');
+}
+
+function cancelarReg(){
+  editDbId=null;envolvidos=[];renderTags();
+  galDiario.limpar();
+  document.getElementById('form-title-db').textContent='Novo Registro';
+  setTipo('ocorrencia');
+  document.getElementById('d-hora').value='';document.getElementById('d-desc').value='';
+  document.getElementById('d-acao').value='';document.getElementById('d-data').value=hoje();
+  document.getElementById('d-turno').value='';document.getElementById('d-setor').value='';
+  document.getElementById('d-pri').value='Baixa';document.getElementById('d-st').value='Pendente';
+  document.getElementById('d-prev').value='';
+  document.getElementById('d-envolvido-input').value='';fecharSugestoes();fecharSetorSug();
+  showTab('ocorrencias');
+}
+
+async function salvarReg(){
+  var data=document.getElementById('d-data').value;
+  var descricao=document.getElementById('d-desc').value.trim();
+  if(!data||!descricao)return toast('Data e descrição obrigatórios','error');
+  var setorNome=document.getElementById('d-setor').value.trim();
+  if(setorNome){var existe=setores.find(function(s){return s.nome.toLowerCase()===setorNome.toLowerCase()});if(!existe){var ns=await api.post('/api/db-setores',{nome:setorNome});if(ns&&ns.nome){setores.push(ns);setores.sort(function(a,b){return a.nome.localeCompare(b.nome)});atualizarFiltroSetores()}}}
+  var body={
+    tipo:tipoAtual,
+    data:data,
+    hora:document.getElementById('d-hora').value||null,
+    turno:document.getElementById('d-turno').value||null,
+    categoria:setorNome||null,
+    descricao:descricao,
+    acao:document.getElementById('d-acao').value.trim()||null,
+    envolvidos:envolvidos
+  };
+  if(tipoAtual==='pendencia'){
+    body.prioridade=document.getElementById('d-pri').value;
+    body.status=document.getElementById('d-st').value;
+    body.previsao_conclusao=document.getElementById('d-prev').value||null;
+  }
+  var voltarPara=tipoAtual==='pendencia'?'pendencias':'ocorrencias';
+  var r=editDbId?await api.put('/api/db-registros/'+editDbId,body):await api.post('/api/db-registros',body);
+  if(!r||r.error)return toast(r&&r.error?r.error:'Erro ao salvar','error');
+  await galDiario.salvar(r.id);
+  toast(editDbId?'Atualizado!':(tipoAtual==='pendencia'?'Pendência salva!':'Ocorrência salva!'));
+  cancelarReg();
+  showTab(voltarPara);
+  await loadAll();
+}
+
+function pedirDelReg(id){document.getElementById('modal-del-msg').textContent='Excluir este registro?';document.getElementById('modal-del').classList.add('show');document.getElementById('modal-del-btn').onclick=async function(){await api.del('/api/db-registros/'+id);toast('Excluído!');fecharModal();await loadAll()}}
+
+/* === RESUMOS === */
+function renderRes(){
+  var q=(document.getElementById('search-res')?document.getElementById('search-res').value:'').toLowerCase();
+  var list=resumos;
+  if(q)list=list.filter(function(r){return(r.texto||'').toLowerCase().indexOf(q)>=0||(r.turno||'').toLowerCase().indexOf(q)>=0||fmtDate(r.data).indexOf(q)>=0||(r.obs||'').toLowerCase().indexOf(q)>=0});
+  var tb=document.getElementById('tb-res');
+  if(!list.length){tb.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--text2)">Nenhum resumo</td></tr>';return}
+  tb.innerHTML=list.map(function(r){
+    return '<tr><td>'+fmtDate(r.data)+'</td><td>'+(r.turno||'-')+'</td><td class="cell-clickable" onclick="abrirDetalheResumo('+r.id+')">'+escHtml(r.texto||'-')+'</td><td class="cell-clickable" onclick="abrirDetalheResumo('+r.id+')">'+escHtml(r.obs||'-')+'</td><td>'+Fotos.miniaturas(fotosResumo[r.id],{max:2,vazio:'<span style="color:var(--text2)">-</span>'})+'</td><td style="white-space:nowrap"><button class="btn-sm btn-ghost" onclick="editarResumo('+r.id+')">✏</button> <button class="btn-sm btn-danger" onclick="pedirDelRes('+r.id+')">🗑</button></td></tr>';
+  }).join('');
+}
+function editarResumo(id){var r=resumos.find(function(x){return x.id===id});if(!r)return;editResId=id;document.getElementById('form-title-res').textContent='Editar Resumo';document.getElementById('rs-data').value=getDateVal(r.data);document.getElementById('rs-turno').value=r.turno||'';document.getElementById('rs-texto').value=r.texto||'';document.getElementById('rs-obs').value=r.obs||'';document.getElementById('btn-cancelar-res').style.display='inline-flex';galResumo.carregar(id);showTab('resumos')}
+function cancelarResumo(){editResId=null;document.getElementById('form-title-res').textContent='Resumo do Turno';document.getElementById('rs-data').value=hoje();document.getElementById('rs-turno').value='';document.getElementById('rs-texto').value='';document.getElementById('rs-obs').value='';document.getElementById('btn-cancelar-res').style.display='none';galResumo.limpar()}
+async function salvarResumo(){var data=document.getElementById('rs-data').value;var texto=document.getElementById('rs-texto').value.trim();if(!data||!texto)return toast('Data e texto obrigatórios','error');var body={data:data,turno:document.getElementById('rs-turno').value||null,texto:texto,obs:document.getElementById('rs-obs').value.trim()||null};var r=editResId?await api.put('/api/db-resumos/'+editResId,body):await api.post('/api/db-resumos',body);if(!r||r.error)return toast(r&&r.error?r.error:'Erro ao salvar','error');await galResumo.salvar(r.id);toast(editResId?'Resumo atualizado!':'Resumo salvo!');cancelarResumo();await loadAll()}
+function pedirDelRes(id){document.getElementById('modal-del-msg').textContent='Excluir este resumo?';document.getElementById('modal-del').classList.add('show');document.getElementById('modal-del-btn').onclick=async function(){await api.del('/api/db-resumos/'+id);toast('Excluído!');fecharModal();await loadAll()}}
+function fecharModal(){document.getElementById('modal-del').classList.remove('show');document.getElementById('modal-detalhe').classList.remove('show')}
+
+/* === RELATÓRIOS === */
+function renderRelatorios(){renderRelCat();renderRelTurno()}
+function renderRelCat(){
+  var cats={};
+  registros.forEach(function(r){
+    var c=r.categoria||'Sem setor';
+    if(!cats[c])cats[c]={oc:0,pe:0,resolvidas:0,atrasadas:0};
+    if(r.tipo==='ocorrencia')cats[c].oc++;
+    else{
+      cats[c].pe++;
+      if(r.status==='Resolvido')cats[c].resolvidas++;
+      if(isAtrasada(r))cats[c].atrasadas++;
+    }
+  });
+  var tb=document.getElementById('tb-rel-cat');
+  var keys=Object.keys(cats).sort();
+  if(!keys.length){tb.innerHTML='<tr><td colspan="5" style="text-align:center;color:var(--text2)">Sem dados</td></tr>';return}
+  tb.innerHTML=keys.map(function(k){var c=cats[k];return '<tr><td><strong>'+k+'</strong></td><td><span class="badge badge-blue">'+c.oc+'</span></td><td><span class="badge badge-yellow">'+c.pe+'</span></td><td><span class="badge badge-green">'+c.resolvidas+'</span></td><td><span class="badge badge-red">'+c.atrasadas+'</span></td></tr>'}).join('');
+}
+function renderRelTurno(){
+  var turnos={};
+  registros.forEach(function(r){var t=r.turno||'Sem turno';if(!turnos[t])turnos[t]={oc:0,pe:0,resumos:0};if(r.tipo==='ocorrencia')turnos[t].oc++;else turnos[t].pe++});
+  resumos.forEach(function(r){var t=r.turno||'Sem turno';if(!turnos[t])turnos[t]={oc:0,pe:0,resumos:0};turnos[t].resumos++});
+  var tb=document.getElementById('tb-rel-turno');var keys=Object.keys(turnos).sort();
+  if(!keys.length){tb.innerHTML='<tr><td colspan="4" style="text-align:center;color:var(--text2)">Sem dados</td></tr>';return}
+  tb.innerHTML=keys.map(function(k){var t=turnos[k];return '<tr><td><strong>'+k+'</strong></td><td>'+t.oc+'</td><td>'+t.pe+'</td><td>'+t.resumos+'</td></tr>'}).join('');
+}
+
+/* === EXPORT CSV === */
+function exportCSVOcorrencias(){
+  var csv='Data;Hora;Turno;Setor;Descrição;Ação;Envolvidos;Qtd Fotos\n';
+  registros.filter(function(r){return r.tipo==='ocorrencia'}).forEach(function(r){
+    csv+=fmtDate(r.data)+';'+(r.hora||'-')+';'+(r.turno||'-')+';'+(r.categoria||'-')+';'+(r.descricao||'').replace(/;/g,',')+';'+(r.acao||'').replace(/;/g,',')+';'+envolvidosTexto(r.envolvidos).replace(/;/g,',')+';'+qtdFotos(r)+'\n';
+  });
+  baixarCSV(csv,'diario_ocorrencias.csv');
+}
+function exportCSVPendencias(){
+  var csv='Data;Setor;Prioridade;Status;Previsão;Atrasada;Descrição;Ação;Envolvidos;Qtd Fotos\n';
+  registros.filter(function(r){return r.tipo==='pendencia'}).forEach(function(r){
+    csv+=fmtDate(r.data)+';'+(r.categoria||'-')+';'+(r.prioridade||'-')+';'+(r.status||'-')+';'+(r.previsao_conclusao?fmtDate(r.previsao_conclusao):'-')+';'+(isAtrasada(r)?'Sim':'Não')+';'+(r.descricao||'').replace(/;/g,',')+';'+(r.acao||'').replace(/;/g,',')+';'+envolvidosTexto(r.envolvidos).replace(/;/g,',')+';'+qtdFotos(r)+'\n';
+  });
+  baixarCSV(csv,'diario_pendencias.csv');
+}
+function exportCSVResumos(){
+  var csv='Data;Turno;Texto;Obs\n';
+  resumos.forEach(function(r){csv+=fmtDate(r.data)+';'+(r.turno||'-')+';'+(r.texto||'').replace(/;/g,',')+';'+(r.obs||'').replace(/;/g,',')+'\n'});
+  baixarCSV(csv,'diario_resumos.csv');
+}
+function baixarCSV(csv,nome){var blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8;'});var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=nome;a.click()}
+
+async function loadUser(){try{var u=await api.get('/api/me');if(u)document.getElementById('user-display').textContent=u.nome||u.username}catch(e){}}
+
+async function init(){
+  updateClock();
+  document.getElementById('d-data').value=hoje();
+  document.getElementById('rs-data').value=hoje();
+  setTipo('ocorrencia');
+  await loadUser();
+  await loadAll();
+}
+init();
+</script>
+</body>
+</html>

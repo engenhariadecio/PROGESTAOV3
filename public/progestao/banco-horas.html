@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ProGestão – Banco de Horas</title>
+<style>
+:root{--bg:#0A1620;--card:#14293A;--card2:#1A3347;--accent:#26B247;--accent2:#1C4984;--green:#34D399;--yellow:#F0B429;--red:#F26D6D;--orange:#E88C4A;--blue:#56B6E0;--purple:#1D6574;--text:#EAF4F1;--text2:#A2BCC3;--border:#1E3D52;--radius:12px;--panel:#14293A;--panel2:#1A3347;--fade:linear-gradient(135deg,#26B247 0%,#1D6574 55%,#1C4984 100%)}
+*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}a{color:var(--accent);text-decoration:none}
+.topbar{background:var(--card);padding:12px 24px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border)}.topbar .logo{font-size:1.2rem;font-weight:700;color:var(--accent)}.topbar .right{display:flex;align-items:center;gap:16px}.topbar .clock{background:var(--card2);padding:4px 12px;border-radius:20px;font-size:.85rem;color:var(--text2)}.topbar .user{font-size:.9rem;color:var(--text2)}
+.btn-sm{padding:6px 14px;border:none;border-radius:8px;cursor:pointer;font-size:.85rem;font-weight:600;transition:.2s}.btn-danger{background:var(--red);color:#fff}.btn-primary{background:var(--accent);color:#fff}.btn-green{background:var(--green);color:#fff}.btn-ghost{background:transparent;border:1px solid var(--border);color:var(--text2)}.btn-warning{background:var(--yellow);color:#000}.btn-primary:hover{background:#2563eb}.btn-green:hover{background:#16a34a}.btn-danger:hover{opacity:.85}.btn-ghost:hover{border-color:var(--accent);color:var(--accent)}.btn-warning:hover{background:#ca8a04}
+.layout{display:flex;min-height:calc(100vh - 57px)}.sidebar{width:220px;background:var(--card);padding:16px 12px;border-right:1px solid var(--border);display:flex;flex-direction:column;gap:4px}.sidebar a{display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:var(--radius);color:var(--text2);font-size:.9rem;transition:.2s}.sidebar a:hover,.sidebar a.active{background:var(--accent);color:#fff}.main{flex:1;padding:24px;overflow-y:auto}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:16px;margin-bottom:24px}.kpi{background:var(--card);padding:20px;border-radius:var(--radius);text-align:center}.kpi .num{font-size:2rem;font-weight:700}.kpi .lbl{font-size:.8rem;color:var(--text2);margin-top:4px}
+.tabs{display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap}.tab{padding:8px 18px;border-radius:20px;cursor:pointer;font-size:.85rem;background:var(--card);color:var(--text2);border:1px solid var(--border);transition:.2s}.tab:hover,.tab.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.tbl-wrap{overflow-x:auto}table{width:100%;border-collapse:collapse}th,td{padding:10px 14px;text-align:left;border-bottom:1px solid var(--border);font-size:.88rem}th{background:var(--card2);color:var(--text2);font-weight:600}tr:hover{background:rgba(59,130,246,.08)}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;max-width:700px}.form-group{display:flex;flex-direction:column;gap:4px}.form-group label{font-size:.8rem;color:var(--text2)}.form-group input,.form-group select,.form-group textarea{padding:10px;border-radius:8px;border:1px solid var(--border);background:var(--card2);color:var(--text);font-size:.9rem}.form-group textarea{min-height:80px;resize:vertical}
+.badge{padding:3px 10px;border-radius:12px;font-size:.78rem;font-weight:600}.badge-green{background:rgba(34,197,94,.15);color:var(--green)}.badge-red{background:rgba(239,68,68,.15);color:var(--red)}.badge-yellow{background:rgba(234,179,8,.15);color:var(--yellow)}.badge-blue{background:rgba(59,130,246,.15);color:var(--accent)}.badge-purple{background:rgba(139,92,246,.15);color:var(--accent2)}
+.toast{position:fixed;top:20px;right:20px;padding:14px 24px;border-radius:var(--radius);color:#fff;font-weight:600;z-index:9999;animation:slideIn .3s}@keyframes slideIn{from{transform:translateX(100%);opacity:0}to{transform:translateX(0);opacity:1}}
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1000;align-items:center;justify-content:center}.modal-overlay.show{display:flex}.modal{background:var(--card);border-radius:var(--radius);padding:28px;max-width:440px;width:90%;max-height:90vh;overflow-y:auto}.modal.lg{max-width:780px}.modal h3{margin-bottom:12px}.modal .btns{display:flex;gap:10px;margin-top:18px;justify-content:flex-end}
+.section{display:none}.section.active{display:block}
+.search-bar{display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;align-items:center}.search-bar input,.search-bar select{padding:8px 14px;border-radius:8px;border:1px solid var(--border);background:var(--card2);color:var(--text);font-size:.88rem}.search-bar input{flex:1;min-width:200px}
+.link-name{color:var(--accent);cursor:pointer;font-weight:600}.link-name:hover{text-decoration:underline}
+.hist-summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin:14px 0;padding:14px;background:var(--card2);border-radius:var(--radius)}
+.hist-summary .hs-item{text-align:center}.hist-summary .hs-num{font-size:1.4rem;font-weight:700}.hist-summary .hs-lbl{font-size:.75rem;color:var(--text2)}
+.badge-orange{background:rgba(232,140,74,.15);color:var(--orange,#E88C4A)}
+.filtro-topo{display:flex;gap:8px;flex-wrap:wrap;align-items:center;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:10px 14px;margin-bottom:18px}
+.filtro-topo label{font-size:.75rem;color:var(--text2);text-transform:uppercase;letter-spacing:.04em;margin-right:2px}
+.filtro-topo select,.filtro-topo input{padding:7px 10px;border-radius:8px;border:1px solid var(--border);background:var(--card2);color:var(--text);font-size:.84rem}
+.filtro-topo .ativo{font-size:.8rem;color:var(--accent);font-weight:600;margin-left:auto}
+@media(max-width:768px){.sidebar{display:none}.form-grid{grid-template-columns:1fr}.kpis{grid-template-columns:1fr 1fr}}
+</style>
+<link rel="icon" href="/assets/logo-decio.png">
+
+<style>
+/* ===== Tema Décio — sobreposição sobre o CSS original do módulo ===== */
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap');
+body{font-family:'Inter','Segoe UI',system-ui,sans-serif}
+h1,h2,h3,.logo{font-family:'Manrope','Segoe UI',system-ui,sans-serif;letter-spacing:-.02em}
+
+.fita-marca{position:fixed;top:0;left:0;right:0;height:3px;background:var(--fade);z-index:9999}
+
+.btn-primary,.btn-accent{
+  background:var(--fade)!important;color:#fff!important;border:none!important;
+  box-shadow:0 2px 12px rgba(38,178,71,.22)}
+.btn-primary:hover,.btn-accent:hover{filter:brightness(1.06);transform:translateY(-1px)}
+.btn-green{background:var(--green)!important;color:#062B1E!important}
+.btn-warning{background:var(--yellow)!important;color:#2B1E00!important}
+
+a{color:var(--accent)}
+.topbar{border-bottom:1px solid var(--border)}
+.logo-decio{height:26px;width:26px;border-radius:7px;vertical-align:-7px;margin-right:8px}
+.voltar-portal{
+  display:inline-flex;align-items:center;gap:6px;padding:6px 12px;margin-right:6px;
+  border:1px solid var(--border);border-radius:8px;background:var(--card2);
+  color:var(--text2)!important;font-size:12px;font-weight:600;text-decoration:none}
+.voltar-portal:hover{background:var(--panel2);color:var(--text)!important}
+
+::-webkit-scrollbar{width:8px;height:8px}
+::-webkit-scrollbar-track{background:var(--bg)}
+::-webkit-scrollbar-thumb{background:#2C5570;border-radius:99px}
+:focus-visible{outline:2px solid #35C95C;outline-offset:2px}
+@media(prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+</style>
+</head>
+<body>
+<div class="fita-marca"></div>
+<div class="topbar">
+  <div class="logo"><img src="/assets/logo-decio.png" class="logo-decio" alt=""><a href="/progestao">ProGestão</a> / Banco de Horas</div>
+  <div class="right"><a href="/" class="voltar-portal">← Portal</a><span class="clock" id="clock"></span><span class="user" id="user-display"></span><button class="btn-sm btn-danger" onclick="doLogout()">Sair</button></div>
+</div>
+<div class="layout">
+<nav class="sidebar">
+  <a href="/progestao">🏠 Início</a><a href="/progestao/ferramentas">🔧 Ferramentas</a><a href="/progestao/epis">🦺 EPIs</a>
+  <a href="/progestao/banco-horas" class="active">⏰ Banco Horas</a><a href="/progestao/treinamentos">📚 Treinamentos</a>
+  <a href="/progestao/diario-bordo">📋 Diário Bordo</a><a href="/progestao/checklist">✅ Checklist</a>
+  <a href="/progestao/producao">📊 Produção</a><a href="/progestao/limpeza">🧹 Limpeza</a>
+</nav>
+<div class="main">
+  <h2 style="margin-bottom:14px">⏰ Banco de Horas</h2>
+
+  <!-- Filtro global: vale para os KPIs, os lançamentos e o saldo -->
+  <div class="filtro-topo">
+    <label>Período</label>
+    <select id="fl-periodo" onchange="filtroMudou()">
+      <option value="">Tudo</option><option value="hoje">Hoje</option><option value="semana">Esta semana</option><option value="mes" selected>Este mês</option>
+      <option value="mes_x">Mês…</option><option value="semana_x">Semana…</option><option value="intervalo">Intervalo…</option>
+    </select>
+    <input type="month" id="fl-mes" onchange="aplicarFiltro()" style="display:none">
+    <input type="week" id="fl-semana" onchange="aplicarFiltro()" style="display:none">
+    <input type="date" id="fl-de" onchange="aplicarFiltro()" style="display:none" title="De"><input type="date" id="fl-ate" onchange="aplicarFiltro()" style="display:none" title="Até">
+    <label>Colaborador</label><select id="fl-colab" onchange="aplicarFiltro()" style="min-width:200px"><option value="">Todos</option></select>
+    <label>Turno</label><select id="fl-turno" onchange="aplicarFiltro()"><option value="">Todos</option></select>
+    <label>Tipo</label><select id="fl-tipo" onchange="aplicarFiltro()"><option value="">Todos</option><option value="Crédito">Crédito</option><option value="Débito">Débito</option><option value="Desconto">Desconto</option><option value="Justificado">Justificado</option></select>
+    <button class="btn-sm btn-ghost" onclick="limparFiltro()">Limpar</button>
+    <span class="ativo" id="fl-desc"></span>
+  </div>
+
+  <div class="kpis">
+    <div class="kpi"><div class="num" id="k-lancamentos" style="color:var(--accent)">0</div><div class="lbl">Lançamentos</div></div>
+    <div class="kpi"><div class="num" id="k-positivo" style="color:var(--green)">0h</div><div class="lbl">Saldo Positivo</div></div>
+    <div class="kpi"><div class="num" id="k-negativo" style="color:var(--red)">0h</div><div class="lbl">Saldo Negativo</div></div>
+    <div class="kpi"><div class="num" id="k-desconto" style="color:var(--orange,#E88C4A)">0h</div><div class="lbl">Desconto (não entra no saldo)</div></div>
+    <div class="kpi"><div class="num" id="k-saldo" style="color:var(--accent)">0h</div><div class="lbl">Saldo (créd − déb)</div></div>
+    <div class="kpi"><div class="num" id="k-justificado" style="color:var(--accent2)">0h</div><div class="lbl">Justificado (não desconta)</div></div>
+    <div class="kpi"><div class="num" id="k-colabs" style="color:var(--accent2)">0</div><div class="lbl">Colaboradores</div></div>
+  </div>
+
+  <div class="tabs">
+    <div class="tab active" onclick="showTab('lancamentos')">📝 Lançamentos</div>
+    <div class="tab" onclick="showTab('novo')">➕ Novo</div>
+    <div class="tab" onclick="showTab('convites')">📩 Convites</div>
+    <div class="tab" onclick="showTab('saldo')">💰 Saldo</div>
+  </div>
+
+  <!-- LANCAMENTOS -->
+  <div class="section active" id="sec-lancamentos">
+    <div class="search-bar">
+      <input id="search-lanc" placeholder="Buscar por motivo, justificativa ou nome..." oninput="renderLanc()" style="flex:1;min-width:220px">
+      <span style="font-size:.8rem;color:var(--text2)">O período, colaborador, turno e tipo vêm do filtro no topo da página.</span>
+    </div>
+    <div id="lanc-resumo" style="display:none;margin:-6px 0 12px;font-size:.85rem;color:var(--text2)"></div>
+    <div class="tbl-wrap"><table><thead><tr><th>Colaborador</th><th>Tipo</th><th>Minutos</th><th>Data</th><th>Motivo</th><th>Ações</th></tr></thead><tbody id="tb-lanc"></tbody></table></div>
+  </div>
+
+  <!-- NOVO LANCAMENTO -->
+  <div class="section" id="sec-novo">
+    <h3>Novo Lançamento</h3>
+    <div class="form-grid" style="margin-top:14px">
+      <div class="form-group"><label>Colaborador *</label><select id="n-colab"></select></div>
+      <div class="form-group"><label>Tipo *</label><select id="n-tipo" onchange="dicaTipo('n')"><option value="Crédito">Crédito (+)</option><option value="Débito">Débito (-) — falta / atraso</option><option value="Desconto">Desconto — horas descontadas (não entra no saldo)</option><option value="Justificado">Justificado — atestado/declaração (não desconta)</option></select><small id="n-tipo-dica" style="display:none;color:var(--text2);margin-top:4px"></small></div>
+      <div class="form-group"><label>Minutos *</label><input id="n-min" type="number" min="1"></div>
+      <div class="form-group"><label>Data *</label><input id="n-data" type="date"></div>
+      <div class="form-group"><label>Motivo</label><input id="n-motivo"></div>
+      <div class="form-group"><label>Justificativa</label><textarea id="n-just"></textarea></div>
+    </div>
+    <button class="btn-sm btn-green" style="margin-top:14px" onclick="salvarLanc()">Salvar</button>
+  </div>
+
+  <!-- CONVITES -->
+  <div class="section" id="sec-convites">
+    <h3>Convites de Banco de Horas</h3>
+    <div class="form-grid" style="margin:14px 0">
+      <div class="form-group"><label>Colaborador *</label><select id="cv-colab"></select></div>
+      <div class="form-group"><label>Data do Convite *</label><input id="cv-data" type="date"></div>
+      <div class="form-group"><label>Data para Banco *</label><input id="cv-db" type="date"></div>
+      <div class="form-group"><label>Resposta</label><select id="cv-resp"><option>Pendente</option><option>Aceito</option><option>Recusado</option></select></div>
+      <div class="form-group"><label>Observação</label><input id="cv-obs"></div>
+    </div>
+    <button class="btn-sm btn-green" onclick="salvarConvite()">Registrar Convite</button>
+
+    <p style="font-size:.8rem;color:var(--text2);margin-top:20px">Clique no nome do colaborador para ver todos os convites dele</p>
+    <div class="search-bar" style="margin-top:8px"><input id="search-conv" placeholder="Buscar por nome do colaborador..." oninput="renderConv()"></div>
+    <div class="tbl-wrap"><table><thead><tr><th>Colaborador</th><th>Data Convite</th><th>Data Banco</th><th>Resposta</th><th>Obs</th><th>Ações</th></tr></thead><tbody id="tb-conv"></tbody></table></div>
+  </div>
+
+  <!-- SALDO POR COLABORADOR -->
+  <div class="section" id="sec-saldo">
+    <h3>💰 Saldo por Colaborador</h3>
+    <p style="font-size:.8rem;color:var(--text2);margin-top:6px">Clique no nome do colaborador para ver o histórico mensal</p>
+    <div class="tbl-wrap" style="margin-top:14px"><table><thead><tr><th>Colaborador</th><th>Turno</th><th>Créditos</th><th>Débitos</th><th>Desconto</th><th>Justificado</th><th>Saldo</th></tr></thead><tbody id="tb-saldo"></tbody></table></div>
+  </div>
+
+</div></div>
+
+<!-- MODAL EXCLUIR -->
+<div class="modal-overlay" id="modal-del"><div class="modal"><h3>Confirmar Exclusão</h3><p id="modal-del-msg">Tem certeza?</p><div class="btns"><button class="btn-sm btn-ghost" onclick="fecharModalDel()">Cancelar</button><button class="btn-sm btn-danger" id="modal-del-btn">Excluir</button></div></div></div>
+
+<!-- MODAL AJUSTAR LANÇAMENTO -->
+<div class="modal-overlay" id="modal-aj"><div class="modal">
+  <h3>✏️ Ajustar Lançamento</h3>
+  <input type="hidden" id="aj-id">
+  <div class="form-grid" style="grid-template-columns:1fr 1fr;gap:12px;margin-top:8px">
+    <div class="form-group"><label>Colaborador *</label><select id="aj-colab"></select></div>
+    <div class="form-group"><label>Tipo *</label><select id="aj-tipo"><option value="Crédito">Crédito (+)</option><option value="Débito">Débito (-)</option><option value="Desconto">Desconto (não entra no saldo)</option><option value="Justificado">Justificado (não desconta)</option></select></div>
+    <div class="form-group"><label>Minutos *</label><input id="aj-min" type="number" min="1"></div>
+    <div class="form-group"><label>Data *</label><input id="aj-data" type="date"></div>
+    <div class="form-group" style="grid-column:1/-1"><label>Motivo</label><input id="aj-motivo"></div>
+    <div class="form-group" style="grid-column:1/-1"><label>Justificativa</label><textarea id="aj-just"></textarea></div>
+  </div>
+  <div class="btns">
+    <button class="btn-sm btn-ghost" onclick="fecharModalAj()">Cancelar</button>
+    <button class="btn-sm btn-green" onclick="salvarAjuste()">Salvar Ajuste</button>
+  </div>
+</div></div>
+
+<!-- MODAL AJUSTAR CONVITE -->
+<div class="modal-overlay" id="modal-aj-conv"><div class="modal">
+  <h3>✏️ Ajustar Convite</h3>
+  <input type="hidden" id="ajc-id">
+  <div class="form-grid" style="grid-template-columns:1fr 1fr;gap:12px;margin-top:8px">
+    <div class="form-group"><label>Colaborador *</label><select id="ajc-colab"></select></div>
+    <div class="form-group"><label>Resposta</label><select id="ajc-resp"><option>Pendente</option><option>Aceito</option><option>Recusado</option></select></div>
+    <div class="form-group"><label>Data do Convite *</label><input id="ajc-data" type="date"></div>
+    <div class="form-group"><label>Data para Banco *</label><input id="ajc-db" type="date"></div>
+    <div class="form-group" style="grid-column:1/-1"><label>Observação</label><input id="ajc-obs"></div>
+  </div>
+  <div class="btns">
+    <button class="btn-sm btn-ghost" onclick="fecharModalAjConv()">Cancelar</button>
+    <button class="btn-sm btn-green" onclick="salvarAjusteConv()">Salvar Ajuste</button>
+  </div>
+</div></div>
+
+<!-- MODAL HISTÓRICO LANÇAMENTOS -->
+<div class="modal-overlay" id="modal-hist"><div class="modal lg">
+  <h3 id="hist-titulo">Histórico</h3>
+  <div style="display:flex;gap:10px;align-items:center;margin-top:10px;flex-wrap:wrap">
+    <label style="font-size:.85rem;color:var(--text2)">Mês:</label>
+    <select id="hist-mes" onchange="renderHistMes()" style="padding:8px 14px;border-radius:8px;border:1px solid var(--border);background:var(--card2);color:var(--text);font-size:.88rem"></select>
+  </div>
+  <div class="hist-summary" id="hist-summary"></div>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Data</th><th>Tipo</th><th>Minutos</th><th>Motivo</th><th>Justificativa</th><th>Acumulado</th></tr></thead>
+    <tbody id="hist-tb"></tbody>
+  </table></div>
+  <div class="btns"><button class="btn-sm btn-ghost" onclick="fecharModalHist()">Fechar</button></div>
+</div></div>
+
+<!-- MODAL HISTÓRICO CONVITES (por colaborador, sem filtro de mês) -->
+<div class="modal-overlay" id="modal-hist-conv"><div class="modal lg">
+  <h3 id="hist-conv-titulo">Convites</h3>
+  <div class="hist-summary" id="hist-conv-summary"></div>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Data Convite</th><th>Data Banco</th><th>Resposta</th><th>Observação</th></tr></thead>
+    <tbody id="hist-conv-tb"></tbody>
+  </table></div>
+  <div class="btns"><button class="btn-sm btn-ghost" onclick="fecharModalHistConv()">Fechar</button></div>
+</div></div>
+
+<script>
+let lancamentos=[],convites=[],colabs=[],colabsTodos=[];   // colabs = sem desligados; colabsTodos = inclusive desligados (só para registros antigos)
+let histColabId=null;
+
+const api={
+  async get(u){const r=await fetch(u);if(r.status===401)return location.href='/login';return r.json()},
+  async post(u,d){const r=await fetch(u,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(d)});if(r.status===401)return location.href='/login';return r.json()},
+  async put(u,d){const r=await fetch(u,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(d)});if(r.status===401)return location.href='/login';return r.json()},
+  async del(u){const r=await fetch(u,{method:'DELETE'});if(r.status===401)return location.href='/login';return r.json()}
+};
+function toast(m,t='success'){const e=document.createElement('div');e.className='toast';e.style.background=t==='error'?'var(--red)':'var(--green)';e.textContent=m;document.body.appendChild(e);setTimeout(()=>e.remove(),3000)}
+
+/* ===== FORMATAÇÃO DE DATA À PROVA DE FUSO HORÁRIO ===== */
+function fmt(d){
+  if(!d)return'-';
+  const s=String(d);
+  const m=s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if(m)return m[3]+'/'+m[2]+'/'+m[1];
+  const dt=new Date(d);
+  return isNaN(dt)?'-':dt.toLocaleDateString('pt-BR');
+}
+function isoDate(d){return d?String(d).slice(0,10):''}
+function isoMes(d){return d?String(d).slice(0,7):''}
+
+/* Efeito de um lançamento no saldo: crédito soma, débito desconta, justificado
+   (atestado, declaração) só fica registrado e vale 0. */
+function ativos(){return colabs}
+/* Select de edição: os ativos + o colaborador do registro, mesmo que já desligado */
+function opcoesEdicao(idAtual){
+  let lista=colabs.slice();
+  if(idAtual&&!lista.some(c=>c.id===idAtual)){const d=colabsTodos.find(c=>c.id===idAtual);if(d)lista.push(Object.assign({},d,{nome:d.nome+' (desligado)'}))}
+  return lista.map(c=>`<option value="${c.id}">${c.nome}</option>`).join('');
+}
+/* Saldo = Crédito − Débito. Desconto e Justificado ficam registrados, mas não entram no saldo. */
+function valorSaldo(l){return l.tipo==='Crédito'?l.minutos:l.tipo==='Débito'?-l.minutos:0}
+function badgeTipo(t){return t==='Crédito'?'badge-green':t==='Débito'?'badge-red':t==='Desconto'?'badge-orange':'badge-purple'}
+function somar(list){const s={cred:0,deb:0,comp:0,just:0};list.forEach(l=>{if(l.tipo==='Crédito')s.cred+=l.minutos;else if(l.tipo==='Débito')s.deb+=l.minutos;else if(l.tipo==='Desconto')s.comp+=l.minutos;else s.just+=l.minutos});return s}
+const DICAS_TIPO={'Desconto':'Horas descontadas: ficam registradas, mas não entram no saldo do banco.','Justificado':'Ausência justificada: fica registrada, mas não entra no saldo.','Débito':'Falta ou atraso: desconta do saldo.'};
+function dicaTipo(p){const d=document.getElementById(p+'-tipo-dica');if(!d)return;const t=document.getElementById(p+'-tipo').value;d.textContent=DICAS_TIPO[t]||'';d.style.display=DICAS_TIPO[t]?'block':'none'}
+
+/* ===== FILTRO GLOBAL (topo) ===== */
+function isoLocal(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
+function addD(iso,n){const p=iso.split('-').map(Number);return isoLocal(new Date(p[0],p[1]-1,p[2]+n))}
+/* semana ISO "2026-W40" → segunda e domingo */
+function semanaISO(w){const m=/^(\d{4})-W(\d{2})$/.exec(w||'');if(!m)return null;const y=+m[1],n=+m[2];const jan4=new Date(y,0,4);const seg=new Date(jan4);seg.setDate(jan4.getDate()-((jan4.getDay()+6)%7)+(n-1)*7);const de=isoLocal(seg);return[de,addD(de,6)]}
+function periodoAtual(){
+  const p=document.getElementById('fl-periodo').value;const h=isoLocal(new Date());
+  if(p==='hoje')return[h,h];
+  if(p==='semana'){const d=new Date();const seg=addD(h,-((d.getDay()+6)%7));return[seg,addD(seg,6)]}
+  if(p==='mes')return[h.slice(0,8)+'01',isoLocal(new Date(+h.slice(0,4),+h.slice(5,7),0))];
+  if(p==='mes_x'){const m=document.getElementById('fl-mes').value;if(!m)return null;return[m+'-01',isoLocal(new Date(+m.slice(0,4),+m.slice(5,7),0))]}
+  if(p==='semana_x')return semanaISO(document.getElementById('fl-semana').value);
+  if(p==='intervalo'){const de=document.getElementById('fl-de').value,ate=document.getElementById('fl-ate').value;return(de||ate)?[de||'0000-00-00',ate||'9999-12-31']:null}
+  return null;
+}
+function filtroMudou(){
+  const p=document.getElementById('fl-periodo').value;
+  document.getElementById('fl-mes').style.display=p==='mes_x'?'':'none';
+  document.getElementById('fl-semana').style.display=p==='semana_x'?'':'none';
+  document.getElementById('fl-de').style.display=document.getElementById('fl-ate').style.display=p==='intervalo'?'':'none';
+  if(p==='mes_x'&&!document.getElementById('fl-mes').value)document.getElementById('fl-mes').value=isoLocal(new Date()).slice(0,7);
+  aplicarFiltro();
+}
+/* Lançamentos que passam no filtro do topo: base para KPIs, tabela e saldo */
+function lancFiltrados(){
+  const per=periodoAtual();const fc=document.getElementById('fl-colab').value,ft=document.getElementById('fl-turno').value,ftp=document.getElementById('fl-tipo').value;
+  const turnoDe={};colabsTodos.forEach(c=>turnoDe[c.id]=c.turno||'');
+  return lancamentos.filter(l=>{
+    const d=String(l.data||'').slice(0,10);
+    if(per&&(d<per[0]||d>per[1]))return false;
+    if(fc&&String(l.colaborador_id)!==fc)return false;
+    if(ft&&turnoDe[l.colaborador_id]!==ft)return false;
+    if(ftp&&l.tipo!==ftp)return false;
+    return true;
+  });
+}
+function descreverFiltro(){
+  const per=periodoAtual();const p=document.getElementById('fl-periodo').value;const partes=[];
+  const nomes={hoje:'hoje',semana:'esta semana',mes:'este mês'};
+  if(per)partes.push(nomes[p]||(fmt(per[0])+' a '+fmt(per[1])));
+  const fc=document.getElementById('fl-colab');if(fc.value)partes.push(fc.options[fc.selectedIndex].text);
+  const ft=document.getElementById('fl-turno').value;if(ft)partes.push(ft);
+  const ftp=document.getElementById('fl-tipo').value;if(ftp)partes.push(ftp);
+  document.getElementById('fl-desc').textContent=partes.length?'Filtrando: '+partes.join(' · '):'';
+}
+function aplicarFiltro(){descreverFiltro();updateKPIs();renderLanc();renderSaldo()}
+function limparFiltro(){['fl-colab','fl-turno','fl-tipo','fl-mes','fl-semana','fl-de','fl-ate'].forEach(id=>document.getElementById(id).value='');document.getElementById('fl-periodo').value='';filtroMudou()}
+function popularFiltroTopo(){
+  const sc=document.getElementById('fl-colab');const v=sc.value;
+  sc.innerHTML='<option value="">Todos</option>'+colabs.slice().sort((a,b)=>(a.nome||'').localeCompare(b.nome||'','pt-BR')).map(c=>`<option value="${c.id}">${c.nome}</option>`).join('');sc.value=v;
+  const st=document.getElementById('fl-turno');const vt=st.value;
+  const turnos=[...new Set(colabs.map(c=>c.turno).filter(Boolean))].sort();
+  st.innerHTML='<option value="">Todos</option>'+turnos.map(t=>`<option>${t}</option>`).join('');st.value=vt;
+}
+function minToH(m){const h=Math.floor(Math.abs(m)/60);const mm=Math.abs(m)%60;return(m<0?'-':'')+h+'h'+String(mm).padStart(2,'0')}
+function updateClock(){const n=new Date();document.getElementById('clock').textContent=n.toLocaleTimeString('pt-BR')+' — '+n.toLocaleDateString('pt-BR')}
+setInterval(updateClock,1000);updateClock();
+async function doLogout(){await fetch('/api/logout',{method:'POST'});location.href='/login'}
+
+function showTab(t){
+  document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(s=>s.classList.remove('active'));
+  document.getElementById('sec-'+t).classList.add('active');
+  if(event&&event.target)event.target.classList.add('active');
+  if(['novo','convites'].includes(t))populateSelects();
+  if(t==='saldo')renderSaldo();
+}
+
+function populateSelects(){
+  ['n-colab','cv-colab','aj-colab','ajc-colab'].forEach(id=>{
+    const s=document.getElementById(id);if(!s)return;
+    s.innerHTML='<option value="">Selecione...</option>'+ativos().map(c=>`<option value="${c.id}">${c.nome}</option>`).join('');
+  });
+  const today=new Date().toISOString().split('T')[0];
+  ['n-data','cv-data','cv-db'].forEach(id=>{const e=document.getElementById(id);if(e&&!e.value)e.value=today});
+}
+
+async function loadAll(){
+  [lancamentos,convites,colabs]=await Promise.all([
+    api.get('/api/bh-lancamentos'),api.get('/api/bh-convites'),api.get('/api/colaboradores')
+  ]);
+  colabsTodos=colabs;colabs=colabs.filter(c=>c.status!=='Desligado');
+  popularFiltroTopo();
+  aplicarFiltro();renderConv();
+}
+
+
+function updateKPIs(){
+  const list=lancFiltrados();
+  document.getElementById('k-lancamentos').textContent=list.length;
+  const s=somar(list);
+  document.getElementById('k-positivo').textContent=minToH(s.cred);
+  document.getElementById('k-negativo').textContent=minToH(s.deb);
+  document.getElementById('k-desconto').textContent=minToH(s.comp);
+  const saldo=s.cred-s.deb;const ks=document.getElementById('k-saldo');ks.textContent=(saldo>0?'+':'')+minToH(saldo);ks.style.color=saldo<0?'var(--red)':saldo>0?'var(--green)':'var(--accent)';
+  document.getElementById('k-justificado').textContent=minToH(s.just);
+  document.getElementById('k-colabs').textContent=colabs.length;
+}
+
+/* LANCAMENTOS */
+function renderLanc(){
+  const q=(document.getElementById('search-lanc').value||'').toLowerCase();
+  let list=lancFiltrados();
+  if(q)list=list.filter(l=>(l.motivo||'').toLowerCase().includes(q)||(l.justificativa||'').toLowerCase().includes(q)||(l.colab_nome||'').toLowerCase().includes(q));
+
+  // resumo do que está na tela
+  const resumo=document.getElementById('lanc-resumo');
+  const fColab=document.getElementById('fl-colab').value;
+  if(document.getElementById('fl-desc').textContent||q){
+    const {cred,deb,comp,just}=somar(list);
+    const saldo=cred-deb;
+    const nome=fColab?(colabsTodos.find(c=>String(c.id)===fColab)||{}).nome:'';
+    resumo.style.display='block';
+    resumo.innerHTML=(nome?`<strong style="color:var(--text)">${nome}</strong> — `:'')+`${list.length} lançamento(s) · <span class="badge badge-green">+${minToH(cred)}</span> <span class="badge badge-red">−${minToH(deb)}</span>`+(comp?` <span class="badge badge-orange">−${minToH(comp)} desconto</span>`:'')+(just?` <span class="badge badge-purple">${minToH(just)} justificado</span>`:'')+` saldo <strong style="color:${saldo>=0?'var(--green)':'var(--red)'}">${saldo>=0?'+':''}${minToH(saldo)}</strong>`;
+  }else resumo.style.display='none';
+
+  const tb=document.getElementById('tb-lanc');
+  if(!list.length){tb.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--text2)">Nenhum lançamento com esses filtros</td></tr>';return}
+  tb.innerHTML=list.map(l=>{
+    const badge=badgeTipo(l.tipo);
+    return `<tr>
+      <td>${l.colab_nome||'-'}</td>
+      <td><span class="badge ${badge}">${l.tipo}</span></td>
+      <td>${l.minutos} min (${minToH(l.minutos)})</td>
+      <td>${fmt(l.data)}</td>
+      <td>${l.motivo||'-'}</td>
+      <td>
+        <button class="btn-sm btn-warning" onclick="abrirAjuste(${l.id})" title="Ajustar">✏️</button>
+        <button class="btn-sm btn-danger" onclick="delItem('bh-lancamentos',${l.id})" title="Excluir">🗑</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+async function salvarLanc(){
+  const colaborador_id=document.getElementById('n-colab').value;
+  const tipo=document.getElementById('n-tipo').value;
+  const minutos=parseInt(document.getElementById('n-min').value);
+  const data=document.getElementById('n-data').value;
+  const motivo=document.getElementById('n-motivo').value;
+  const justificativa=document.getElementById('n-just').value;
+  if(!colaborador_id||!data||!minutos)return toast('Preencha campos obrigatórios','error');
+  await api.post('/api/bh-lancamentos',{colaborador_id:+colaborador_id,tipo,minutos,data,motivo,justificativa});
+  toast('Lançamento salvo!');document.getElementById('n-min').value='';document.getElementById('n-motivo').value='';document.getElementById('n-just').value='';await loadAll();
+}
+
+/* AJUSTAR LANCAMENTO */
+function abrirAjuste(id){
+  const l=lancamentos.find(x=>x.id===id);
+  if(!l)return toast('Lançamento não encontrado','error');
+  const sel=document.getElementById('aj-colab');
+  sel.innerHTML=opcoesEdicao(l.colaborador_id);
+  document.getElementById('aj-id').value=l.id;
+  document.getElementById('aj-colab').value=l.colaborador_id;
+  document.getElementById('aj-tipo').value=l.tipo;
+  document.getElementById('aj-min').value=l.minutos;
+  document.getElementById('aj-data').value=isoDate(l.data);
+  document.getElementById('aj-motivo').value=l.motivo||'';
+  document.getElementById('aj-just').value=l.justificativa||'';
+  document.getElementById('modal-aj').classList.add('show');
+}
+function fecharModalAj(){document.getElementById('modal-aj').classList.remove('show')}
+async function salvarAjuste(){
+  const id=document.getElementById('aj-id').value;
+  const colaborador_id=document.getElementById('aj-colab').value;
+  const tipo=document.getElementById('aj-tipo').value;
+  const minutos=parseInt(document.getElementById('aj-min').value);
+  const data=document.getElementById('aj-data').value;
+  const motivo=document.getElementById('aj-motivo').value;
+  const justificativa=document.getElementById('aj-just').value;
+  if(!colaborador_id||!data||!minutos)return toast('Preencha campos obrigatórios','error');
+  const r=await api.put('/api/bh-lancamentos/'+id,{colaborador_id:+colaborador_id,tipo,minutos,data,motivo,justificativa});
+  if(r.error)return toast(r.error,'error');
+  toast('Ajuste salvo!');
+  fecharModalAj();
+  await loadAll();
+}
+
+/* CONVITES */
+function renderConv(){
+  const q=(document.getElementById('search-conv')?.value||'').toLowerCase();
+  const list=convites.filter(c=>(c.colab_nome||'').toLowerCase().includes(q));
+  const tb=document.getElementById('tb-conv');
+  if(!list.length){tb.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--text2)">Nenhum convite</td></tr>';return}
+  tb.innerHTML=list.map(c=>{
+    const badge=c.resposta==='Aceito'?'badge-green':c.resposta==='Recusado'?'badge-red':'badge-yellow';
+    return `<tr>
+      <td><span class="link-name" onclick="abrirHistoricoConv(${c.colaborador_id},'${(c.colab_nome||'').replace(/'/g,"\\'")}')">${c.colab_nome||'-'}</span></td>
+      <td>${fmt(c.data)}</td>
+      <td>${fmt(c.data_banco)}</td>
+      <td><span class="badge ${badge}">${c.resposta}</span></td>
+      <td>${c.obs||'-'}</td>
+      <td>
+        <button class="btn-sm btn-warning" onclick="abrirAjusteConv(${c.id})" title="Ajustar">✏️</button>
+        <button class="btn-sm btn-danger" onclick="delItem('bh-convites',${c.id})" title="Excluir">🗑</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+async function salvarConvite(){
+  const colaborador_id=document.getElementById('cv-colab').value;
+  const data=document.getElementById('cv-data').value;
+  const data_banco=document.getElementById('cv-db').value;
+  const resposta=document.getElementById('cv-resp').value;
+  const obs=document.getElementById('cv-obs').value;
+  if(!colaborador_id||!data||!data_banco)return toast('Preencha campos obrigatórios','error');
+  await api.post('/api/bh-convites',{colaborador_id:+colaborador_id,data,data_banco,resposta,obs});
+  toast('Convite registrado!');
+  document.getElementById('cv-obs').value='';
+  await loadAll();
+}
+
+/* AJUSTAR CONVITE */
+function abrirAjusteConv(id){
+  const c=convites.find(x=>x.id===id);
+  if(!c)return toast('Convite não encontrado','error');
+  const sel=document.getElementById('ajc-colab');
+  sel.innerHTML=opcoesEdicao(c.colaborador_id);
+  document.getElementById('ajc-id').value=c.id;
+  document.getElementById('ajc-colab').value=c.colaborador_id;
+  document.getElementById('ajc-resp').value=c.resposta||'Pendente';
+  document.getElementById('ajc-data').value=isoDate(c.data);
+  document.getElementById('ajc-db').value=isoDate(c.data_banco);
+  document.getElementById('ajc-obs').value=c.obs||'';
+  document.getElementById('modal-aj-conv').classList.add('show');
+}
+function fecharModalAjConv(){document.getElementById('modal-aj-conv').classList.remove('show')}
+async function salvarAjusteConv(){
+  const id=document.getElementById('ajc-id').value;
+  const colaborador_id=document.getElementById('ajc-colab').value;
+  const data=document.getElementById('ajc-data').value;
+  const data_banco=document.getElementById('ajc-db').value;
+  const resposta=document.getElementById('ajc-resp').value;
+  const obs=document.getElementById('ajc-obs').value;
+  if(!colaborador_id||!data||!data_banco)return toast('Preencha campos obrigatórios','error');
+  const r=await api.put('/api/bh-convites/'+id,{colaborador_id:+colaborador_id,data,data_banco,resposta,obs});
+  if(r.error)return toast(r.error,'error');
+  toast('Ajuste salvo!');
+  fecharModalAjConv();
+  await loadAll();
+}
+
+/* HISTÓRICO DE CONVITES POR COLABORADOR */
+function abrirHistoricoConv(colabId, nome){
+  document.getElementById('hist-conv-titulo').textContent='📩 Convites — '+nome;
+
+  // ordena por data do convite (mais recente primeiro)
+  const list=convites
+    .filter(c=>c.colaborador_id===colabId)
+    .slice()
+    .sort((a,b)=>isoDate(b.data).localeCompare(isoDate(a.data)));
+
+  // resumo
+  const tot=list.length;
+  const aceitos=list.filter(c=>c.resposta==='Aceito').length;
+  const recusados=list.filter(c=>c.resposta==='Recusado').length;
+  const pendentes=list.filter(c=>c.resposta==='Pendente').length;
+
+  document.getElementById('hist-conv-summary').innerHTML=`
+    <div class="hs-item"><div class="hs-num" style="color:var(--accent)">${tot}</div><div class="hs-lbl">Total</div></div>
+    <div class="hs-item"><div class="hs-num" style="color:var(--green)">${aceitos}</div><div class="hs-lbl">Aceitos</div></div>
+    <div class="hs-item"><div class="hs-num" style="color:var(--red)">${recusados}</div><div class="hs-lbl">Recusados</div></div>
+    <div class="hs-item"><div class="hs-num" style="color:var(--yellow)">${pendentes}</div><div class="hs-lbl">Pendentes</div></div>
+  `;
+
+  const tb=document.getElementById('hist-conv-tb');
+  if(!list.length){
+    tb.innerHTML='<tr><td colspan="4" style="text-align:center;color:var(--text2)">Nenhum convite</td></tr>';
+  } else {
+    tb.innerHTML=list.map(c=>{
+      const badge=c.resposta==='Aceito'?'badge-green':c.resposta==='Recusado'?'badge-red':'badge-yellow';
+      return `<tr>
+        <td>${fmt(c.data)}</td>
+        <td>${fmt(c.data_banco)}</td>
+        <td><span class="badge ${badge}">${c.resposta}</span></td>
+        <td style="max-width:280px;white-space:normal">${c.obs||'-'}</td>
+      </tr>`;
+    }).join('');
+  }
+
+  document.getElementById('modal-hist-conv').classList.add('show');
+}
+function fecharModalHistConv(){document.getElementById('modal-hist-conv').classList.remove('show')}
+
+/* SALDO */
+function renderSaldo(){
+  const tb=document.getElementById('tb-saldo');
+  const map={};
+  const fc=document.getElementById('fl-colab').value,ft=document.getElementById('fl-turno').value;
+  colabs.filter(c=>(!fc||String(c.id)===fc)&&(!ft||(c.turno||'')===ft)).forEach(c=>map[c.id]={id:c.id,nome:c.nome,turno:c.turno||'-',cred:0,deb:0,comp:0,just:0});   // só ativos: desligados não entram no saldo
+  lancFiltrados().forEach(l=>{const m=map[l.colaborador_id];if(!m)return;if(l.tipo==='Crédito')m.cred+=l.minutos;else if(l.tipo==='Débito')m.deb+=l.minutos;else if(l.tipo==='Desconto')m.comp+=l.minutos;else m.just+=l.minutos});
+  const rows=Object.values(map).sort((a,b)=>a.nome.localeCompare(b.nome));
+  if(!rows.length){tb.innerHTML='<tr><td colspan="7" style="text-align:center;color:var(--text2)">Sem dados</td></tr>';return}
+  tb.innerHTML=rows.map(r=>{
+    const saldo=r.cred-r.deb;
+    const badge=saldo>0?'badge-green':saldo<0?'badge-red':'badge-blue';
+    return `<tr>
+      <td><span class="link-name" onclick="abrirHistorico(${r.id},'${r.nome.replace(/'/g,"\\'")}')">${r.nome}</span></td>
+      <td>${r.turno}</td>
+      <td><span class="badge badge-green">${minToH(r.cred)}</span></td>
+      <td><span class="badge badge-red">${minToH(r.deb)}</span></td>
+      <td>${r.comp?`<span class="badge badge-orange">${minToH(r.comp)}</span>`:'<span style="color:var(--text2)">-</span>'}</td>
+      <td>${r.just?`<span class="badge badge-purple">${minToH(r.just)}</span>`:'<span style="color:var(--text2)">-</span>'}</td>
+      <td><span class="badge ${badge}">${minToH(saldo)}</span></td>
+    </tr>`;
+  }).join('');
+}
+
+/* HISTÓRICO MENSAL DE LANÇAMENTOS */
+function abrirHistorico(colabId, nome){
+  histColabId=colabId;
+  document.getElementById('hist-titulo').textContent='📊 Histórico — '+nome;
+
+  const list=lancamentos.filter(l=>l.colaborador_id===colabId);
+  if(!list.length){
+    document.getElementById('hist-mes').innerHTML='<option value="">— sem registros —</option>';
+    document.getElementById('hist-summary').innerHTML='';
+    document.getElementById('hist-tb').innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--text2)">Nenhum lançamento</td></tr>';
+    document.getElementById('modal-hist').classList.add('show');
+    return;
+  }
+
+  const meses=[...new Set(list.map(l=>isoMes(l.data)))].filter(Boolean).sort().reverse();
+
+  const sel=document.getElementById('hist-mes');
+  sel.innerHTML=meses.map(m=>{
+    const [y,mo]=m.split('-');
+    const nomeMes=new Date(+y,+mo-1,1).toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
+    return `<option value="${m}">${nomeMes.charAt(0).toUpperCase()+nomeMes.slice(1)}</option>`;
+  }).join('');
+  sel.value=meses[0];
+
+  renderHistMes();
+  document.getElementById('modal-hist').classList.add('show');
+}
+
+function renderHistMes(){
+  const mes=document.getElementById('hist-mes').value;
+  if(!mes||!histColabId)return;
+
+  const todos=lancamentos
+    .filter(l=>l.colaborador_id===histColabId)
+    .slice()
+    .sort((a,b)=>isoDate(a.data).localeCompare(isoDate(b.data)));
+
+  let acc=0;
+  const enriched=todos.map(l=>{
+    acc+=valorSaldo(l);
+    return {...l, acumulado:acc};
+  });
+
+  const list=enriched.filter(l=>isoMes(l.data)===mes);
+
+  const {cred,deb,comp,just}=somar(list);
+  const saldoMes=cred-deb;
+  const saldoTotal=enriched.length?enriched[enriched.length-1].acumulado:0;
+
+  document.getElementById('hist-summary').innerHTML=`
+    <div class="hs-item"><div class="hs-num" style="color:var(--accent)">${list.length}</div><div class="hs-lbl">Lançamentos no mês</div></div>
+    <div class="hs-item"><div class="hs-num" style="color:var(--green)">${minToH(cred)}</div><div class="hs-lbl">Créditos do mês</div></div>
+    <div class="hs-item"><div class="hs-num" style="color:var(--red)">${minToH(deb)}</div><div class="hs-lbl">Débitos do mês</div></div>
+    <div class="hs-item"><div class="hs-num" style="color:var(--orange,#E88C4A)">${minToH(comp)}</div><div class="hs-lbl">Desconto (não entra no saldo)</div></div>
+    <div class="hs-item"><div class="hs-num" style="color:var(--accent2)">${minToH(just)}</div><div class="hs-lbl">Justificado (não desconta)</div></div>
+    <div class="hs-item"><div class="hs-num" style="color:${saldoMes>=0?'var(--green)':'var(--red)'}">${minToH(saldoMes)}</div><div class="hs-lbl">Saldo do mês</div></div>
+    <div class="hs-item"><div class="hs-num" style="color:${saldoTotal>=0?'var(--green)':'var(--red)'}">${minToH(saldoTotal)}</div><div class="hs-lbl">Saldo acumulado</div></div>
+  `;
+
+  const tb=document.getElementById('hist-tb');
+  if(!list.length){
+    tb.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--text2)">Sem lançamentos neste mês</td></tr>';
+    return;
+  }
+  tb.innerHTML=list.map(l=>{
+    const badge=badgeTipo(l.tipo);
+    const accBadge=l.acumulado>0?'badge-green':l.acumulado<0?'badge-red':'badge-blue';
+    return `<tr>
+      <td>${fmt(l.data)}</td>
+      <td><span class="badge ${badge}">${l.tipo}</span></td>
+      <td>${l.minutos} (${minToH(l.minutos)})</td>
+      <td>${l.motivo||'-'}</td>
+      <td style="max-width:240px;white-space:normal">${l.justificativa||'-'}</td>
+      <td><span class="badge ${accBadge}">${minToH(l.acumulado)}</span></td>
+    </tr>`;
+  }).join('');
+}
+
+function fecharModalHist(){document.getElementById('modal-hist').classList.remove('show');histColabId=null}
+
+/* DELETE GENERICO */
+async function delItem(resource,id){
+  if(!confirm('Excluir este registro?'))return;
+  await api.del('/api/'+resource+'/'+id);toast('Excluído!');await loadAll();
+}
+function fecharModalDel(){document.getElementById('modal-del').classList.remove('show')}
+
+async function loadUser(){try{const u=await api.get('/api/me');document.getElementById('user-display').textContent=u.nome||u.username}catch(e){}}
+async function init(){updateClock();await loadUser();await loadAll()}
+init();
+</script>
+</body>
+</html>

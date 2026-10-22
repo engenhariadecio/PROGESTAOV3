@@ -1,0 +1,968 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ProGestão – EPIs</title>
+<style>
+:root{--bg:#0A1620;--card:#14293A;--card2:#1A3347;--accent:#26B247;--accent2:#1C4984;--green:#34D399;--yellow:#F0B429;--red:#F26D6D;--orange:#E88C4A;--blue:#56B6E0;--purple:#1D6574;--text:#EAF4F1;--text2:#A2BCC3;--border:#1E3D52;--radius:12px;--panel:#14293A;--panel2:#1A3347;--fade:linear-gradient(135deg,#26B247 0%,#1D6574 55%,#1C4984 100%)}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+a{color:var(--accent);text-decoration:none}
+.topbar{background:var(--card);padding:12px 24px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border)}
+.topbar .logo{font-size:1.2rem;font-weight:700;color:var(--accent)}
+.topbar .right{display:flex;align-items:center;gap:16px}
+.topbar .clock{background:var(--card2);padding:4px 12px;border-radius:20px;font-size:.85rem;color:var(--text2)}
+.topbar .user{font-size:.9rem;color:var(--text2)}
+.btn-sm{padding:6px 14px;border:none;border-radius:8px;cursor:pointer;font-size:.85rem;font-weight:600;transition:.2s}
+.btn-sm:disabled{opacity:.5;cursor:not-allowed}
+.btn-danger{background:var(--red);color:#fff}.btn-danger:hover{opacity:.85}
+.btn-primary{background:var(--accent);color:#fff}.btn-primary:hover{background:#2563eb}
+.btn-green{background:var(--green);color:#fff}.btn-green:hover{background:#16a34a}
+.btn-ghost{background:transparent;border:1px solid var(--border);color:var(--text2)}.btn-ghost:hover{border-color:var(--accent);color:var(--accent)}
+.btn-warning{background:var(--yellow);color:#000}.btn-warning:hover{background:#ca8a04}
+.layout{display:flex;min-height:calc(100vh - 57px)}
+.sidebar{width:220px;background:var(--card);padding:16px 12px;border-right:1px solid var(--border);display:flex;flex-direction:column;gap:4px}
+.sidebar a{display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:var(--radius);color:var(--text2);font-size:.9rem;transition:.2s}
+.sidebar a:hover,.sidebar a.active{background:var(--accent);color:#fff}
+.main{flex:1;padding:24px;overflow-y:auto}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:16px;margin-bottom:24px}
+.kpi{background:var(--card);padding:20px;border-radius:var(--radius);text-align:center}
+.kpi .num{font-size:2rem;font-weight:700}.kpi .lbl{font-size:.8rem;color:var(--text2);margin-top:4px}
+.tabs{display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap}
+.tab{padding:8px 18px;border-radius:20px;cursor:pointer;font-size:.85rem;background:var(--card);color:var(--text2);border:1px solid var(--border);transition:.2s}
+.tab:hover,.tab.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.tbl-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse}
+th,td{padding:10px 14px;text-align:left;border-bottom:1px solid var(--border);font-size:.88rem;vertical-align:top}
+th{background:var(--card2);color:var(--text2);font-weight:600;position:sticky;top:0}
+tr:hover{background:rgba(59,130,246,.08)}
+tr.row-irregular{background:rgba(239,68,68,.06)}
+tr.row-irregular:hover{background:rgba(239,68,68,.12)}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;max-width:700px}
+.form-grid.full{grid-template-columns:1fr}
+.form-group{display:flex;flex-direction:column;gap:4px}
+.form-group label{font-size:.8rem;color:var(--text2)}
+.form-group input,.form-group select,.form-group textarea{padding:10px;border-radius:8px;border:1px solid var(--border);background:var(--card2);color:var(--text);font-size:.9rem}
+.form-group textarea{min-height:80px;resize:vertical}
+.badge{padding:3px 10px;border-radius:12px;font-size:.78rem;font-weight:600}
+.badge-green{background:rgba(34,197,94,.15);color:var(--green)}
+.badge-yellow{background:rgba(234,179,8,.15);color:var(--yellow)}
+.badge-red{background:rgba(239,68,68,.15);color:var(--red)}
+.badge-blue{background:rgba(59,130,246,.15);color:var(--accent)}
+.badge-orange{background:rgba(249,115,22,.15);color:var(--orange)}
+.badge-purple{background:rgba(139,92,246,.15);color:var(--accent2)}
+.badge-gray{background:rgba(148,163,184,.15);color:var(--text2)}
+.toast{position:fixed;top:20px;right:20px;padding:14px 24px;border-radius:var(--radius);color:#fff;font-weight:600;z-index:9999;animation:slideIn .3s}
+@keyframes slideIn{from{transform:translateX(100%);opacity:0}to{transform:translateX(0);opacity:1}}
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1000;align-items:center;justify-content:center}
+.modal-overlay.show{display:flex}
+.modal{background:var(--card);border-radius:var(--radius);padding:28px;max-width:500px;width:90%;max-height:90vh;overflow-y:auto}
+.modal.lg{max-width:780px}
+.modal h3{margin-bottom:12px}
+.modal .btns{display:flex;gap:10px;margin-top:18px;justify-content:flex-end}
+.search-bar{display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;align-items:center}
+.search-bar input,.search-bar select{padding:8px 14px;border-radius:8px;border:1px solid var(--border);background:var(--card2);color:var(--text);font-size:.88rem}
+.search-bar input{flex:1;min-width:200px}
+.section{display:none}.section.active{display:block}
+
+/* ===== CHECKING — seletor de EPIs irregulares ===== */
+.epi-chips-wrap{background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:12px;display:flex;flex-wrap:wrap;gap:8px;min-height:60px}
+.epi-chip{display:inline-flex;align-items:center;gap:8px;padding:8px 14px;border-radius:20px;background:var(--card);border:1px solid var(--border);color:var(--text2);font-size:.85rem;cursor:pointer;transition:.15s;user-select:none}
+.epi-chip:hover{border-color:var(--accent);color:var(--text)}
+.epi-chip.selected{background:var(--red);border-color:var(--red);color:#fff;font-weight:600}
+.epi-chip.selected::before{content:"✓ ";font-weight:700}
+.status-toggle{display:flex;gap:0;background:var(--card2);border-radius:8px;padding:4px;width:fit-content}
+.status-toggle button{padding:10px 22px;border:none;background:transparent;color:var(--text2);cursor:pointer;border-radius:6px;font-size:.9rem;font-weight:600;transition:.2s}
+.status-toggle button.ok.active{background:var(--green);color:#fff}
+.status-toggle button.nok.active{background:var(--red);color:#fff}
+.irreg-tags{display:flex;flex-wrap:wrap;gap:4px}
+.irreg-tag{background:rgba(239,68,68,.18);color:var(--red);padding:3px 9px;border-radius:10px;font-size:.75rem;font-weight:600}
+
+/* ===== CHECKING — multi-seleção de colaboradores ===== */
+.colab-search-wrap{position:relative;max-width:700px}
+.colab-sugestoes{position:absolute;top:100%;left:0;right:0;background:var(--card);border:1px solid var(--border);border-radius:8px;max-height:280px;overflow-y:auto;z-index:50;margin-top:4px;box-shadow:0 8px 20px rgba(0,0,0,.4);display:none}
+.colab-sugestoes.show{display:block}
+.colab-sug-item{padding:9px 14px;cursor:pointer;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;font-size:.88rem}
+.colab-sug-item:last-child{border-bottom:none}
+.colab-sug-item:hover{background:rgba(59,130,246,.12)}
+.colab-sug-empty{padding:12px;color:var(--text2);text-align:center;font-size:.85rem}
+.colab-sug-header{padding:8px 14px;background:var(--card2);color:var(--text2);font-size:.75rem;text-transform:uppercase;font-weight:600;border-bottom:1px solid var(--border);position:sticky;top:0}
+.colab-chips-wrap{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;min-height:38px;padding:8px;border:1px dashed var(--border);border-radius:8px;background:rgba(255,255,255,.02);max-width:700px}
+.colab-chip{display:inline-flex;align-items:center;gap:8px;padding:6px 12px;background:rgba(59,130,246,.18);border:1px solid rgba(59,130,246,.45);border-radius:16px;font-size:.85rem;color:#93c5fd}
+.colab-chip button{background:none;border:none;color:var(--red);cursor:pointer;font-weight:700;font-size:1rem;line-height:1;padding:0 2px}
+.colab-empty-hint{color:var(--text2);font-size:.82rem;align-self:center}
+.colab-actions{display:flex;gap:8px;margin-top:6px;flex-wrap:wrap;max-width:700px}
+.colab-counter{margin-left:auto;align-self:center;color:var(--text2);font-size:.82rem}
+
+@media(max-width:768px){.sidebar{display:none}.form-grid{grid-template-columns:1fr}.kpis{grid-template-columns:1fr 1fr}}
+</style>
+<link rel="icon" href="/assets/logo-decio.png">
+
+<style>
+/* ===== Tema Décio — sobreposição sobre o CSS original do módulo ===== */
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap');
+body{font-family:'Inter','Segoe UI',system-ui,sans-serif}
+h1,h2,h3,.logo{font-family:'Manrope','Segoe UI',system-ui,sans-serif;letter-spacing:-.02em}
+
+.fita-marca{position:fixed;top:0;left:0;right:0;height:3px;background:var(--fade);z-index:9999}
+
+.btn-primary,.btn-accent{
+  background:var(--fade)!important;color:#fff!important;border:none!important;
+  box-shadow:0 2px 12px rgba(38,178,71,.22)}
+.btn-primary:hover,.btn-accent:hover{filter:brightness(1.06);transform:translateY(-1px)}
+.btn-green{background:var(--green)!important;color:#062B1E!important}
+.btn-warning{background:var(--yellow)!important;color:#2B1E00!important}
+
+a{color:var(--accent)}
+.topbar{border-bottom:1px solid var(--border)}
+.logo-decio{height:26px;width:26px;border-radius:7px;vertical-align:-7px;margin-right:8px}
+.voltar-portal{
+  display:inline-flex;align-items:center;gap:6px;padding:6px 12px;margin-right:6px;
+  border:1px solid var(--border);border-radius:8px;background:var(--card2);
+  color:var(--text2)!important;font-size:12px;font-weight:600;text-decoration:none}
+.voltar-portal:hover{background:var(--panel2);color:var(--text)!important}
+
+::-webkit-scrollbar{width:8px;height:8px}
+::-webkit-scrollbar-track{background:var(--bg)}
+::-webkit-scrollbar-thumb{background:#2C5570;border-radius:99px}
+:focus-visible{outline:2px solid #35C95C;outline-offset:2px}
+@media(prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+</style>
+</head>
+<body>
+<div class="fita-marca"></div>
+
+<div class="topbar">
+  <div class="logo"><img src="/assets/logo-decio.png" class="logo-decio" alt=""><a href="/progestao">ProGestão</a> / EPIs</div>
+  <div class="right">
+    <a href="/" class="voltar-portal">← Portal</a><span class="clock" id="clock"></span>
+    <span class="user" id="user-display"></span>
+    <button class="btn-sm btn-danger" onclick="doLogout()">Sair</button>
+  </div>
+</div>
+
+<div class="layout">
+<nav class="sidebar">
+  <a href="/progestao">🏠 Início</a>
+  <a href="/progestao/ferramentas">🔧 Ferramentas</a>
+  <a href="/progestao/epis" class="active">🦺 EPIs</a>
+  <a href="/progestao/banco-horas">⏰ Banco Horas</a>
+  <a href="/progestao/treinamentos">📚 Treinamentos</a>
+  <a href="/progestao/diario-bordo">📋 Diário Bordo</a>
+  <a href="/progestao/checklist">✅ Checklist</a>
+  <a href="/progestao/producao">📊 Produção</a><a href="/progestao/limpeza">🧹 Limpeza</a>
+</nav>
+
+<div class="main">
+  <h2 style="margin-bottom:20px">🦺 Gestão de EPIs</h2>
+
+  <div class="kpis">
+    <div class="kpi"><div class="num" id="k-total" style="color:var(--accent)">0</div><div class="lbl">Total EPIs</div></div>
+    <div class="kpi"><div class="num" id="k-entregas" style="color:var(--green)">0</div><div class="lbl">Entregas</div></div>
+    <div class="kpi"><div class="num" id="k-vencer" style="color:var(--yellow)">0</div><div class="lbl">A Vencer (30d)</div></div>
+    <div class="kpi"><div class="num" id="k-vencidos" style="color:var(--red)">0</div><div class="lbl">Vencidos</div></div>
+    <div class="kpi"><div class="num" id="k-checking-hoje" style="color:var(--accent2)">0</div><div class="lbl">Checkings Hoje</div></div>
+    <div class="kpi"><div class="num" id="k-irreg-hoje" style="color:var(--orange)">0</div><div class="lbl">Irregulares Hoje</div></div>
+  </div>
+
+  <div class="tabs">
+    <div class="tab active" onclick="showTab('lista')">📋 Lista</div>
+    <div class="tab" onclick="showTab('cadastro')">➕ Cadastro</div>
+    <div class="tab" onclick="showTab('entregas')">🤝 Entregas</div>
+    <div class="tab" onclick="showTab('checking')">👀 Checking</div>
+    <div class="tab" onclick="showTab('alertas')">⚠ Alertas</div>
+    <div class="tab" onclick="showTab('relatorios')">📊 Relatórios</div>
+  </div>
+
+  <!-- LISTA -->
+  <div class="section active" id="sec-lista">
+    <div class="search-bar">
+      <input id="search-epi" placeholder="Buscar EPI..." oninput="renderLista()">
+      <button class="btn-sm btn-primary" onclick="showTab('cadastro')">+ Novo EPI</button>
+    </div>
+    <div class="tbl-wrap">
+      <table><thead><tr><th>Foto</th><th>Nome</th><th>Validade</th><th>Descrição</th><th>Entregas</th><th>Ações</th></tr></thead>
+      <tbody id="tb-lista"></tbody></table>
+    </div>
+  </div>
+
+  <!-- CADASTRO -->
+  <div class="section" id="sec-cadastro">
+    <h3 id="form-title">Novo EPI</h3>
+    <div class="form-grid" style="margin-top:14px">
+      <div class="form-group"><label>Nome *</label><input id="f-nome"></div>
+      <div class="form-group"><label>Validade (qtd)</label><input id="f-dur-qtd" type="number" min="0" value="0"></div>
+      <div class="form-group"><label>Unidade validade</label>
+        <select id="f-dur-tipo"><option value="meses">Meses</option><option value="dias">Dias</option><option value="anos">Anos</option></select>
+      </div>
+      <div class="form-group"><label>Descrição</label><textarea id="f-desc"></textarea></div>
+      <div class="form-group"><label>Tipo de uso</label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:.88rem;color:var(--text);cursor:pointer;padding:8px 0"><input type="checkbox" id="f-descartavel" style="width:18px;height:18px;accent-color:var(--accent)"> Descartável (uso único)</label>
+        <small style="color:var(--text2)">Ex.: protetor auricular. Quando vence, a entrega vira "Descartado" em vez de "Vencido" e não gera alerta.</small>
+      </div>
+    </div>
+    <div id="fotos-epi"></div>
+    <div style="margin-top:16px;display:flex;gap:10px">
+      <button class="btn-sm btn-green" onclick="salvarEPI()">Salvar</button>
+      <button class="btn-sm btn-ghost" onclick="cancelarForm()">Cancelar</button>
+    </div>
+  </div>
+
+  <!-- ENTREGAS -->
+  <div class="section" id="sec-entregas">
+    <h3>Registrar Entrega</h3>
+    <div class="form-grid" style="margin-top:14px">
+      <div class="form-group"><label>EPI *</label><select id="e-epi"></select></div>
+      <div class="form-group"><label>Colaborador *</label><select id="e-colab"></select></div>
+      <div class="form-group"><label>Data *</label><input id="e-data" type="date"></div>
+      <div class="form-group"><label>Motivo *</label>
+        <select id="e-motivo">
+          <option value="">Selecione...</option>
+          <option value="Novo">🆕 Novo</option>
+          <option value="Gasto">🧰 Gasto</option>
+          <option value="Vencimento">⏰ Vencimento</option>
+          <option value="Perda">❌ Perda</option>
+          <option value="Esqueceu">🤦 Esqueceu</option>
+        </select>
+      </div>
+    </div>
+    <div style="margin-top:14px;display:flex;gap:10px">
+      <button class="btn-sm btn-green" onclick="salvarEntrega()">Registrar Entrega</button>
+    </div>
+    <h3 style="margin-top:28px">Histórico de Entregas</h3>
+    <div class="search-bar" style="margin-top:10px">
+      <input id="search-entrega" placeholder="Buscar entrega..." oninput="renderEntregas()">
+      <select id="filter-entrega-motivo" onchange="renderEntregas()">
+        <option value="">Todos os motivos</option>
+        <option value="Novo">🆕 Novo</option>
+        <option value="Gasto">🧰 Gasto</option>
+        <option value="Vencimento">⏰ Vencimento</option>
+        <option value="Perda">❌ Perda</option>
+        <option value="Esqueceu">🤦 Esqueceu</option>
+      </select>
+    </div>
+    <div class="tbl-wrap">
+      <table><thead><tr><th>EPI</th><th>Colaborador</th><th>Data Entrega</th><th>Validade</th><th>Motivo</th><th>Status</th><th>Ações</th></tr></thead>
+      <tbody id="tb-entregas"></tbody></table>
+    </div>
+  </div>
+
+  <!-- CHECKING -->
+  <div class="section" id="sec-checking">
+    <h3>👀 Novo Checking de EPI</h3>
+    <p style="color:var(--text2);font-size:.85rem;margin-top:4px">Registre as inspeções na linha. Selecione um ou vários colaboradores — um checking individual será criado para cada um.</p>
+
+    <div class="form-grid" style="margin-top:14px">
+      <div class="form-group"><label>Data *</label><input id="ch-data" type="date"></div>
+      <div class="form-group"><label>Hora *</label><input id="ch-hora" type="time"></div>
+    </div>
+
+    <!-- ===== MULTI-SELEÇÃO DE COLABORADORES ===== -->
+    <div style="margin-top:18px">
+      <label style="font-size:.8rem;color:var(--text2);display:block;margin-bottom:6px">
+        Colaboradores * <small style="color:var(--text2);font-weight:normal">(clique no campo para ver a lista ou digite para filtrar — pode adicionar vários)</small>
+      </label>
+      <div class="colab-search-wrap">
+        <input type="text" id="ch-colab-busca" placeholder="Clique aqui para selecionar colaboradores..." autocomplete="off" oninput="chFiltrarColabs()" onfocus="chFiltrarColabs()">
+        <div id="ch-colab-sugestoes" class="colab-sugestoes"></div>
+      </div>
+      <div id="ch-colab-chips" class="colab-chips-wrap">
+        <span class="colab-empty-hint">Nenhum colaborador selecionado</span>
+      </div>
+      <div class="colab-actions">
+        <button type="button" class="btn-sm btn-ghost" onclick="chSelecionarTodos()">➕ Selecionar todos</button>
+        <button type="button" class="btn-sm btn-ghost" onclick="chLimparColabs()">🗑️ Limpar</button>
+        <span id="ch-colab-counter" class="colab-counter"></span>
+      </div>
+    </div>
+
+    <div style="margin-top:18px;max-width:700px">
+      <label style="font-size:.8rem;color:var(--text2);display:block;margin-bottom:6px">Status do Colaborador *</label>
+      <div class="status-toggle">
+        <button type="button" id="bt-st-ok" class="ok active" onclick="setStatus('OK')">✅ Conforme</button>
+        <button type="button" id="bt-st-nok" class="nok" onclick="setStatus('NOK')">❌ Irregular</button>
+      </div>
+      <p style="color:var(--text2);font-size:.78rem;margin-top:6px">O status e os EPIs irregulares marcados serão aplicados a todos os colaboradores selecionados.</p>
+    </div>
+
+    <div id="grp-epis-irreg" style="margin-top:18px;max-width:900px;display:none">
+      <label style="font-size:.8rem;color:var(--text2);display:block;margin-bottom:6px">EPIs que NÃO estavam sendo usados * <span style="color:var(--red)">(pode marcar mais de um)</span></label>
+      <div class="epi-chips-wrap" id="epi-chips"></div>
+    </div>
+
+    <div style="margin-top:14px;max-width:700px">
+      <div class="form-group"><label>Observações</label><textarea id="ch-obs" placeholder="Anotações, ações tomadas, etc."></textarea></div>
+    </div>
+
+    <div style="margin-top:14px;display:flex;gap:10px">
+      <button class="btn-sm btn-green" id="btn-salvar-checking" onclick="salvarChecking()">Registrar Checking</button>
+      <button class="btn-sm btn-ghost" onclick="limparChecking()">Limpar</button>
+    </div>
+
+    <h3 style="margin-top:32px">Histórico de Checkings</h3>
+    <div class="search-bar" style="margin-top:10px">
+      <input id="search-ch" placeholder="Buscar por colaborador..." oninput="renderCheckings()">
+      <select id="filter-ch-st" onchange="renderCheckings()"><option value="">Todos status</option><option value="OK">Conforme</option><option value="NOK">Irregular</option></select>
+      <input id="filter-ch-dt" type="date" onchange="renderCheckings()">
+      <button class="btn-sm btn-ghost" onclick="limparFiltrosCh()">Limpar filtros</button>
+    </div>
+    <div class="tbl-wrap">
+      <table><thead><tr><th>Data</th><th>Hora</th><th>Colaborador</th><th>Status</th><th>EPIs Irregulares</th><th>Obs</th><th>Ações</th></tr></thead>
+      <tbody id="tb-checkings"></tbody></table>
+    </div>
+  </div>
+
+  <!-- ALERTAS -->
+  <div class="section" id="sec-alertas">
+    <h3>⚠ Alertas de Validade</h3>
+    <div class="tbl-wrap" style="margin-top:14px">
+      <table><thead><tr><th>EPI</th><th>Colaborador</th><th>Data Entrega</th><th>Validade</th><th>Dias Rest.</th><th>Status</th></tr></thead>
+      <tbody id="tb-alertas"></tbody></table>
+    </div>
+  </div>
+
+  <!-- RELATORIOS -->
+  <div class="section" id="sec-relatorios">
+    <h3>📊 Relatórios</h3>
+    <div style="margin-top:14px;display:flex;gap:10px;flex-wrap:wrap">
+      <button class="btn-sm btn-primary" onclick="exportCSV()">Exportar Entregas (CSV)</button>
+      <button class="btn-sm btn-primary" onclick="exportCSVCheckings()">Exportar Checkings (CSV)</button>
+    </div>
+
+    <div style="margin-top:20px">
+      <h4>Resumo por EPI</h4>
+      <div class="tbl-wrap" style="margin-top:10px">
+        <table><thead><tr><th>EPI</th><th>Entregas</th><th>Ativos</th><th>Vencidos</th><th>Substituídos / Descartados</th><th>Reprovado em Checking</th></tr></thead>
+        <tbody id="tb-resumo"></tbody></table>
+      </div>
+    </div>
+
+    <div style="margin-top:24px">
+      <h4>Entregas por Motivo</h4>
+      <div class="tbl-wrap" style="margin-top:10px">
+        <table><thead><tr><th>Motivo</th><th>Total de Entregas</th><th>% do Total</th></tr></thead>
+        <tbody id="tb-resumo-motivo"></tbody></table>
+      </div>
+    </div>
+
+    <div style="margin-top:24px">
+      <h4>Resumo por Colaborador (Checking)</h4>
+      <div class="tbl-wrap" style="margin-top:10px">
+        <table><thead><tr><th>Colaborador</th><th>Checkings</th><th>Conformes</th><th>Irregulares</th><th>% Conformidade</th></tr></thead>
+        <tbody id="tb-resumo-colab"></tbody></table>
+      </div>
+    </div>
+  </div>
+
+</div>
+</div>
+
+<!-- MODAL DELETE -->
+<div class="modal-overlay" id="modal-del">
+  <div class="modal">
+    <h3>Confirmar Exclusão</h3>
+    <p id="modal-del-msg">Tem certeza?</p>
+    <div class="btns">
+      <button class="btn-sm btn-ghost" onclick="fecharModal('modal-del')">Cancelar</button>
+      <button class="btn-sm btn-danger" id="modal-del-btn">Excluir</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL DETALHE CHECKING -->
+<div class="modal-overlay" id="modal-ch">
+  <div class="modal lg">
+    <h3>📋 Detalhes do Checking</h3>
+    <div id="modal-ch-body" style="margin-top:10px"></div>
+    <div class="btns"><button class="btn-sm btn-ghost" onclick="fecharModal('modal-ch')">Fechar</button></div>
+  </div>
+</div>
+
+<script src="/js/fotos.js"></script>
+<script>
+/* ============ GLOBALS ============ */
+var epis=[], entregas=[], colabs=[], colabsTodos=[], checkings=[];   // colabs = sem desligados
+var editId=null;
+var fotosEpi={};   // { id_do_epi: [ids das fotos] }
+var galEpi=Fotos.galeria('#fotos-epi',{entidade:'epi',titulo:'Fotos do EPI'});
+var chStatus='OK';        // OK ou NOK
+var chEpisIrreg=[];       // ids dos EPIs marcados como irregulares
+var chColabsSel=[];       // ids dos colaboradores selecionados (multi)
+
+/* ============ API ============ */
+var api={
+  get:async function(u){var r=await fetch(u);if(r.status===401){location.href='/login';return null;}return r.json()},
+  post:async function(u,d){var r=await fetch(u,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(d)});if(r.status===401){location.href='/login';return null;}return r.json()},
+  put:async function(u,d){var r=await fetch(u,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(d)});if(r.status===401){location.href='/login';return null;}return r.json()},
+  del:async function(u){var r=await fetch(u,{method:'DELETE'});if(r.status===401){location.href='/login';return null;}return r.json()}
+};
+
+/* ============ UTILS ============ */
+function toast(msg,type){type=type||'success';var t=document.createElement('div');t.className='toast';var bg='var(--green)';if(type==='error')bg='var(--red)';else if(type==='warning')bg='var(--orange)';t.style.background=bg;t.textContent=msg;document.body.appendChild(t);setTimeout(function(){t.remove()},3000)}
+function fmtDate(d){if(!d)return'-';var s=String(d).slice(0,10);var p=s.split('-');if(p.length!==3)return'-';return p[2]+'/'+p[1]+'/'+p[0]}
+function isoDate(d){return d?String(d).slice(0,10):''}
+function hoje(){var d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
+function horaAgora(){var d=new Date();return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')}
+function escHtml(s){if(s===null||s===undefined)return'';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
+function diffDays(d){if(!d)return null;var s=String(d).slice(0,10);var parts=s.split('-');var target=new Date(parseInt(parts[0]),parseInt(parts[1])-1,parseInt(parts[2]));var today=new Date();today.setHours(0,0,0,0);return Math.ceil((target-today)/(1000*60*60*24))}
+function calcValidade(dtEntrega,durQtd,durTipo){
+  if(!dtEntrega||!durQtd||durQtd<=0)return null;
+  var s=String(dtEntrega).slice(0,10);var parts=s.split('-');
+  var d=new Date(parseInt(parts[0]),parseInt(parts[1])-1,parseInt(parts[2]));
+  if(durTipo==='meses')d.setMonth(d.getMonth()+durQtd);
+  else if(durTipo==='anos')d.setFullYear(d.getFullYear()+durQtd);
+  else d.setDate(d.getDate()+durQtd);
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+function badgeMotivo(m){
+  if(!m)return '<span class="badge badge-gray">-</span>';
+  var map={
+    'Novo':{cls:'badge-green',ic:'🆕'},
+    'Gasto':{cls:'badge-yellow',ic:'🧰'},
+    'Vencimento':{cls:'badge-orange',ic:'⏰'},
+    'Perda':{cls:'badge-red',ic:'❌'},
+    'Esqueceu':{cls:'badge-purple',ic:'🤦'}
+  };
+  var cfg=map[m]||{cls:'badge-blue',ic:''};
+  return '<span class="badge '+cfg.cls+'">'+cfg.ic+' '+escHtml(m)+'</span>';
+}
+
+/* ============ CLOCK / LOGOUT ============ */
+function updateClock(){var n=new Date();document.getElementById('clock').textContent=n.toLocaleTimeString('pt-BR')+' — '+n.toLocaleDateString('pt-BR')}
+setInterval(updateClock,1000);updateClock();
+async function doLogout(){await fetch('/api/logout',{method:'POST'});location.href='/login'}
+
+/* ============ TABS ============ */
+function showTab(t){
+  document.querySelectorAll('.section').forEach(function(s){s.classList.remove('active')});
+  document.querySelectorAll('.tab').forEach(function(s){s.classList.remove('active')});
+  document.getElementById('sec-'+t).classList.add('active');
+  if(event&&event.target)event.target.classList.add('active');
+  if(t==='entregas')populateSelects();
+  if(t==='checking')prepareChecking();
+  if(t==='alertas')renderAlertas();
+  if(t==='relatorios'){renderResumo();renderResumoMotivo();renderResumoColab()}
+}
+
+/* ============ LOAD DATA ============ */
+async function loadAll(){
+  var results=await Promise.all([
+    api.get('/api/epis'),
+    api.get('/api/epis/entregas/todos'),
+    api.get('/api/colaboradores'),
+    api.get('/api/epis/checklists/todos'),
+    Fotos.mapa('epi')
+  ]);
+  fotosEpi=results[4]||{};
+  epis=results[0]||[];
+  entregas=results[1]||[];
+  colabsTodos=results[2]||[];colabs=colabsTodos.filter(function(c){return c.status!=='Desligado'});
+  checkings=results[3]||[];
+  colabs.sort(function(a,b){return (a.nome||'').localeCompare(b.nome||'','pt-BR')});
+  checkings.forEach(function(c){if(typeof c.registros==='string'){try{c.registros=JSON.parse(c.registros)}catch(e){c.registros=[]}}});
+  updateKPIs();
+  renderLista();
+  renderEntregas();
+  renderCheckings();
+}
+
+/* ============ STATUS DE UMA ENTREGA ============
+   Uma entrega mais nova do mesmo EPI para o mesmo colaborador substitui a
+   anterior: a antiga passa a "Substituído" e sai dos alertas e dos vencidos,
+   não importa se já estava vencida ou não. Sem isso, o alerta do EPI antigo
+   continuaria aparecendo mesmo depois da troca. */
+function foiSubstituida(e){
+  return entregas.some(function(o){
+    if(o.id===e.id||o.epi_id!==e.epi_id||o.colaborador_id!==e.colaborador_id)return false;
+    var a=String(o.dt||'').slice(0,10),b=String(e.dt||'').slice(0,10);
+    return a>b||(a===b&&o.id>e.id);
+  });
+}
+/* → { chave, badge, val (Date|null), dd (dias até vencer|null) } */
+function statusEntrega(e){
+  var epi=epis.find(function(x){return x.id===e.epi_id});
+  var r={chave:'sem_validade',badge:'<span class="badge badge-blue">Sem validade</span>',val:null,dd:null};
+  if(epi&&epi.dur_qtd>0){
+    r.val=calcValidade(e.dt,epi.dur_qtd,epi.dur_tipo||'meses');
+    r.dd=diffDays(r.val);
+    // Descartável (protetor auricular etc.): o fim da validade é o descarte, não um vencimento — sem alerta
+    if(epi.descartavel){
+      if(r.dd<0)r={chave:'descartado',badge:'<span class="badge badge-gray" title="EPI descartável: validade encerrada">Descartado</span>',val:r.val,dd:r.dd};
+      else r={chave:'valido',badge:'<span class="badge badge-green">Válido</span>',val:r.val,dd:r.dd};
+    }
+    else if(r.dd<0)r={chave:'vencido',badge:'<span class="badge badge-red">Vencido</span>',val:r.val,dd:r.dd};
+    else if(r.dd<=30)r={chave:'a_vencer',badge:'<span class="badge badge-yellow">A vencer</span>',val:r.val,dd:r.dd};
+    else r={chave:'valido',badge:'<span class="badge badge-green">Válido</span>',val:r.val,dd:r.dd};
+  }
+  if(foiSubstituida(e))r={chave:'substituido',badge:'<span class="badge badge-gray" title="Recebeu um novo depois">Substituído</span>',val:r.val,dd:r.dd};
+  return r;
+}
+
+/* ============ KPIs ============ */
+function updateKPIs(){
+  document.getElementById('k-total').textContent=epis.length;
+  document.getElementById('k-entregas').textContent=entregas.length;
+  var vencer=0,vencidos=0;
+  entregas.forEach(function(e){
+    var st=statusEntrega(e).chave;
+    if(st==='vencido')vencidos++;else if(st==='a_vencer')vencer++;
+  });
+  document.getElementById('k-vencer').textContent=vencer;
+  document.getElementById('k-vencidos').textContent=vencidos;
+
+  var h=hoje();
+  var hojeList=checkings.filter(function(c){return isoDate(c.data)===h});
+  var irreg=hojeList.filter(function(c){return c.irregulares>0});
+  document.getElementById('k-checking-hoje').textContent=hojeList.length;
+  document.getElementById('k-irreg-hoje').textContent=irreg.length;
+}
+
+/* ============ LISTA EPI ============ */
+function renderLista(){
+  var q=(document.getElementById('search-epi').value||'').toLowerCase();
+  var filtered=epis.filter(function(e){return e.nome.toLowerCase().indexOf(q)>=0});
+  var tb=document.getElementById('tb-lista');
+  if(!filtered.length){tb.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--text2)">Nenhum EPI cadastrado</td></tr>';return}
+  tb.innerHTML=filtered.map(function(e){
+    var cnt=entregas.filter(function(x){return x.epi_id===e.id}).length;
+    var valTxt=e.dur_qtd>0?e.dur_qtd+' '+(e.dur_tipo||'meses'):'Sem validade';
+    var fotoHtml=Fotos.miniaturas(fotosEpi[e.id],{max:1,vazio:'<span style="color:var(--text2);font-size:11px">Sem foto</span>'});
+    return '<tr><td>'+fotoHtml+'</td><td><strong>'+escHtml(e.nome)+'</strong>'+(e.descartavel?' <span class="badge badge-gray" title="Uso único: ao vencer vira Descartado">♻ descartável</span>':'')+'</td><td>'+valTxt+'</td><td>'+escHtml(e.descricao||'-')+'</td><td><span class="badge badge-blue">'+cnt+'</span></td><td><button class="btn-sm btn-ghost" onclick="editarEPI('+e.id+')">✏</button> <button class="btn-sm btn-danger" onclick="confirmarDel(\'epi\','+e.id+',\''+e.nome.replace(/'/g,"\\'")+'\')">🗑</button></td></tr>';
+  }).join('');
+}
+
+/* ============ FORM EPI ============ */
+function editarEPI(id){
+  var e=epis.find(function(x){return x.id===id});if(!e)return;
+  editId=id;
+  document.getElementById('form-title').textContent='Editar EPI';
+  document.getElementById('f-nome').value=e.nome;
+  document.getElementById('f-dur-qtd').value=e.dur_qtd||0;
+  document.getElementById('f-dur-tipo').value=e.dur_tipo||'meses';
+  document.getElementById('f-desc').value=e.descricao||'';
+  document.getElementById('f-descartavel').checked=!!e.descartavel;
+  galEpi.carregar(id);
+  showTab('cadastro');
+}
+function cancelarForm(){
+  editId=null;
+  document.getElementById('form-title').textContent='Novo EPI';
+  document.getElementById('f-nome').value='';
+  document.getElementById('f-dur-qtd').value=0;
+  document.getElementById('f-dur-tipo').value='meses';
+  document.getElementById('f-desc').value='';
+  document.getElementById('f-descartavel').checked=false;
+  galEpi.limpar();
+  showTab('lista');
+}
+async function salvarEPI(){
+  var nome=document.getElementById('f-nome').value.trim();
+  if(!nome)return toast('Nome obrigatório','error');
+  var body={nome:nome,dur_qtd:parseInt(document.getElementById('f-dur-qtd').value)||0,dur_tipo:document.getElementById('f-dur-tipo').value,descricao:document.getElementById('f-desc').value.trim()||null,descartavel:document.getElementById('f-descartavel').checked};
+  var r=editId?await api.put('/api/epis/'+editId,body):await api.post('/api/epis',body);
+  if(!r||r.error)return toast(r&&r.error?r.error:'Erro ao salvar','error');
+  await galEpi.salvar(r.id);
+  toast(editId?'EPI atualizado!':'EPI cadastrado!');
+  cancelarForm();await loadAll();
+}
+
+/* ============ ENTREGAS ============ */
+function populateSelects(){
+  var se=document.getElementById('e-epi');
+  se.innerHTML='<option value="">Selecione...</option>'+epis.map(function(e){return'<option value="'+e.id+'">'+escHtml(e.nome)+'</option>'}).join('');
+  var sc=document.getElementById('e-colab');
+  sc.innerHTML='<option value="">Selecione...</option>'+colabs.map(function(c){return'<option value="'+c.id+'">'+escHtml(c.nome)+'</option>'}).join('');
+  if(!document.getElementById('e-data').value)document.getElementById('e-data').value=hoje();
+}
+async function salvarEntrega(){
+  var epi_id=document.getElementById('e-epi').value;
+  var colaborador_id=document.getElementById('e-colab').value;
+  var dt=document.getElementById('e-data').value;
+  var motivo=document.getElementById('e-motivo').value;
+  if(!epi_id||!colaborador_id||!dt)return toast('Preencha EPI, colaborador e data','error');
+  if(!motivo)return toast('Selecione o motivo da entrega','error');
+  await api.post('/api/epis/entregas',{epi_id:parseInt(epi_id),colaborador_id:parseInt(colaborador_id),dt:dt,motivo:motivo});
+  toast('Entrega registrada!');
+  // limpa o motivo após salvar (mantém EPI/colab/data para entregas em sequência)
+  document.getElementById('e-motivo').value='';
+  await loadAll();
+}
+function renderEntregas(){
+  var q=(document.getElementById('search-entrega').value||'').toLowerCase();
+  var fmot=document.getElementById('filter-entrega-motivo').value;
+  var list=entregas.filter(function(e){
+    var epi=epis.find(function(x){return x.id===e.epi_id});
+    var name=(epi?epi.nome:'')+(e.colab_nome||'');
+    if(name.toLowerCase().indexOf(q)<0)return false;
+    if(fmot && (e.motivo||'')!==fmot)return false;
+    return true;
+  });
+  var tb=document.getElementById('tb-entregas');
+  if(!list.length){tb.innerHTML='<tr><td colspan="7" style="text-align:center;color:var(--text2)">Nenhuma entrega</td></tr>';return}
+  tb.innerHTML=list.map(function(e){
+    var epi=epis.find(function(x){return x.id===e.epi_id});
+    var epiNome=epi?epi.nome:'?';
+    var st=statusEntrega(e),valDate=st.val,statusBadge=st.badge;
+    return '<tr><td>'+escHtml(epiNome)+'</td><td>'+escHtml(e.colab_nome||'-')+'</td><td>'+fmtDate(e.dt)+'</td><td>'+(valDate?fmtDate(valDate):'-')+'</td><td>'+badgeMotivo(e.motivo)+'</td><td>'+statusBadge+'</td><td><button class="btn-sm btn-danger" onclick="confirmarDel(\'entrega\','+e.id+',\'entrega de '+epiNome.replace(/'/g,"\\'")+'\')">🗑</button></td></tr>';
+  }).join('');
+}
+
+/* ============ CHECKING ============ */
+function prepareChecking(){
+  if(!document.getElementById('ch-data').value)document.getElementById('ch-data').value=hoje();
+  if(!document.getElementById('ch-hora').value)document.getElementById('ch-hora').value=horaAgora();
+  renderEpiChips();
+  chRenderColabChips();
+}
+
+/* ----- Multi-seleção de colaboradores ----- */
+function chFiltrarColabs(){
+  var termo=(document.getElementById('ch-colab-busca').value||'').toLowerCase().trim();
+  var box=document.getElementById('ch-colab-sugestoes');
+
+  var lista=(colabs||[])
+    .filter(function(c){return chColabsSel.indexOf(c.id)<0})
+    .filter(function(c){return !termo || (c.nome||'').toLowerCase().indexOf(termo)>=0});
+
+  if(!colabs.length){
+    box.innerHTML='<div class="colab-sug-empty">Nenhum colaborador cadastrado no banco</div>';
+  } else if(!lista.length){
+    box.innerHTML='<div class="colab-sug-empty">'+(termo?'Nenhum colaborador encontrado para "'+escHtml(termo)+'"':'Todos os colaboradores já estão selecionados')+'</div>';
+  } else {
+    var header='<div class="colab-sug-header">'+lista.length+' colaborador(es) disponível(eis)'+(termo?' — filtro: "'+escHtml(termo)+'"':'')+'</div>';
+    box.innerHTML=header+lista.map(function(c){
+      return '<div class="colab-sug-item" onclick="chAdicionarColab('+c.id+')"><span>👤 '+escHtml(c.nome)+'</span><small style="color:var(--text2)">'+escHtml(c.setor||'')+'</small></div>';
+    }).join('');
+  }
+  box.classList.add('show');
+}
+function chAdicionarColab(id){
+  if(chColabsSel.indexOf(id)<0){chColabsSel.push(id);chRenderColabChips()}
+  document.getElementById('ch-colab-busca').value='';
+  chFiltrarColabs();
+  document.getElementById('ch-colab-busca').focus();
+}
+function chRemoverColab(id){
+  chColabsSel=chColabsSel.filter(function(x){return x!==id});
+  chRenderColabChips();
+}
+function chRenderColabChips(){
+  var box=document.getElementById('ch-colab-chips');
+  var counter=document.getElementById('ch-colab-counter');
+  if(!chColabsSel.length){
+    box.innerHTML='<span class="colab-empty-hint">Nenhum colaborador selecionado</span>';
+    counter.textContent='';
+    return;
+  }
+  box.innerHTML=chColabsSel.map(function(id){
+    var c=(colabs||[]).find(function(x){return x.id===id});
+    if(!c)return'';
+    return '<span class="colab-chip">👤 '+escHtml(c.nome)+' <button type="button" onclick="chRemoverColab('+id+')" title="Remover">×</button></span>';
+  }).join('');
+  counter.textContent=chColabsSel.length+' selecionado(s)';
+}
+function chSelecionarTodos(){
+  chColabsSel=(colabs||[]).map(function(c){return c.id});
+  chRenderColabChips();
+  toast(chColabsSel.length+' colaboradores selecionados');
+}
+function chLimparColabs(){
+  chColabsSel=[];
+  chRenderColabChips();
+}
+document.addEventListener('click',function(e){
+  if(!e.target.closest('#ch-colab-busca')&&!e.target.closest('#ch-colab-sugestoes')){
+    var box=document.getElementById('ch-colab-sugestoes');
+    if(box)box.classList.remove('show');
+  }
+});
+
+/* ----- EPIs irregulares (chips) ----- */
+function renderEpiChips(){
+  var wrap=document.getElementById('epi-chips');
+  if(!epis.length){wrap.innerHTML='<span style="color:var(--text2);font-size:.85rem">Nenhum EPI cadastrado. Cadastre EPIs primeiro na aba "Cadastro".</span>';return}
+  wrap.innerHTML=epis.map(function(e){
+    var sel=chEpisIrreg.indexOf(e.id)>=0;
+    return '<div class="epi-chip '+(sel?'selected':'')+'" onclick="toggleEpiIrreg('+e.id+')">'+escHtml(e.nome)+'</div>';
+  }).join('');
+}
+function toggleEpiIrreg(id){
+  var i=chEpisIrreg.indexOf(id);
+  if(i>=0)chEpisIrreg.splice(i,1);
+  else chEpisIrreg.push(id);
+  renderEpiChips();
+}
+function setStatus(st){
+  chStatus=st;
+  document.getElementById('bt-st-ok').classList.toggle('active',st==='OK');
+  document.getElementById('bt-st-nok').classList.toggle('active',st==='NOK');
+  document.getElementById('grp-epis-irreg').style.display = st==='NOK' ? 'block' : 'none';
+  if(st==='OK'){chEpisIrreg=[];renderEpiChips()}
+}
+function limparChecking(){
+  document.getElementById('ch-data').value=hoje();
+  document.getElementById('ch-hora').value=horaAgora();
+  document.getElementById('ch-obs').value='';
+  document.getElementById('ch-colab-busca').value='';
+  chColabsSel=[];
+  chEpisIrreg=[];
+  chRenderColabChips();
+  setStatus('OK');
+}
+
+async function salvarChecking(){
+  var data=document.getElementById('ch-data').value;
+  var hora=document.getElementById('ch-hora').value;
+  var obs=document.getElementById('ch-obs').value.trim();
+
+  if(!data||!hora)return toast('Data e hora são obrigatórias','error');
+  if(!chColabsSel.length)return toast('Selecione ao menos um colaborador','error');
+  if(chStatus==='NOK' && !chEpisIrreg.length)return toast('Selecione ao menos 1 EPI irregular','error');
+
+  var total=chColabsSel.length;
+  if(total>1){
+    if(!confirm('Será criado 1 checking individual para cada um dos '+total+' colaboradores selecionados.\n\nConfirmar?'))return;
+  }
+
+  var btn=document.getElementById('btn-salvar-checking');
+  btn.disabled=true;
+  var nomesIrreg=chEpisIrreg.map(function(id){var e=epis.find(function(x){return x.id===id});return e?e.nome:'?'});
+
+  var sucesso=0, falhas=0;
+
+  for(var i=0;i<chColabsSel.length;i++){
+    var colab_id=chColabsSel[i];
+    btn.textContent='Salvando '+(i+1)+'/'+total+'...';
+
+    var colab=colabsTodos.find(function(c){return c.id===colab_id});
+    var detalhe={
+      hora:hora,
+      colaborador_id:colab_id,
+      colab_nome:colab?colab.nome:'',
+      status:chStatus,
+      epis_irregulares_ids:chEpisIrreg.slice(),
+      epis_irregulares_nomes:nomesIrreg.slice(),
+      obs:obs
+    };
+    var body={
+      data:data,
+      turno:null,
+      total:1,
+      conformes:chStatus==='OK'?1:0,
+      irregulares:chStatus==='NOK'?1:0,
+      pct:chStatus==='OK'?100:0,
+      registros:[detalhe]
+    };
+
+    try{
+      var r=await api.post('/api/epis/checklists',body);
+      if(r && !r.error) sucesso++; else falhas++;
+    }catch(err){
+      console.error('Erro ao salvar checking p/ colab',colab_id,err);
+      falhas++;
+    }
+  }
+
+  btn.disabled=false;
+  btn.textContent='Registrar Checking';
+
+  if(falhas===0){
+    toast('✅ '+sucesso+' checking(s) registrado(s)!','success');
+  } else if(sucesso>0){
+    toast('⚠️ '+sucesso+' salvos, '+falhas+' falharam','warning');
+  } else {
+    toast('❌ Falha ao registrar os checkings','error');
+  }
+
+  limparChecking();
+  await loadAll();
+}
+
+function renderCheckings(){
+  var q=(document.getElementById('search-ch').value||'').toLowerCase();
+  var fst=document.getElementById('filter-ch-st').value;
+  var fdt=document.getElementById('filter-ch-dt').value;
+  var list=checkings.slice();
+
+  var rows=[];
+  list.forEach(function(c){
+    var det=(c.registros&&c.registros[0])||{};
+    rows.push({
+      id:c.id,
+      data:c.data,
+      hora:det.hora||'-',
+      colab_nome:det.colab_nome||'-',
+      colab_id:det.colaborador_id,
+      status:det.status||(c.irregulares>0?'NOK':'OK'),
+      epis_irreg:det.epis_irregulares_nomes||[],
+      obs:det.obs||''
+    });
+  });
+
+  if(q)rows=rows.filter(function(r){return r.colab_nome.toLowerCase().indexOf(q)>=0});
+  if(fst)rows=rows.filter(function(r){return r.status===fst});
+  if(fdt)rows=rows.filter(function(r){return isoDate(r.data)===fdt});
+
+  rows.sort(function(a,b){var da=isoDate(a.data)+' '+(a.hora||'');var db=isoDate(b.data)+' '+(b.hora||'');return db.localeCompare(da)});
+
+  var tb=document.getElementById('tb-checkings');
+  if(!rows.length){tb.innerHTML='<tr><td colspan="7" style="text-align:center;color:var(--text2)">Nenhum checking registrado</td></tr>';return}
+  tb.innerHTML=rows.map(function(r){
+    var stBadge=r.status==='OK'?'<span class="badge badge-green">✅ Conforme</span>':'<span class="badge badge-red">❌ Irregular</span>';
+    var irregHtml='-';
+    if(r.epis_irreg && r.epis_irreg.length){
+      irregHtml='<div class="irreg-tags">'+r.epis_irreg.map(function(n){return '<span class="irreg-tag">'+escHtml(n)+'</span>'}).join('')+'</div>';
+    }
+    var rowClass=r.status==='NOK'?'row-irregular':'';
+    return '<tr class="'+rowClass+'"><td>'+fmtDate(r.data)+'</td><td>'+r.hora+'</td><td><strong>'+escHtml(r.colab_nome)+'</strong></td><td>'+stBadge+'</td><td style="max-width:280px">'+irregHtml+'</td><td style="max-width:200px;color:var(--text2)">'+escHtml(r.obs||'-')+'</td><td style="white-space:nowrap"><button class="btn-sm btn-ghost" onclick="verCheckingDetalhe('+r.id+')">👁</button> <button class="btn-sm btn-danger" onclick="confirmarDel(\'check\','+r.id+',\'checking de '+r.colab_nome.replace(/'/g,"\\'")+'\')">🗑</button></td></tr>';
+  }).join('');
+}
+
+function verCheckingDetalhe(id){
+  var c=checkings.find(function(x){return x.id===id});if(!c)return;
+  var det=(c.registros&&c.registros[0])||{};
+  var stBadge=det.status==='OK'?'<span class="badge badge-green">✅ Conforme</span>':'<span class="badge badge-red">❌ Irregular</span>';
+  var irreg='-';
+  if(det.epis_irregulares_nomes && det.epis_irregulares_nomes.length){
+    irreg='<div class="irreg-tags">'+det.epis_irregulares_nomes.map(function(n){return '<span class="irreg-tag">'+escHtml(n)+'</span>'}).join('')+'</div>';
+  }
+  var h='<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">';
+  h+='<div><div style="font-size:.75rem;color:var(--text2);text-transform:uppercase">Data</div><div>'+fmtDate(c.data)+'</div></div>';
+  h+='<div><div style="font-size:.75rem;color:var(--text2);text-transform:uppercase">Hora</div><div>'+(det.hora||'-')+'</div></div>';
+  h+='<div><div style="font-size:.75rem;color:var(--text2);text-transform:uppercase">Colaborador</div><div><strong>'+escHtml(det.colab_nome||'-')+'</strong></div></div>';
+  h+='<div><div style="font-size:.75rem;color:var(--text2);text-transform:uppercase">Status</div><div>'+stBadge+'</div></div>';
+  h+='</div>';
+  h+='<div style="margin-bottom:14px"><div style="font-size:.75rem;color:var(--text2);text-transform:uppercase;margin-bottom:6px">EPIs Irregulares</div>'+irreg+'</div>';
+  h+='<div><div style="font-size:.75rem;color:var(--text2);text-transform:uppercase;margin-bottom:6px">Observações</div><div style="background:var(--card2);padding:12px;border-radius:8px;white-space:pre-wrap">'+escHtml(det.obs||'-')+'</div></div>';
+  document.getElementById('modal-ch-body').innerHTML=h;
+  document.getElementById('modal-ch').classList.add('show');
+}
+
+function limparFiltrosCh(){
+  document.getElementById('search-ch').value='';
+  document.getElementById('filter-ch-st').value='';
+  document.getElementById('filter-ch-dt').value='';
+  renderCheckings();
+}
+
+/* ============ ALERTAS ============ */
+function renderAlertas(){
+  var rows=[];
+  entregas.forEach(function(e){
+    var st=statusEntrega(e);
+    if(st.chave!=='vencido'&&st.chave!=='a_vencer')return;   // substituídas e válidas ficam de fora
+    var epi=epis.find(function(x){return x.id===e.epi_id});
+    rows.push({epiNome:epi?epi.nome:'?',colab:e.colab_nome||'-',dt:e.dt,val:st.val,dd:st.dd});
+  });
+  rows.sort(function(a,b){return a.dd-b.dd});
+  var tb=document.getElementById('tb-alertas');
+  if(!rows.length){tb.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--text2)">Nenhum alerta</td></tr>';return}
+  tb.innerHTML=rows.map(function(r){
+    var badge=r.dd<0?'<span class="badge badge-red">Vencido</span>':'<span class="badge badge-yellow">A vencer</span>';
+    return '<tr><td>'+escHtml(r.epiNome)+'</td><td>'+escHtml(r.colab)+'</td><td>'+fmtDate(r.dt)+'</td><td>'+fmtDate(r.val)+'</td><td>'+r.dd+' dias</td><td>'+badge+'</td></tr>';
+  }).join('');
+}
+
+/* ============ RELATÓRIOS ============ */
+function renderResumo(){
+  var tb=document.getElementById('tb-resumo');
+  if(!epis.length){tb.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--text2)">Sem dados</td></tr>';return}
+  tb.innerHTML=epis.map(function(e){
+    var ents=entregas.filter(function(x){return x.epi_id===e.id});
+    var ativos=0,vencidos=0,subst=0;
+    ents.forEach(function(en){
+      var st=statusEntrega(en).chave;
+      if(st==='vencido')vencidos++;else if(st==='substituido'||st==='descartado')subst++;else ativos++;
+    });
+    var reprov=0;
+    checkings.forEach(function(c){var det=(c.registros&&c.registros[0])||{};if(det.epis_irregulares_ids&&det.epis_irregulares_ids.indexOf(e.id)>=0)reprov++});
+    return '<tr><td>'+escHtml(e.nome)+'</td><td>'+ents.length+'</td><td><span class="badge badge-green">'+ativos+'</span></td><td><span class="badge badge-red">'+vencidos+'</span></td><td><span class="badge badge-gray">'+subst+'</span></td><td><span class="badge badge-orange">'+reprov+'</span></td></tr>';
+  }).join('');
+}
+
+function renderResumoMotivo(){
+  var tb=document.getElementById('tb-resumo-motivo');
+  var motivos=['Novo','Gasto','Vencimento','Perda','Esqueceu'];
+  var map={};
+  motivos.forEach(function(m){map[m]=0});
+  var semMot=0;
+  entregas.forEach(function(e){
+    var m=e.motivo||'';
+    if(map.hasOwnProperty(m))map[m]++;
+    else semMot++;
+  });
+  var total=entregas.length||1;
+  var rows=motivos.map(function(m){
+    var qt=map[m];
+    var pct=Math.round((qt/total)*100);
+    return '<tr><td>'+badgeMotivo(m)+'</td><td><strong>'+qt+'</strong></td><td>'+pct+'%</td></tr>';
+  });
+  if(semMot>0){
+    rows.push('<tr><td><span class="badge badge-gray">Sem motivo</span></td><td><strong>'+semMot+'</strong></td><td>'+Math.round((semMot/total)*100)+'%</td></tr>');
+  }
+  tb.innerHTML=rows.join('');
+}
+
+function renderResumoColab(){
+  var tb=document.getElementById('tb-resumo-colab');
+  var map={};
+  checkings.forEach(function(c){
+    var det=(c.registros&&c.registros[0])||{};
+    var id=det.colaborador_id;if(!id)return;
+    if(!map[id])map[id]={nome:det.colab_nome||'-',total:0,ok:0,nok:0};
+    map[id].total++;
+    if(det.status==='OK')map[id].ok++;else map[id].nok++;
+  });
+  var rows=Object.values(map).sort(function(a,b){return b.total-a.total});
+  if(!rows.length){tb.innerHTML='<tr><td colspan="5" style="text-align:center;color:var(--text2)">Sem checkings registrados</td></tr>';return}
+  tb.innerHTML=rows.map(function(r){
+    var pct=r.total?Math.round((r.ok/r.total)*100):0;
+    var pctBadge=pct>=90?'badge-green':pct>=70?'badge-yellow':'badge-red';
+    return '<tr><td><strong>'+escHtml(r.nome)+'</strong></td><td>'+r.total+'</td><td><span class="badge badge-green">'+r.ok+'</span></td><td><span class="badge badge-red">'+r.nok+'</span></td><td><span class="badge '+pctBadge+'">'+pct+'%</span></td></tr>';
+  }).join('');
+}
+
+function exportCSV(){
+  var csv='EPI;Colaborador;Data Entrega;Validade;Motivo;Status\n';
+  entregas.forEach(function(e){
+    var epi=epis.find(function(x){return x.id===e.epi_id});var nome=epi?epi.nome:'?';
+    var s=statusEntrega(e);var val=s.val?fmtDate(s.val):'-';
+    var st={sem_validade:'Sem validade',vencido:'Vencido',a_vencer:'A vencer',valido:'Válido',substituido:'Substituído',descartado:'Descartado'}[s.chave];
+    csv+=nome+';'+(e.colab_nome||'-')+';'+fmtDate(e.dt)+';'+val+';'+(e.motivo||'-')+';'+st+'\n';
+  });
+  baixarCSV(csv,'epis_entregas.csv');
+}
+function exportCSVCheckings(){
+  var csv='Data;Hora;Colaborador;Status;EPIs Irregulares;Obs\n';
+  checkings.forEach(function(c){
+    var det=(c.registros&&c.registros[0])||{};
+    var irreg=(det.epis_irregulares_nomes||[]).join(' | ').replace(/;/g,',');
+    csv+=fmtDate(c.data)+';'+(det.hora||'-')+';'+(det.colab_nome||'-').replace(/;/g,',')+';'+(det.status||'-')+';'+irreg+';'+(det.obs||'').replace(/;/g,',').replace(/\n/g,' ')+'\n';
+  });
+  baixarCSV(csv,'epis_checkings.csv');
+}
+function baixarCSV(csv,nome){var blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8;'});var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=nome;a.click()}
+
+/* ============ DELETE ============ */
+var delType='',delId=0;
+function confirmarDel(type,id,nome){
+  delType=type;delId=id;
+  document.getElementById('modal-del-msg').textContent='Excluir "'+nome+'"?';
+  document.getElementById('modal-del').classList.add('show');
+  document.getElementById('modal-del-btn').onclick=async function(){
+    if(delType==='epi')await api.del('/api/epis/'+delId);
+    else if(delType==='entrega')await api.del('/api/epis/entregas/'+delId);
+    else if(delType==='check')await api.del('/api/epis/checklists/'+delId);
+    toast('Excluído!');fecharModal('modal-del');await loadAll();
+  };
+}
+function fecharModal(id){document.getElementById(id).classList.remove('show')}
+
+/* ============ USER / INIT ============ */
+async function loadUser(){try{var u=await api.get('/api/me');if(u)document.getElementById('user-display').textContent=u.nome||u.username}catch(e){}}
+async function init(){updateClock();await loadUser();await loadAll()}
+init();
+</script>
+</body>
+</html>

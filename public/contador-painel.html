@@ -1,0 +1,699 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cadenciador — Painel das câmeras — Décio</title>
+<link rel="icon" href="/assets/logo-decio.png">
+<link rel="stylesheet" href="/css/decio.css">
+<style>
+.conteudo { max-width: 1400px; }
+.abas { display: flex; gap: 6px; margin-bottom: 18px; flex-wrap: wrap; align-items: center; }
+.aba { border: 1px solid var(--linha); background: var(--card); color: var(--t2); padding: 8px 16px; border-radius: 10px; cursor: pointer; font-weight: 700; font-size: 13px; }
+.aba.ativa { background: var(--verde); color: #fff; border-color: var(--verde); }
+.aba .n { background: rgba(255,255,255,.2); border-radius: 99px; padding: 1px 7px; font-size: 11px; margin-left: 6px; }
+.painel { display: none; } .painel.ativo { display: block; }
+.barra { display: flex; gap: 10px; flex-wrap: wrap; align-items: end; margin-bottom: 16px; }
+.barra .campo { display: grid; gap: 4px; }
+.barra select, .barra input { min-width: 150px; }
+
+/* ao vivo */
+.linhas { display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: 16px; }
+.linha { background: var(--card); border: 1px solid var(--linha); border-radius: 16px; overflow: hidden; }
+.linha .tela { position: relative; background: #0b1620; aspect-ratio: 4/3; cursor: zoom-in; }
+.linha .tela img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.linha .tela .off { position: absolute; inset: 0; display: grid; place-items: center; color: #8aa0b0; font-size: 13px; text-align: center; padding: 20px; background: rgba(11,22,32,.9); line-height: 1.5; }
+.linha .tela .vivo { position: absolute; top: 8px; right: 8px; font-size: 10.5px; font-weight: 800; padding: 3px 8px; border-radius: 6px; background: rgba(220,38,38,.9); color: #fff; letter-spacing: .06em; }
+.linha .tela .vivo.off { background: rgba(100,116,139,.9); }
+.linha .corpo { padding: 14px 16px; }
+.linha h3 { font-size: 17px; margin: 0 0 2px; }
+.linha .sub { font-size: 12px; color: var(--t3); margin-bottom: 10px; min-height: 16px; }
+.linha .kpis3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.linha .kpis3 div { background: var(--sup); border-radius: 10px; padding: 8px; text-align: center; }
+.linha .kpis3 b { display: block; font-family: var(--display); font-size: 26px; line-height: 1.1; }
+.linha .kpis3 span { font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: var(--t3); }
+.ok { color: var(--ok); } .ruim { color: var(--erro); } .neutro { color: var(--t2); }
+.linha .estado { font-size: 11.5px; color: var(--t3); margin-top: 8px; display: flex; justify-content: space-between; }
+.linha .acoes { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
+.vazio { background: var(--card); border: 1px dashed var(--linha); border-radius: 16px; padding: 40px; text-align: center; color: var(--t3); line-height: 1.6; }
+.ampliado { position: fixed; inset: 0; background: rgba(0,0,0,.92); z-index: 50; display: none; place-items: center; cursor: zoom-out; }
+.ampliado.on { display: grid; }
+.ampliado img { max-width: 96vw; max-height: 90vh; border-radius: 10px; }
+.ampliado .leg { position: absolute; top: 14px; left: 18px; color: #fff; font-weight: 800; font-size: 18px; }
+
+/* configuração remota */
+.cfg { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 18px; }
+@media (max-width: 860px) { .cfg { grid-template-columns: 1fr; } }
+.cfg .palco { position: relative; background: #000; border-radius: 12px; overflow: hidden; aspect-ratio: 4/3; border: 1px solid var(--linha); }
+.cfg .palco img { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.cfg .palco canvas { position: absolute; inset: 0; width: 100%; height: 100%; cursor: crosshair; touch-action: none; }
+.cfg .palco .semimg { position: absolute; inset: 0; display: grid; place-items: center; color: #8aa0b0; font-size: 13px; text-align: center; padding: 20px; }
+.modo { display: flex; gap: 6px; margin: 10px 0; flex-wrap: wrap; }
+.modo .btn.sel { background: var(--verde); color: #fff; border-color: var(--verde); }
+.cfg .lado { display: grid; gap: 12px; align-content: start; }
+.cfg .lado .campo { display: grid; gap: 4px; }
+.cfg .lado input[type=range] { width: 100%; }
+.cfg .lado .valor { font-size: 12px; color: var(--t2); }
+.cfg .lado .grupo { border: 1px solid var(--linha); border-radius: 10px; padding: 10px 12px; display: grid; gap: 8px; }
+.cfg .lado .grupo h5 { margin: 0; font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--t3); }
+.cfg .cmds { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.lbl { display: flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer; }
+.qr { text-align: center; }
+/* embutido no Cadenciador: só o modal, ocupando a tela */
+html.embed body { background: var(--fundo); }
+html.embed #topo, html.embed .fita-marca, html.embed main.conteudo { display: none !important; }
+html.embed #mCfg { background: var(--fundo); padding: 0; }
+html.embed #mCfg .modal { max-width: none !important; width: 100%; max-height: 100vh; height: 100vh; border-radius: 0; border: 0; }
+.cfg-abas { display: flex; gap: 6px; margin-bottom: 14px; }
+.cfg-abas .btn.sel { background: var(--verde); color: #fff; border-color: var(--verde); }
+.ens { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 18px; }
+@media (max-width: 860px) { .ens { grid-template-columns: 1fr; } }
+.ens .palco { position: relative; background: #000; border-radius: 12px; overflow: hidden; aspect-ratio: 4/3; border: 1px solid var(--linha); }
+.ens .palco img { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.ens .palco canvas { position: absolute; inset: 0; width: 100%; height: 100%; cursor: crosshair; touch-action: none; }
+.ens .palco .semimg { position: absolute; inset: 0; display: grid; place-items: center; color: #8aa0b0; font-size: 13px; text-align: center; padding: 20px; }
+.amostras { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 6px; max-height: 240px; overflow: auto; }
+.amostras div { position: relative; cursor: pointer; border: 2px solid transparent; border-radius: 8px; overflow: hidden; }
+.amostras div.sel { border-color: var(--verde); }
+.amostras img { width: 100%; aspect-ratio: 4/3; object-fit: cover; display: block; }
+.amostras span { position: absolute; right: 4px; bottom: 4px; background: rgba(10,22,32,.8); color: #fff; font-size: 10.5px; font-weight: 700; padding: 1px 6px; border-radius: 6px; }
+.amostras div.vazia span { background: rgba(220,38,38,.85); }
+.barra-prog { height: 8px; background: var(--sup); border-radius: 99px; overflow: hidden; }
+.barra-prog i { display: block; height: 100%; background: var(--verde); width: 0; transition: width .4s; }
+.classes-ens { display: inline-flex; gap: 4px; padding: 3px; border: 1px solid var(--linha); border-radius: 10px; }
+.classes-ens .btn { background: transparent; border: 1px solid transparent; color: var(--t2); }
+.classes-ens .cls-caixa.sel { background: rgba(240,180,41,.2); border-color: #F0B429; color: #F0B429; }
+.classes-ens .cls-peca.sel { background: rgba(86,182,224,.2); border-color: #56B6E0; color: #56B6E0; }
+.classes-ens .cls-pallet.sel { background: rgba(167,139,250,.2); border-color: #A78BFA; color: #A78BFA; }
+.modelo-ok { background: var(--fade-suave); border: 1px solid rgba(38,178,71,.3); border-radius: 10px; padding: 10px 12px; font-size: 12.5px; }
+.qr img { width: 240px; height: 240px; background: #fff; border-radius: 12px; padding: 8px; }
+.qr code { display: block; margin-top: 10px; font-size: 13px; word-break: break-all; background: var(--sup); padding: 8px; border-radius: 8px; }
+
+/* análise */
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 16px; }
+.kpi { background: var(--card); border: 1px solid var(--linha); border-radius: 12px; padding: 12px 14px; }
+.kpi b { display: block; font-family: var(--display); font-size: 26px; }
+.kpi span { font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--t3); }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+@media (max-width: 900px) { .grid2 { grid-template-columns: 1fr; } }
+.cartao { background: var(--card); border: 1px solid var(--linha); border-radius: 14px; padding: 16px; }
+.cartao h4 { font-size: 13px; margin: 0 0 10px; }
+.cartao .nota { font-size: 11.5px; color: var(--t3); margin-top: 8px; }
+.gr { position: relative; height: 280px; }
+.gr.alto { height: 340px; }
+table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+th, td { padding: 7px 9px; text-align: left; border-bottom: 1px solid var(--linha); }
+th { font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--t3); }
+td img { width: 72px; height: 54px; object-fit: cover; border-radius: 6px; cursor: zoom-in; border: 1px solid var(--linha); }
+.pill { font-size: 10.5px; font-weight: 700; padding: 2px 8px; border-radius: 99px; background: var(--sup); }
+.pill.ia { background: var(--fade-suave); color: var(--verde-clr); }
+.pill.menos { background: var(--erro-bg); color: var(--erro); }
+.pill.troca { background: var(--alerta-bg); color: var(--alerta); }
+.rolar { overflow: auto; max-height: 420px; }
+.btn-x { background: none; border: 1px solid var(--linha); color: var(--erro); border-radius: 6px; padding: 2px 8px; cursor: pointer; font-size: 11px; }
+</style>
+</head>
+<body>
+<header id="topo"></header>
+
+<main class="conteudo">
+  <div class="abas">
+    <button class="aba ativa" data-aba="vivo">📡 Ao vivo <span class="n" id="nLinhas">0</span></button>
+    <button class="aba" data-aba="analise">📈 Análise × takt</button>
+    <button class="aba" data-aba="historico">🗂 Histórico</button>
+    <button class="btn btn-primario" id="btnNova" style="margin-left:auto;display:none">＋ Câmera de célula</button>
+  </div>
+
+  <!-- ═══ AO VIVO ═══ -->
+  <section class="painel ativo" id="p-vivo">
+    <div class="linhas" id="linhas"></div>
+    <div class="vazio" id="semLinhas" style="display:none">Nenhuma câmera de célula ainda.<br>No tablet da célula, abra o <b>Cadenciador</b>, escolha turno, célula e produto, clique em <b>Iniciar linha</b> e depois em <b>Conectar câmera</b> — ela aparece aqui.</div>
+  </section>
+
+  <!-- ═══ ANÁLISE ═══ -->
+  <section class="painel" id="p-analise">
+    <div class="barra">
+      <div class="campo"><span class="rotulo">Dia</span><input type="date" class="controle" id="aData"></div>
+      <div class="campo"><span class="rotulo">Linha</span><select class="controle" id="aLinha"></select></div>
+      <div class="campo"><span class="rotulo">Sessão do cadenciador</span><select class="controle" id="aSessao"><option value="">Automática</option></select></div>
+      <button class="btn btn-primario" id="aBuscar">Analisar</button>
+      <button class="btn btn-fantasma" id="aExcel">Exportar Excel</button>
+    </div>
+    <div class="kpis" id="aKpis"></div>
+    <div class="cartao" style="margin-bottom:16px"><h4>Esperado (cadenciador) × Real (câmera) — acumulado ao longo do turno</h4><div class="gr alto"><canvas id="gAcum"></canvas></div>
+      <div class="nota">A linha tracejada é a grade de ciclos do cadenciador (1 produto a cada takt). A linha cheia são os produtos contados no pallet. Quando a cheia fica abaixo da tracejada, a linha está atrasada em relação ao takt.</div></div>
+    <div class="grid2">
+      <div class="cartao"><h4>Intervalo entre saídas × takt (min)</h4><div class="gr"><canvas id="gInt"></canvas></div><div class="nota">Cada barra é o tempo entre um produto e o próximo. Vermelho = acima do takt (gargalo naquele momento).</div></div>
+      <div class="cartao"><h4>Produção por hora × esperado</h4><div class="gr"><canvas id="gHora"></canvas></div></div>
+    </div>
+    <div class="cartao"><h4>Eventos do dia <span class="pill" id="aQtd"></span></h4>
+      <div class="rolar"><table><thead><tr><th>Hora</th><th>Origem</th><th>Valor</th><th>Intervalo</th><th>× takt</th><th>Mudança</th><th>Evidência</th><th></th></tr></thead><tbody id="aTab"></tbody></table></div></div>
+  </section>
+
+  <!-- ═══ HISTÓRICO ═══ -->
+  <section class="painel" id="p-historico">
+    <div class="cartao"><h4>Dias e linhas com contagem</h4>
+      <div class="rolar" style="max-height:70vh"><table><thead><tr><th>Dia</th><th>Célula</th><th>Produto / turno</th><th>Takt</th><th>Previsto (ciclos)</th><th>Contado</th><th>Atendimento</th><th>Colocadas (câmera)</th><th>Retiradas (câmera)</th><th>+1 manual</th><th>−1 manual</th><th>Estornos</th><th>Primeiro</th><th>Último</th><th></th></tr></thead><tbody id="hTab"></tbody></table></div></div>
+  </section>
+</main>
+
+<!-- ═══ MODAL: nova linha / editar ═══ -->
+<div class="modal-fundo" id="mLinha"><div class="modal">
+  <div class="modal-topo"><div class="modal-titulo" id="mLinhaTit">Câmera de célula</div><button class="modal-fechar" onclick="fecharModal('mLinha')">×</button></div>
+  <div class="modal-corpo" style="display:grid;gap:14px">
+    <input type="hidden" id="lId">
+    <div class="campo"><span class="rotulo">Célula</span><select class="controle" id="lCelula"></select></div>
+    <div class="campo"><span class="rotulo">Produto (cadenciador)</span><select class="controle" id="lProduto"><option value="">— sem produto (só contar) —</option></select>
+      <div class="ajuda">O takt e a grade de ciclos vêm da sessão do cadenciador aberta hoje para este produto.</div></div>
+    <div class="campo"><span class="rotulo">Nome da linha (opcional)</span><input class="controle" id="lNome" placeholder="Ex.: Linha 1 — Rack 19&quot;"></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end"><button class="btn btn-fantasma" onclick="fecharModal('mLinha')">Cancelar</button><button class="btn btn-primario" id="lSalvar">Salvar</button></div>
+  </div></div></div>
+
+<!-- ═══ MODAL: link / QR ═══ -->
+<div class="modal-fundo" id="mQr"><div class="modal">
+  <div class="modal-topo"><div class="modal-titulo">Conectar um celular</div><button class="modal-fechar" onclick="fecharModal('mQr')">×</button></div>
+  <div class="modal-corpo qr">
+    <p class="ajuda" style="margin-bottom:12px">No celular, faça login no sistema e abra este endereço (ou leia o QR). Toque em <b>Conectar câmera</b>. A imagem aparece aqui em seguida e a área/câmera são configuradas por este painel.</p>
+    <img id="qrImg" alt="QR"><code id="qrLink"></code>
+  </div></div></div>
+
+<!-- ═══ MODAL: configurar câmera ═══ -->
+<div class="modal-fundo" id="mCfg"><div class="modal modal-lg" style="max-width:1100px">
+  <div class="modal-topo"><div class="modal-titulo" id="cfgTit">Configurar câmera</div><button class="modal-fechar" onclick="fecharCfg()">×</button></div>
+  <div class="modal-corpo">
+    <div class="cfg-abas"><button class="btn btn-sm btn-fantasma sel" data-cfgaba="area">▭ Área e câmera</button><button class="btn btn-sm btn-fantasma" data-cfgaba="ia">🧠 Ensinar a IA</button></div>
+    <!-- ═══ Ensinar a IA ═══ -->
+    <div class="ens" id="cfgIa" style="display:none">
+      <div>
+        <div class="palco"><img id="ensImg" alt=""><div class="semimg" id="ensSem">Capture um quadro da câmera para começar a marcar.</div><canvas id="ensCanvas"></canvas></div>
+        <div class="modo" style="margin-top:0;margin-bottom:8px">
+          <span class="rotulo" style="align-self:center">Modo</span>
+          <select class="controle" id="ensModo" style="min-width:300px"><option value="det">Contar cada caixa/peça no pallet (recomendado)</option><option value="cls">Só pallet vazio × com peças (+1 por pallet)</option></select>
+        </div>
+        <div class="modo">
+          <button class="btn btn-sm btn-primario" id="ensCapturar">📸 Capturar quadro da câmera</button>
+          <button class="btn btn-sm btn-fantasma" id="ensCapVazio">📸 Capturar: pallet VAZIO</button>
+          <button class="btn btn-sm btn-ok" id="ensCapCom">📸 Capturar: COM PEÇAS</button>
+          <button class="btn btn-sm btn-fantasma" id="ensRotVazio" disabled>→ marcar como VAZIO</button>
+          <button class="btn btn-sm btn-fantasma" id="ensRotCom" disabled>→ marcar como COM PEÇAS</button>
+          <span class="classes-ens" id="ensClasses"><button class="btn btn-sm cls-caixa sel" data-classe="caixa">▢ Caixa</button><button class="btn btn-sm cls-peca" data-classe="peca">▢ Peça</button><button class="btn btn-sm cls-pallet" data-classe="pallet">▢ Pallet</button></span>
+          <button class="btn btn-sm btn-fantasma" id="ensSalvar" disabled>💾 Salvar marcações</button>
+          <button class="btn btn-sm btn-fantasma" id="ensLimpar" disabled>Limpar</button>
+          <button class="btn btn-sm btn-fantasma" id="ensExcluir" disabled>🗑 Excluir quadro</button>
+          <span class="ajuda" id="ensDica" style="align-self:center">Arraste um retângulo em volta de <b>cada</b> caixa/peça no pallet. Clique num retângulo para apagar.</span>
+        </div>
+        <div class="ajuda" style="margin-top:8px" id="ensComo"></div>
+      </div>
+      <div class="lado">
+        <div class="grupo"><h5>Quadros marcados <span id="ensResumo"></span></h5><div class="amostras" id="ensLista"></div></div>
+        <div class="grupo"><h5>Treinar</h5>
+          <div class="campo"><span class="rotulo">Para</span><select class="controle" id="ensProduto"></select></div>
+          <div class="campo"><span class="rotulo">Qualidade</span><select class="controle" id="ensEpocas"><option value="25">Rápido (25 passadas)</option><option value="40" selected>Normal (40)</option><option value="70">Caprichado (70)</option></select></div>
+          <label class="lbl"><input type="checkbox" id="ensTodas"> <span>Usar os quadros de <b>todas as câmeras</b> (vários ângulos num modelo só)</span></label>
+          <button class="btn btn-primario" id="ensTreinar">🧠 Treinar IA</button>
+          <div class="barra-prog" id="ensProg" style="display:none"><i></i></div>
+          <div class="ajuda" id="ensStatus"></div>
+        </div>
+        <div class="grupo"><h5>Modelo em uso</h5><div id="ensModelo" class="ajuda">Nenhum modelo treinado — a câmera usa diferença de imagem.</div><button class="btn btn-sm btn-fantasma" id="ensRemoverModelo" style="display:none">Remover modelo</button></div>
+      </div>
+    </div>
+    <div class="cfg" id="cfgArea">
+      <div>
+        <div class="palco"><img id="cfgImg" alt=""><div class="semimg" id="cfgSem">Aguardando a imagem do celular…</div><canvas id="cfgCanvas"></canvas></div>
+        <div class="modo">
+          <button class="btn btn-sm btn-fantasma sel" data-modo="zona">▭ Área do pallet</button>
+          <button class="btn btn-sm btn-fantasma" data-modo="caixa">▢ Tamanho de uma caixa (opcional)</button>
+          <span class="ajuda" id="cfgDica" style="align-self:center">Arraste sobre a imagem para marcar a área onde as caixas ficam (toda a altura das pilhas).</span>
+        </div>
+        <div class="ajuda" id="cfgResumo"></div>
+      </div>
+      <div class="lado">
+        <div class="grupo"><h5>Produto (tamanho da caixa, sensibilidade)</h5>
+          <div class="campo"><select class="controle" id="cProduto"></select></div>
+          <div class="ajuda" id="cProdutoAjuda"></div>
+          <div class="campo"><span class="rotulo">Sensibilidade <span class="valor" id="sensVal">5</span></span><input type="range" id="cSens" min="1" max="10" step="1"></div>
+          <label class="lbl" style="display:none"><input type="checkbox" id="cMult"> (várias por vez — automático)</label>
+          <button class="btn btn-sm btn-fantasma" id="cLimparProduto">Voltar ao padrão da linha para este produto</button>
+        </div>
+        <div class="grupo"><h5>Câmera do celular</h5>
+          <div class="campo"><span class="rotulo">Câmera</span><select class="controle" id="cCamera"><option value="">Traseira (padrão)</option></select></div>
+          <div class="campo"><span class="rotulo">Resolução</span><select class="controle" id="cRes"><option value="baixa">Baixa (640×480)</option><option value="media">Média (1280×960)</option><option value="alta">Alta (1920×1440)</option></select></div>
+          <div class="campo" id="cZoomWrap"><span class="rotulo">Zoom <span class="valor" id="zoomVal">—</span></span><input type="range" id="cZoom" min="1" max="1" step="0.1" disabled><span class="ajuda" id="zoomAjuda">Este celular não informou zoom.</span></div>
+          <label class="lbl"><input type="checkbox" id="cLant"> Lanterna (se o celular permitir)</label>
+          <div class="ajuda" id="cfgCap"></div>
+        </div>
+        <div class="grupo"><h5>Comandos para o celular</h5>
+          <div class="cmds">
+            <button class="btn btn-sm btn-fantasma" data-cmd="recalibrar">Recalibrar</button>
+            <button class="btn btn-sm btn-fantasma" data-cmd="troca_pallet">Pallet trocado</button>
+            <button class="btn btn-sm btn-ok" data-cmd="mais">+1</button>
+            <button class="btn btn-sm btn-fantasma" data-cmd="menos">−1</button>
+            <button class="btn btn-sm btn-fantasma" data-cmd="reiniciar_camera">Reiniciar câmera</button>
+            <button class="btn btn-sm btn-fantasma" data-cmd="encerrar">Encerrar no celular</button>
+          </div>
+        </div>
+        <div class="ajuda" id="cfgStatus"></div>
+      </div>
+    </div>
+  </div></div></div>
+
+<div class="ampliado" id="ampliado"><div class="leg" id="ampLeg"></div><img id="ampImg" alt=""></div>
+
+<script src="/js/core.js"></script>
+<script src="/js/chart.umd.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+let USU = null, graficos = {}, linhasCache = [], celulas = [], produtos = [];
+const podeEditar = () => USU && USU.role !== 'pcp';
+const ehAdmin = () => USU && USU.role === 'admin';
+
+/* abas */
+document.querySelectorAll('.aba[data-aba]').forEach(b => b.onclick = () => {
+  document.querySelectorAll('.aba[data-aba]').forEach(x => x.classList.toggle('ativa', x === b));
+  document.querySelectorAll('.painel').forEach(p => p.classList.toggle('ativo', p.id === 'p-' + b.dataset.aba));
+  if (b.dataset.aba === 'historico') carregarHistorico();
+  if (b.dataset.aba === 'analise') { preencherLinhasAnalise(); analisar(); }
+});
+
+/* ───────── AO VIVO ───────── */
+async function atualizarLinhas() {
+  let linhas; try { linhas = await API.get('/api/contador/linhas'); } catch (_) { return; }
+  linhasCache = linhas;
+  $('nLinhas').textContent = linhas.filter(l => l.online).length;
+  $('semLinhas').style.display = linhas.length ? 'none' : '';
+  const cont = $('linhas');
+  linhas.forEach(l => {
+    const id = 'ln-' + l.id;
+    let el = document.getElementById(id);
+    if (!el) { el = document.createElement('div'); el.className = 'linha'; el.id = id; el.innerHTML = `
+      <div class="tela" onclick="ampliar(${l.id})"><img alt=""><div class="off"></div><span class="vivo">● AO VIVO</span></div>
+      <div class="corpo"><h3></h3><div class="sub"></div>
+        <div class="kpis3"><div><b class="c-real"></b><span>Contado</span></div><div><b class="c-esp"></b><span>Esperado</span></div><div><b class="c-dif"></b><span>Diferença</span></div></div>
+        <div class="estado"><span class="e-est"></span><span class="e-disp"></span></div>
+        <div class="acoes"></div></div>`; cont.appendChild(el); }
+    el.querySelector('h3').textContent = l.nome || l.celula;
+    const s = l.sessao;
+    el.querySelector('.sub').textContent = `${l.celula}${l.produto_nome ? ' · ' + l.produto_nome : ''}` + (s ? ` · ${s.turno_nome} · takt ${s.takt_min} min · ${s.total_ciclos} ciclos` : l.produto_id ? ' · sem sessão do cadenciador hoje' : ' · sem produto');
+    el.querySelector('.c-real').textContent = l.contagem;
+    el.querySelector('.c-esp').textContent = s ? s.esperado : '—';
+    const dif = el.querySelector('.c-dif');
+    if (s) { const d = l.contagem - s.esperado; dif.textContent = (d > 0 ? '+' : '') + d; dif.className = 'c-dif ' + (d >= 0 ? 'ok' : 'ruim'); } else { dif.textContent = '—'; dif.className = 'c-dif neutro'; }
+    const nomes = { calibrando: 'Calibrando', livre: 'Estável', ocupado: 'Pessoa no pallet', assentando: 'Conferindo', confirmando: 'Confirmando', sem_pallet: 'Sem pallet', sem_area: 'Procurando o pallet' };
+    el.querySelector('.e-est').textContent = l.online ? (nomes[l.estado] || l.estado || '') + (l.resumo ? ' · ' + l.resumo : l.config.zona ? '' : ' · sem área marcada') : 'Último evento: ' + (l.ultimo ? new Date(l.ultimo).toLocaleTimeString('pt-BR') : '—');
+    el.querySelector('.e-disp').textContent = l.online && l.usuario ? l.usuario : '';
+    el.querySelector('.vivo').textContent = l.online ? '● AO VIVO' : 'SEM CÂMERA';
+    el.querySelector('.vivo').className = 'vivo' + (l.online ? '' : ' off');
+    const off = el.querySelector('.off');
+    if (l.online) { off.style.display = 'none'; const img = el.querySelector('img'); if (!img.dataset.carregando && img.dataset.ts !== String(l.frame_ts)) { img.dataset.carregando = '1'; img.dataset.ts = l.frame_ts; img.onload = img.onerror = () => { img.dataset.carregando = ''; }; img.src = `/api/contador/frame/${l.id}?t=${l.frame_ts}`; } }
+    else { off.style.display = ''; off.innerHTML = l.frame_ts ? 'O celular parou de transmitir' : 'Nenhum celular conectado.<br><small>Clique em <b>Link / QR</b> e abra no celular.</small>'; }
+    const ac = el.querySelector('.acoes');
+    ac.innerHTML = `<button class="btn btn-sm btn-fantasma" onclick="abrirQr(${l.id})">🔗 Link / QR</button>` +
+      (podeEditar() ? `<button class="btn btn-sm btn-primario" onclick="abrirCfg(${l.id})">⚙ Configurar câmera</button>` : '') +
+      (podeEditar() && l.produto_id && !s ? `<button class="btn btn-sm btn-ok" onclick="abrirSessao(${l.id})">▶ Iniciar cadenciador</button>` : '') +
+      (ehAdmin() ? `<button class="btn btn-sm btn-fantasma" onclick="editarLinha(${l.id})">✎</button><button class="btn btn-sm btn-fantasma" onclick="removerLinha(${l.id})" title="Remover linha">🗑</button>` : '');
+  });
+  [...cont.children].forEach(el => { if (!linhas.some(l => 'ln-' + l.id === el.id)) el.remove(); });
+  if (cfgLinha) atualizarCfgVivo();
+}
+let ampId = null;
+function ampliar(id) { const l = linhasCache.find(x => x.id === id); if (!l || !l.online) return; ampId = id; $('ampLeg').textContent = l.nome || l.celula; $('ampImg').src = `/api/contador/frame/${id}?t=${Date.now()}`; $('ampliado').classList.add('on'); }
+$('ampliado').onclick = () => { $('ampliado').classList.remove('on'); ampId = null; };
+setInterval(() => { if (ampId && $('ampImg').complete) $('ampImg').src = `/api/contador/frame/${ampId}?t=${Date.now()}`; }, 800);
+function ampliarFoto(src, leg) { ampId = null; $('ampLeg').textContent = leg || ''; $('ampImg').src = src; $('ampliado').classList.add('on'); }
+
+/* ───────── Linhas: criar / editar / remover ───────── */
+async function carregarCadastros() {
+  celulas = await API.get('/api/prod-celulas').catch(() => []);
+  produtos = await API.get('/api/cadenciador/produtos').catch(() => []);
+  $('lCelula').innerHTML = '<option value="">Selecione…</option>' + celulas.filter(c => c.ativa !== false).map(c => `<option value="${escapar(c.nome)}">${escapar(c.nome)}${c.categoria ? ' — ' + escapar(c.categoria) : ''}</option>`).join('');
+  $('lProduto').innerHTML = '<option value="">— sem produto (só contar) —</option>' + produtos.map(p => `<option value="${p.id}" data-celula="${escapar(p.celula_nome || '')}">${escapar(p.nome)}${p.cod_decio ? ' (' + escapar(p.cod_decio) + ')' : ''} · takt ${p.takt_min} min${p.celula_nome ? ' · ' + escapar(p.celula_nome) : ''}</option>`).join('');
+}
+$('lCelula').onchange = () => {   // sugere o produto cadastrado para a célula
+  const cel = $('lCelula').value; if (!cel || $('lProduto').value) return;
+  const p = produtos.find(x => x.celula_nome === cel); if (p) $('lProduto').value = p.id;
+};
+$('btnNova').onclick = () => { $('lId').value = ''; $('lCelula').value = ''; $('lProduto').value = ''; $('lNome').value = ''; $('mLinhaTit').textContent = 'Câmera de célula'; abrirModal('mLinha'); };
+function editarLinha(id) { const l = linhasCache.find(x => x.id === id); if (!l) return; $('lId').value = id; $('lCelula').value = l.celula; $('lProduto').value = l.produto_id || ''; $('lNome').value = l.nome || ''; $('mLinhaTit').textContent = 'Editar linha'; abrirModal('mLinha'); }
+$('lSalvar').onclick = async () => {
+  const body = { celula: $('lCelula').value, produto_id: $('lProduto').value || null, nome: $('lNome').value.trim() || null };
+  if (!body.celula) return avisoErro('Escolha a célula.');
+  try {
+    const id = $('lId').value;
+    const l = id ? await API.put('/api/contador/linhas/' + id, body) : await API.post('/api/contador/linhas', body);
+    fecharModal('mLinha'); await atualizarLinhas(); avisoOk('Linha salva.');
+    if (!id) abrirQr(l.id);
+  } catch (e) { avisoErro(e.message); }
+};
+async function removerLinha(id) { if (!confirm('Remover esta linha do contador? O histórico de contagens é mantido.')) return; try { await API.del('/api/contador/linhas/' + id); atualizarLinhas(); } catch (e) { avisoErro(e.message); } }
+function abrirQr(id) { $('qrImg').src = `/api/contador/linhas/${id}/qr.svg`; $('qrLink').textContent = `${location.origin}/cadenciador/camera?linha=${id}`; abrirModal('mQr'); }
+async function abrirSessao(id) {
+  const l = linhasCache.find(x => x.id === id); if (!l || !l.produto_id) return;
+  try {
+    const { turno } = await API.get('/api/config/turnos/atual');
+    if (!turno) return avisoErro('Nenhum turno cobre o horário atual — abra a sessão pelo Cadenciador.');
+    await API.post('/api/cadenciador/sessoes', { turno_id: turno.id, produto_id: l.produto_id });
+    avisoOk('Sessão do cadenciador aberta para ' + l.produto_nome + ' · ' + turno.nome); atualizarLinhas();
+  } catch (e) { avisoErro(e.message); }
+}
+
+/* ───────── Configurar câmera (remoto) ───────── */
+let cfgLinha = null, cfgModo = 'zona', cfgCfg = {}, cfgDesenho = null, cfgIni = null, cfgTimer = null, cfgSalvarT = null;
+const cfgCanvas = $('cfgCanvas'), cctx = cfgCanvas.getContext('2d');
+let cfgProduto = null;
+async function abrirCfg(id) {
+  const l = linhasCache.find(x => x.id === id); if (!l) return;
+  cfgLinha = l; cfgProduto = l.produto_id || null;
+  $('cProduto').innerHTML = '<option value="">Padrão da linha (todos os produtos)</option>' + produtos.map(p => `<option value="${p.id}">${escapar(p.nome)}${l.produtos_configurados && l.produtos_configurados.includes(p.id) ? ' ✓' : ''}</option>`).join('');
+  $('cProduto').value = cfgProduto || '';
+  await carregarCfgProduto();
+  $('cfgTit').textContent = 'Configurar câmera — ' + (l.nome || l.celula);
+  $('cRes').value = cfgCfg.resolucao || 'media'; $('cLant').checked = !!cfgCfg.lanterna;
+  preencherCapacidades(l);
+  $('cfgImg').removeAttribute('src'); $('cfgImg').dataset.ts = '';
+  document.querySelector('[data-cfgaba="area"]').click();
+  abrirModal('mCfg'); atualizarCfgVivo(); desenharCfg(); resumoCfg();
+  cfgTimer = setInterval(desenharCfg, 300);
+}
+function fecharCfg() {
+  if (ensSujo && !confirm('Há marcações não salvas neste quadro. Fechar mesmo assim?')) return;
+  fecharModal('mCfg'); cfgLinha = null; clearInterval(cfgTimer); clearInterval(ensTimer); ensAmostra = null; ensSujo = false;
+  if (EMBED && window.parent !== window) window.parent.postMessage({ tipo: 'fechar-ensinar' }, location.origin);
+}
+/* a config efetiva = linha ⊕ produto escolhido */
+async function carregarCfgProduto() {
+  const l = cfgLinha;
+  cfgCfg = { ...l.config_linha };
+  if (cfgProduto) {
+    try { const r = await API.get('/api/contador/linhas/' + l.id + '/config?produto_id=' + cfgProduto); cfgCfg = { ...r.config }; } catch (_) {}
+  }
+  $('cSens').value = cfgCfg.sens || 5; $('sensVal').textContent = cfgCfg.sens || 5; $('cMult').checked = !!cfgCfg.multiplas;
+  const p = produtos.find(x => x.id === cfgProduto);
+  $('cProdutoAjuda').textContent = cfgProduto ? `Tamanho da caixa, sensibilidade e "várias por vez" ficam salvos só para ${p ? p.nome : 'este produto'}. Área do pallet, câmera e zoom valem para a linha toda.` : 'Ajustes padrão da linha — usados pelos produtos sem configuração própria.';
+  $('cLimparProduto').style.display = cfgProduto ? '' : 'none';
+  resumoCfg(); desenharCfg();
+}
+$('cProduto').onchange = async () => { cfgProduto = Number($('cProduto').value) || null; await carregarCfgProduto(); };
+$('cLimparProduto').onclick = async () => { if (!cfgProduto || !confirm('Remover a configuração própria deste produto?')) return; try { await API.del(`/api/contador/linhas/${cfgLinha.id}/config/${cfgProduto}`); await carregarCfgProduto(); avisoOk('Produto voltou ao padrão da linha.'); } catch (e) { avisoErro(e.message); } };
+const POR_PRODUTO = ['caixa', 'caixa_pos', 'sens', 'multiplas'];
+function preencherCapacidades(l) {
+  const cap = l.capacidades || {};
+  const cams = cap.cameras || [];
+  $('cCamera').innerHTML = '<option value="">Traseira (padrão)</option>' + cams.map(c => `<option value="${escapar(c.id)}">${escapar(c.label)}</option>`).join('');
+  $('cCamera').value = cfgCfg.camera && cams.some(c => c.id === cfgCfg.camera) ? cfgCfg.camera : '';
+  const z = $('cZoom');
+  if (cap.zoom) { z.disabled = false; z.min = cap.zoom.min; z.max = cap.zoom.max; z.step = cap.zoom.step || 0.1; z.value = cfgCfg.zoom != null ? cfgCfg.zoom : (cap.zoom.atual || cap.zoom.min); $('zoomVal').textContent = Number(z.value).toFixed(1) + '×'; $('zoomAjuda').textContent = `De ${cap.zoom.min}× a ${cap.zoom.max}×`; }
+  else { z.disabled = true; $('zoomVal').textContent = '—'; $('zoomAjuda').textContent = l.online ? 'Este celular não oferece zoom pela câmera do navegador. Aproxime o suporte ou troque de câmera.' : 'Conecte o celular para ver as opções de zoom.'; }
+  $('cLant').disabled = !cap.lanterna;
+  $('cfgCap').textContent = l.online ? `Celular: ${l.dispositivo || ''} · ${cap.largura || '?'}×${cap.altura || '?'} · IA ${cap.ia ? 'ativa' : 'indisponível (só movimento)'}` : 'Celular não conectado — a configuração fica salva e é aplicada quando ele conectar.';
+}
+function atualizarCfgVivo() {
+  const l = linhasCache.find(x => x.id === cfgLinha.id); if (!l) return;
+  const capAntes = JSON.stringify(cfgLinha.capacidades), online = cfgLinha.online, prodAntes = cfgLinha.produto_id;
+  cfgLinha = l;
+  if (l.produto_id !== prodAntes && l.produto_id) { cfgProduto = l.produto_id; $('cProduto').value = cfgProduto; carregarCfgProduto(); }   // o tablet trocou de produto
+  if (JSON.stringify(l.capacidades) !== capAntes || online !== l.online) preencherCapacidades(l);
+  $('cfgSem').style.display = l.online ? 'none' : '';
+  $('cfgStatus').textContent = l.online ? `Ao vivo · ${({ calibrando: 'calibrando', livre: 'pallet livre', ocupado: 'pessoa no pallet', assentando: 'conferindo', confirmando: 'confirmando' })[l.estado] || l.estado} · contagem ${l.contagem}` : 'Sem imagem';
+  const img = $('cfgImg');
+  if (l.online && img.dataset.ts !== String(l.frame_ts) && !img.dataset.carregando) { img.dataset.carregando = '1'; img.dataset.ts = l.frame_ts; img.onload = img.onerror = () => { img.dataset.carregando = ''; }; img.src = `/api/contador/frame/${l.id}?t=${l.frame_ts}`; }
+}
+function desenharCfg() {
+  const W = cfgCanvas.width = cfgCanvas.clientWidth, H = cfgCanvas.height = cfgCanvas.clientHeight;
+  cctx.clearRect(0, 0, W, H);
+  const z = cfgModo === 'zona' && cfgDesenho ? cfgDesenho : cfgCfg.zona;
+  if (z) { cctx.strokeStyle = '#35C95C'; cctx.lineWidth = 3; cctx.strokeRect(z.x * W, z.y * H, z.w * W, z.h * H); cctx.fillStyle = 'rgba(53,201,92,.10)'; cctx.fillRect(z.x * W, z.y * H, z.w * W, z.h * H);
+    cctx.fillStyle = '#35C95C'; cctx.font = 'bold 12px sans-serif'; cctx.fillText('ÁREA DO PALLET', z.x * W + 6, z.y * H - 6 > 10 ? z.y * H - 6 : z.y * H + 16); }
+  const c = cfgModo === 'caixa' && cfgDesenho ? cfgDesenho : (cfgCfg.caixa && cfgCfg.caixa_pos ? { ...cfgCfg.caixa_pos, ...cfgCfg.caixa } : null);
+  if (c) { cctx.strokeStyle = '#F0B429'; cctx.lineWidth = 2; cctx.setLineDash([6, 4]); cctx.strokeRect(c.x * W, c.y * H, c.w * W, c.h * H); cctx.setLineDash([]); cctx.fillStyle = '#F0B429'; cctx.font = 'bold 12px sans-serif'; cctx.fillText('1 CAIXA', c.x * W + 6, c.y * H + 16); }
+}
+function resumoCfg() {
+  const z = cfgCfg.zona, c = cfgCfg.caixa;
+  let t = z ? `Área: ${Math.round(z.w * 100)}% × ${Math.round(z.h * 100)}% da imagem.` : 'Área do pallet ainda não marcada — o celular não conta sem ela.';
+  if (z && c) { const n = (z.w * z.h) / (c.w * c.h); t += ` Cabem ~${Math.round(n)} caixas na área; uma caixa = ${(100 / n).toFixed(1)}% da área.`; }
+  else if (z) t += ' A câmera aprende o tamanho da caixa sozinha nas primeiras contagens; marcar é opcional.';
+  $('cfgResumo').textContent = t;
+}
+document.querySelectorAll('.modo [data-modo]').forEach(b => b.onclick = () => { cfgModo = b.dataset.modo; document.querySelectorAll('.modo [data-modo]').forEach(x => x.classList.toggle('sel', x === b)); $('cfgDica').textContent = cfgModo === 'zona' ? 'Arraste sobre a imagem para marcar a área onde as caixas ficam (toda a altura das pilhas).' : 'Arraste sobre uma caixa já no pallet, do tamanho exato dela.'; });
+const normCfg = e => { const r = cfgCanvas.getBoundingClientRect(); return { x: Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)), y: Math.min(1, Math.max(0, (e.clientY - r.top) / r.height)) }; };
+cfgCanvas.addEventListener('pointerdown', e => { e.preventDefault(); try { cfgCanvas.setPointerCapture(e.pointerId); } catch (_) {} cfgIni = normCfg(e); cfgDesenho = { ...cfgIni, w: 0, h: 0 }; });
+cfgCanvas.addEventListener('pointermove', e => { if (!cfgIni) return; const p = normCfg(e); cfgDesenho = { x: Math.min(cfgIni.x, p.x), y: Math.min(cfgIni.y, p.y), w: Math.abs(p.x - cfgIni.x), h: Math.abs(p.y - cfgIni.y) }; desenharCfg(); });
+const soltarCfg = async () => {
+  if (!cfgIni) return; const d = cfgDesenho; cfgIni = null; cfgDesenho = null;
+  if (!d || d.w < 0.02 || d.h < 0.02) return;
+  if (cfgModo === 'zona') { cfgCfg.zona = d; await salvarCfg({ zona: d }); }
+  else { cfgCfg.caixa = { w: d.w, h: d.h }; cfgCfg.caixa_pos = { x: d.x, y: d.y }; await salvarCfg({ caixa: cfgCfg.caixa, caixa_pos: cfgCfg.caixa_pos }); }
+  resumoCfg(); desenharCfg();
+};
+cfgCanvas.addEventListener('pointerup', soltarCfg); cfgCanvas.addEventListener('pointercancel', soltarCfg);
+async function salvarCfg(parcial) {
+  if (!cfgLinha) return;
+  const body = { ...parcial };
+  if (cfgProduto && Object.keys(parcial).every(k => POR_PRODUTO.includes(k))) body.produto_id = cfgProduto;
+  try { const r = await API.put('/api/contador/linhas/' + cfgLinha.id + '/config', body); cfgCfg = { ...cfgCfg, ...r.config }; $('cfgStatus').textContent = 'Configuração enviada ao aparelho.'; }
+  catch (e) { avisoErro(e.message); }
+}
+const salvarCfgDebounce = parcial => { clearTimeout(cfgSalvarT); cfgSalvarT = setTimeout(() => salvarCfg(parcial), 350); };
+$('cSens').oninput = e => { $('sensVal').textContent = e.target.value; salvarCfgDebounce({ sens: Number(e.target.value) }); };
+$('cMult').onchange = e => salvarCfg({ multiplas: e.target.checked });
+$('cCamera').onchange = e => salvarCfg({ camera: e.target.value });
+$('cRes').onchange = e => salvarCfg({ resolucao: e.target.value });
+$('cZoom').oninput = e => { $('zoomVal').textContent = Number(e.target.value).toFixed(1) + '×'; salvarCfgDebounce({ zoom: Number(e.target.value) }); };
+$('cLant').onchange = e => salvarCfg({ lanterna: e.target.checked });
+document.querySelectorAll('.cmds [data-cmd]').forEach(b => b.onclick = async () => {
+  if (!cfgLinha) return;
+  if (b.dataset.cmd === 'encerrar' && !confirm('Encerrar a câmera no celular?')) return;
+  try { await API.post('/api/contador/linhas/' + cfgLinha.id + '/comando', { tipo: b.dataset.cmd }); $('cfgStatus').textContent = 'Comando enviado: ' + b.textContent; } catch (e) { avisoErro(e.message); }
+});
+
+/* ───────── ENSINAR A IA ───────── */
+document.querySelectorAll('[data-cfgaba]').forEach(b => b.onclick = () => { document.querySelectorAll('[data-cfgaba]').forEach(x => x.classList.toggle('sel', x === b)); $('cfgArea').style.display = b.dataset.cfgaba === 'area' ? '' : 'none'; $('cfgIa').style.display = b.dataset.cfgaba === 'ia' ? '' : 'none'; if (b.dataset.cfgaba === 'ia') abrirEnsinar(); });
+let ensAmostra = null, ensCaixas = [], ensIni = null, ensDesenho = null, ensTimer = null, ensSujo = false;
+const ensModo = () => $('ensModo').value;
+const COR_CL = { caixa: '#F0B429', peca: '#56B6E0', pallet: '#A78BFA' }, NOME_CL = { caixa: 'CAIXA', peca: 'PEÇA', pallet: 'PALLET' };
+let ensClasse = 'caixa';
+document.querySelectorAll('#ensClasses [data-classe]').forEach(b => b.onclick = () => { ensClasse = b.dataset.classe; document.querySelectorAll('#ensClasses [data-classe]').forEach(x => x.classList.toggle('sel', x === b)); desenharEns(); });
+function aplicarModoEns() {
+  const cls = ensModo() === 'cls';
+  ['ensCapVazio', 'ensCapCom', 'ensRotVazio', 'ensRotCom'].forEach(id => $(id).style.display = cls ? '' : 'none');
+  ['ensCapturar', 'ensSalvar', 'ensLimpar', 'ensClasses'].forEach(id => $(id).style.display = cls ? 'none' : '');
+  $('ensComo').innerHTML = cls
+    ? 'Como ensinar: com a área do pallet marcada (aba <i>Área e câmera</i>), capture <b>10 ou mais quadros do pallet VAZIO</b> e <b>10 ou mais COM PEÇAS</b> (quantidades e posições diferentes, com e sem gente ao redor, luz diferente). Depois <b>Treinar</b> (2–5 min). A câmera conta <b>+1 cada vez que o pallet sai de vazio para com peças</b>; quando volta a vazio, registra pallet liberado. Se mudar a área marcada, treine de novo.'
+    : 'Como ensinar: capture 20–40 quadros variados — <b>pallet vazio</b>, com 1 caixa, com várias, com peças soltas, pallet cheio, gente passando. Em <b>cada</b> quadro escolha a classe e arraste um retângulo em volta de <b>tudo</b> que aparece: o <b style="color:#A78BFA">PALLET</b> (a base de madeira), cada <b style="color:#F0B429">CAIXA</b> e cada <b style="color:#56B6E0">PEÇA</b>. Quadro de pallet vazio = só o retângulo do pallet. Depois <b>Treinar</b> (5–15 min). A câmera conta +1 a cada caixa/peça colocada em cima do pallet, −1 a cada retirada, e sabe quando o pallet está vazio ou foi trocado — não precisa marcar área.';
+  listarAmostras();
+}
+$('ensModo').onchange = () => { localStorage.setItem('ens.modo', ensModo()); aplicarModoEns(); };
+const ensCanvas = $('ensCanvas'), ectx = ensCanvas.getContext('2d');
+async function abrirEnsinar() {
+  if (!cfgLinha) return;
+  $('ensProduto').innerHTML = '<option value="">Todos os produtos desta câmera</option>' + produtos.map(p => `<option value="${p.id}">${escapar(p.nome)}</option>`).join('');
+  $('ensProduto').value = cfgProduto || '';
+  $('ensModo').value = localStorage.getItem('ens.modo') || 'det'; aplicarModoEns();
+  await listarAmostras(); await infoModelo(); acompanharTreino();
+}
+$('ensProduto').onchange = () => { listarAmostras(); infoModelo(); acompanharTreino(); };
+async function listarAmostras() {
+  const pid = $('ensProduto').value;
+  const lista = await API.get(`/api/contador/linhas/${cfgLinha.id}/amostras${pid ? '?produto_id=' + pid : ''}`).catch(() => []);
+  const marc = lista.filter(a => a.n > 0).length, caixas = lista.reduce((s, a) => s + a.n, 0);
+  const nv = lista.filter(a => a.rotulo === 'vazio').length, nc = lista.filter(a => a.rotulo === 'com_pecas').length;
+  const porCl = { caixa: 0, peca: 0, pallet: 0 }; lista.forEach(a => (a.caixas || []).forEach(c => { porCl[c.c || 'caixa']++; }));
+  $('ensResumo').textContent = ensModo() === 'cls' ? `${lista.length} quadros · ${nv} vazio · ${nc} com peças` : `${lista.length} quadros · ${marc} marcados · ${porCl.pallet} pallets · ${porCl.caixa} caixas · ${porCl.peca} peças`;
+  const sel = a => ensAmostra && ensAmostra.id === a.id ? ' sel' : '';
+  $('ensLista').innerHTML = lista.map(a => ensModo() === 'cls'
+    ? `<div class="${a.rotulo ? '' : 'vazia'}${sel(a)}" data-id="${a.id}" title="${new Date(a.created_at).toLocaleString('pt-BR')}"><img src="/api/contador/amostras/${a.id}/jpeg" loading="lazy"><span>${a.rotulo === 'vazio' ? 'VAZIO' : a.rotulo === 'com_pecas' ? 'PEÇAS' : '?'}</span></div>`
+    : `<div class="${a.n ? '' : 'vazia'}${sel(a)}" data-id="${a.id}" title="${new Date(a.created_at).toLocaleString('pt-BR')}"><img src="/api/contador/amostras/${a.id}/jpeg" loading="lazy"><span>${a.n}</span></div>`).join('') || '<div class="ajuda" style="grid-column:1/-1">Nenhum quadro ainda.</div>';
+  $('ensLista').querySelectorAll('[data-id]').forEach(d => d.onclick = () => abrirAmostra(lista.find(a => a.id === Number(d.dataset.id))));
+}
+function abrirAmostra(a) {
+  if (ensSujo && !confirm('Há marcações não salvas. Descartar?')) return;
+  ensAmostra = a; ensCaixas = (a.caixas || []).map(c => ({ ...c })); ensSujo = false;
+  $('ensImg').src = `/api/contador/amostras/${a.id}/jpeg?t=${Date.now()}`; $('ensSem').style.display = 'none';
+  ['ensSalvar', 'ensLimpar', 'ensExcluir', 'ensRotVazio', 'ensRotCom'].forEach(id => $(id).disabled = false);
+  $('ensLista').querySelectorAll('[data-id]').forEach(d => d.classList.toggle('sel', Number(d.dataset.id) === a.id));
+  desenharEns();
+}
+$('ensCapturar').onclick = async () => {
+  if (!cfgLinha.online) return avisoErro('A câmera não está transmitindo agora.');
+  try {
+    const r = await API.post(`/api/contador/linhas/${cfgLinha.id}/amostras`, { da_camera: true, produto_id: $('ensProduto').value || null, caixas: [] });
+    await listarAmostras(); abrirAmostra({ id: r.id, caixas: [], n: 0, created_at: r.created_at });
+    avisoOk('Quadro capturado. Marque cada caixa/peça e salve.');
+  } catch (e) { avisoErro(e.message); }
+};
+async function capturarRotulado(rotulo) {
+  if (!cfgLinha.online) return avisoErro('A câmera não está transmitindo agora.');
+  if (!cfgLinha.config || !cfgLinha.config.zona) return avisoErro('Marque primeiro a área do pallet (aba Área e câmera).');
+  try {
+    const r = await API.post(`/api/contador/linhas/${cfgLinha.id}/amostras`, { da_camera: true, produto_id: $('ensProduto').value || null, caixas: [], rotulo });
+    await listarAmostras(); abrirAmostra({ id: r.id, caixas: [], n: 0, rotulo, created_at: r.created_at });
+    avisoOk('Quadro capturado como ' + (rotulo === 'vazio' ? 'pallet VAZIO' : 'COM PEÇAS') + '.');
+  } catch (e) { avisoErro(e.message); }
+}
+$('ensCapVazio').onclick = () => capturarRotulado('vazio');
+$('ensCapCom').onclick = () => capturarRotulado('com_pecas');
+async function rotular(rotulo) { if (!ensAmostra) return; try { await API.put('/api/contador/amostras/' + ensAmostra.id, { rotulo }); ensAmostra.rotulo = rotulo; listarAmostras(); desenharEns(); } catch (e) { avisoErro(e.message); } }
+$('ensRotVazio').onclick = () => rotular('vazio');
+$('ensRotCom').onclick = () => rotular('com_pecas');
+$('ensSalvar').onclick = async () => { if (!ensAmostra) return; try { const r = await API.put('/api/contador/amostras/' + ensAmostra.id, { caixas: ensCaixas }); ensSujo = false; avisoOk(`Salvo: ${r.n} marcação(ões) neste quadro.`); listarAmostras(); } catch (e) { avisoErro(e.message); } };
+$('ensLimpar').onclick = () => { ensCaixas = []; ensSujo = true; desenharEns(); };
+$('ensExcluir').onclick = async () => { if (!ensAmostra || !confirm('Excluir este quadro?')) return; try { await API.del('/api/contador/amostras/' + ensAmostra.id); ensAmostra = null; ensCaixas = []; ensSujo = false; $('ensImg').removeAttribute('src'); $('ensSem').style.display = ''; ['ensSalvar', 'ensLimpar', 'ensExcluir'].forEach(id => $(id).disabled = true); listarAmostras(); desenharEns(); } catch (e) { avisoErro(e.message); } };
+function desenharEns() {
+  const W = ensCanvas.width = ensCanvas.clientWidth, H = ensCanvas.height = ensCanvas.clientHeight;
+  ectx.clearRect(0, 0, W, H);
+  ensCaixas.forEach(c => { const cor = COR_CL[c.c || 'caixa']; ectx.strokeStyle = cor; ectx.lineWidth = 2; ectx.strokeRect(c.x * W, c.y * H, c.w * W, c.h * H); ectx.fillStyle = cor + '22'; ectx.fillRect(c.x * W, c.y * H, c.w * W, c.h * H); ectx.fillStyle = cor; ectx.font = 'bold 11px sans-serif'; ectx.fillText(NOME_CL[c.c || 'caixa'], c.x * W + 4, c.y * H + 12); });
+  if (ensDesenho) { ectx.strokeStyle = COR_CL[ensClasse]; ectx.setLineDash([5, 3]); ectx.strokeRect(ensDesenho.x * W, ensDesenho.y * H, ensDesenho.w * W, ensDesenho.h * H); ectx.setLineDash([]); }
+  if (ensModo() === 'cls') { const z = cfgCfg.zona; if (z) { ectx.strokeStyle = '#35C95C'; ectx.setLineDash([6, 4]); ectx.lineWidth = 2; ectx.strokeRect(z.x * W, z.y * H, z.w * W, z.h * H); ectx.setLineDash([]); }
+    $('ensDica').innerHTML = ensAmostra ? `Este quadro está rotulado como <b>${ensAmostra.rotulo === 'vazio' ? 'pallet VAZIO' : ensAmostra.rotulo === 'com_pecas' ? 'COM PEÇAS' : 'sem rótulo'}</b> (a IA olha só a área tracejada).` : 'Capture quadros com os botões acima; cada um já entra com o rótulo.'; return; }
+  const n = k => ensCaixas.filter(c => (c.c || 'caixa') === k).length;
+  $('ensDica').innerHTML = ensAmostra ? `Neste quadro: <b>${n('pallet')}</b> pallet · <b>${n('caixa')}</b> caixa(s) · <b>${n('peca')}</b> peça(s). Marcando agora: <b style="color:${COR_CL[ensClasse]}">${NOME_CL[ensClasse]}</b>. Clique num retângulo para apagar.` : 'Capture um quadro, escolha a classe (Caixa / Peça / Pallet) e arraste um retângulo em volta de cada item.';
+}
+const normEns = e => { const r = ensCanvas.getBoundingClientRect(); return { x: Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)), y: Math.min(1, Math.max(0, (e.clientY - r.top) / r.height)) }; };
+ensCanvas.addEventListener('pointerdown', e => { if (!ensAmostra || ensModo() === 'cls') return; e.preventDefault(); try { ensCanvas.setPointerCapture(e.pointerId); } catch (_) {} ensIni = normEns(e); ensDesenho = { ...ensIni, w: 0, h: 0 }; });
+ensCanvas.addEventListener('pointermove', e => { if (!ensIni) return; const p = normEns(e); ensDesenho = { x: Math.min(ensIni.x, p.x), y: Math.min(ensIni.y, p.y), w: Math.abs(p.x - ensIni.x), h: Math.abs(p.y - ensIni.y) }; desenharEns(); });
+const soltarEns = () => {
+  if (!ensIni) return; const d = ensDesenho, p0 = ensIni; ensIni = null; ensDesenho = null;
+  if (d && d.w > 0.015 && d.h > 0.015) { ensCaixas.push({ ...d, c: ensClasse }); ensSujo = true; }
+  else { const i = ensCaixas.findIndex(c => p0.x >= c.x && p0.x <= c.x + c.w && p0.y >= c.y && p0.y <= c.y + c.h); if (i >= 0) { ensCaixas.splice(i, 1); ensSujo = true; } }   // clique: apaga
+  desenharEns();
+};
+ensCanvas.addEventListener('pointerup', soltarEns); ensCanvas.addEventListener('pointercancel', soltarEns);
+$('ensTreinar').onclick = async () => {
+  if (ensSujo) await $('ensSalvar').onclick();
+  try {
+    const r = await API.post(`/api/contador/linhas/${cfgLinha.id}/treinar`, { produto_id: $('ensProduto').value || null, epocas: Number($('ensEpocas').value), modo: ensModo(), todas_cameras: $('ensTodas').checked });
+    $('ensStatus').textContent = `Treinando com ${r.amostras} quadros…`; acompanharTreino();
+  } catch (e) { avisoErro(e.message); $('ensStatus').textContent = e.message; }
+};
+async function acompanharTreino() {
+  clearInterval(ensTimer);
+  const tick = async () => {
+    if (!cfgLinha) return clearInterval(ensTimer);
+    const pid = $('ensProduto').value;
+    const t = await API.get(`/api/contador/linhas/${cfgLinha.id}/treino${pid ? '?produto_id=' + pid : ''}`).catch(() => null);
+    if (!t || t.estado === 'nenhum') { $('ensProg').style.display = 'none'; return clearInterval(ensTimer); }
+    $('ensProg').style.display = ''; $('ensProg').querySelector('i').style.width = Math.round(100 * (t.progresso || 0) / (t.total || 1)) + '%';
+    $('ensTreinar').disabled = t.estado === 'rodando';
+    const dur = Math.round(((t.fim || Date.now()) - t.inicio) / 60000);
+    if (t.estado === 'rodando') $('ensStatus').textContent = `Treinando… passada ${t.progresso}/${t.total} · ${dur} min`;
+    else if (t.estado === 'concluido') { $('ensStatus').textContent = `Treino concluído em ${dur} min. O aparelho baixa o modelo sozinho.`; clearInterval(ensTimer); infoModelo(); }
+    else { $('ensStatus').textContent = 'Erro no treino: ' + (t.erro || '') + ' ' + (t.log || []).slice(-3).join(' | '); clearInterval(ensTimer); }
+  };
+  await tick(); ensTimer = setInterval(tick, 3000);
+}
+async function infoModelo() {
+  const pid = $('ensProduto').value;
+  const m = await API.get(`/api/contador/linhas/${cfgLinha.id}/modelo?info=1${pid ? '&produto_id=' + pid : ''}`).catch(() => null);
+  if (!m) { $('ensModelo').innerHTML = 'Nenhum modelo treinado — a câmera usa diferença de imagem.'; $('ensModelo').className = 'ajuda'; $('ensRemoverModelo').style.display = 'none'; return; }
+  const k = m.metricas || {};
+  $('ensModelo').innerHTML = `<b>IA treinada</b> (${m.tipo === 'cls' ? 'pallet vazio × com peças' : (m.classes || ['objeto']).map(c => NOME_CL[c] || c).join(' / ')}) em ${new Date(m.created_at).toLocaleString('pt-BR')} com ${m.amostras} quadros${m.produto_id ? '' : ' (vale para todos os produtos)'}.<br>Acerto no treino: ${m.tipo === 'cls' ? (k.acerto != null ? Math.round(k.acerto * 100) + '%' : '—') : (k.map50 != null ? Math.round(k.map50 * 100) + '%' : '—') + ' · recall ' + (k.recall != null ? Math.round(k.recall * 100) + '%' : '—') + (k.por_classe ? ' · ' + Object.entries(k.por_classe).map(([c, v]) => (NOME_CL[c] || c) + ' ' + Math.round(v * 100) + '%').join(', ') : '')} · ${m.imgsz}px`;
+  $('ensModelo').className = 'modelo-ok'; $('ensRemoverModelo').style.display = '';
+  $('ensRemoverModelo').onclick = async () => { if (!confirm('Remover o modelo treinado? A câmera volta a usar diferença de imagem.')) return; await API.del(`/api/contador/linhas/${cfgLinha.id}/modelo/${m.id}`).catch(e => avisoErro(e.message)); infoModelo(); };
+}
+
+/* ───────── ANÁLISE ───────── */
+function preencherLinhasAnalise() {
+  const atual = $('aLinha').value;
+  $('aLinha').innerHTML = '<option value="">Todas</option>' + linhasCache.map(l => `<option value="${l.id}">${escapar(l.nome || l.celula)}</option>`).join('');
+  $('aLinha').value = atual;
+}
+async function carregarSessoesFiltro() {
+  const lista = await API.get('/api/cadenciador/sessoes?data=' + $('aData').value).catch(() => []);
+  $('aSessao').innerHTML = '<option value="">Automática</option>' + lista.map(s => `<option value="${s.id}">${escapar(s.produto_nome)} · ${escapar(s.turno_nome)} · takt ${s.takt_min}</option>`).join('');
+}
+function grafico(id, cfg) { if (graficos[id]) graficos[id].destroy(); graficos[id] = new Chart($(id), cfg); }
+const minutos = (a, b) => (new Date(b) - new Date(a)) / 60000;
+const hhmm = t => new Date(t).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+
+async function analisar() {
+  const data = $('aData').value, lid = $('aLinha').value, sid = $('aSessao').value;
+  let r; try { r = await API.get(`/api/contador/analise?data=${data}${lid ? '&linha_id=' + lid : ''}${sid ? '&sessao_id=' + sid : ''}`); } catch (e) { return avisoErro(e.message); }
+  const ev = r.eventos, saidas = ev.filter(e => e.valor > 0), takt = r.sessao ? r.sessao.takt_min : null;
+  const contado = ev.reduce((s, e) => s + e.valor, 0);
+  const hojeStr = hojeISO(), agora = new Date().toTimeString().slice(0, 8);
+  const ciclosAte = r.ciclos.filter(c => data < hojeStr || String(c.hora_prevista).slice(0, 8) <= agora);
+  const ints = []; for (let i = 1; i < saidas.length; i++) ints.push(minutos(saidas[i - 1].ts, saidas[i].ts));
+  const media = ints.length ? ints.reduce((a, b) => a + b, 0) / ints.length : null;
+  const acima = takt ? ints.filter(i => i > takt * 1.05).length : 0;
+  $('aKpis').innerHTML = [
+    ['Contado', contado, ''], ['Previsto até agora', r.ciclos.length ? ciclosAte.length : '—', ''],
+    ['Diferença', r.ciclos.length ? ((contado - ciclosAte.length > 0 ? '+' : '') + (contado - ciclosAte.length)) : '—', r.ciclos.length ? (contado >= ciclosAte.length ? 'ok' : 'ruim') : ''],
+    ['Takt (min)', takt != null ? takt : '—', ''], ['Intervalo médio (min)', media != null ? media.toFixed(1) : '—', takt && media ? (media <= takt * 1.05 ? 'ok' : 'ruim') : ''],
+    ['Ritmo real', media ? (60 / media).toFixed(1) + ' un/h' : '—', ''], ['Saídas acima do takt', ints.length ? `${acima} de ${ints.length}` : '—', acima ? 'ruim' : ''],
+    ['Colocadas / retiradas (câmera)', `${ev.filter(e => e.origem === 'ia').reduce((s, e) => s + e.valor, 0)} / ${-ev.filter(e => e.origem === 'ia_retirada').reduce((s, e) => s + e.valor, 0)}`, ''], ['Manual +1 / −1', `${ev.filter(e => e.origem === 'manual_mais').length} / ${ev.filter(e => e.origem === 'manual_menos').length}`, '']
+  ].map(k => `<div class="kpi"><b class="${k[2]}">${k[1]}</b><span>${k[0]}</span></div>`).join('');
+
+  const tempo = (h) => { const [H, M, S] = String(h).slice(0, 8).split(':').map(Number); return new Date(`${data}T00:00:00`).getTime() + (H * 3600 + M * 60 + (S || 0)) * 1000; };
+  const esperado = r.ciclos.map((c, i) => ({ x: tempo(c.hora_prevista), y: i + 1 }));
+  let acc = 0; const real = ev.filter(e => e.valor !== 0).map(e => ({ x: new Date(e.ts).getTime(), y: (acc += e.valor) }));
+  if (real.length) real.unshift({ x: real[0].x - 1, y: 0 });
+  const fmtT = v => new Date(v).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  grafico('gAcum', { type: 'line', data: { datasets: [
+      { label: 'Esperado (cadenciador)', data: esperado, borderColor: '#64748b', borderDash: [6, 4], pointRadius: 0, stepped: true, borderWidth: 2 },
+      { label: 'Real (contado no pallet)', data: real, borderColor: '#35C95C', backgroundColor: 'rgba(53,201,92,.12)', fill: true, pointRadius: 2, stepped: true, borderWidth: 2.5 }
+    ] }, options: { responsive: true, maintainAspectRatio: false, interaction: { mode: 'nearest', intersect: false }, scales: { x: { type: 'linear', ticks: { callback: fmtT, maxTicksLimit: 12 } }, y: { beginAtZero: true, title: { display: true, text: 'unidades' } } }, plugins: { tooltip: { callbacks: { title: it => fmtT(it[0].parsed.x) } } } } });
+  grafico('gInt', { type: 'bar', data: { labels: ints.map((_, i) => hhmm(saidas[i + 1].ts)), datasets: [
+      { label: 'Intervalo (min)', data: ints.map(v => Math.round(v * 10) / 10), backgroundColor: ints.map(v => takt && v > takt * 1.05 ? '#dc2626' : '#35C95C') },
+      ...(takt ? [{ label: 'Takt', type: 'line', data: ints.map(() => takt), borderColor: '#64748b', borderDash: [6, 4], pointRadius: 0, borderWidth: 2 }] : [])
+    ] }, options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true, title: { display: true, text: 'min' } } } } });
+  const horas = {}; ev.filter(e => e.valor !== 0).forEach(e => { const h = new Date(e.ts).getHours(); horas[h] = (horas[h] || 0) + e.valor; });
+  const horasEsp = {}; r.ciclos.forEach(c => { const h = Number(String(c.hora_prevista).slice(0, 2)); horasEsp[h] = (horasEsp[h] || 0) + 1; });
+  const hs = [...new Set([...Object.keys(horas), ...Object.keys(horasEsp)].map(Number))].sort((a, b) => a - b);
+  grafico('gHora', { type: 'bar', data: { labels: hs.map(h => String(h).padStart(2, '0') + 'h'), datasets: [
+      { label: 'Real', data: hs.map(h => horas[h] || 0), backgroundColor: '#35C95C' },
+      { label: 'Esperado', data: hs.map(h => horasEsp[h] || 0), backgroundColor: 'rgba(100,116,139,.45)' }
+    ] }, options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true } } } });
+
+  const det = e => e.detalhe ? ` <small style="color:var(--t3)">${escapar({ caixa: 'caixa', peca: 'peça' }[e.detalhe] || e.detalhe)}</small>` : '';
+  const rot = { ia: ['Câmera: colocada', 'ia'], ia_retirada: ['Câmera: retirada', 'menos'], manual_mais: ['+1 manual', ''], manual_menos: ['−1 manual', 'menos'], troca_pallet: ['Troca de pallet', 'troca'], estorno: ['Estorno da câmera', 'menos'] };
+  $('aQtd').textContent = ev.length + ' eventos';
+  let ant = null;
+  $('aTab').innerHTML = ev.map(e => {
+    let intv = '—', cls = '';
+    if (e.valor > 0) { if (ant) { const m = minutos(ant, e.ts); intv = m.toFixed(1) + ' min'; if (takt) cls = m > takt * 1.05 ? 'ruim' : 'ok'; } ant = e.ts; }
+    const xt = takt && intv !== '—' ? (parseFloat(intv) / takt).toFixed(2) + '×' : '—';
+    return `<tr><td>${new Date(e.ts).toLocaleTimeString('pt-BR')}</td><td><span class="pill ${rot[e.origem][1]}">${rot[e.origem][0]}</span>${det(e)}</td><td>${e.valor > 0 ? '+' : ''}${e.valor}</td><td class="${cls}">${intv}</td><td class="${cls}">${xt}</td><td>${e.mudanca_pct != null ? e.mudanca_pct + '%' : '—'}</td>
+      <td>${e.tem_foto ? `<img src="/api/contador/eventos/${e.id}/foto" loading="lazy" onclick="ampliarFoto(this.src,'${escapar(e.celula)} · ${new Date(e.ts).toLocaleTimeString('pt-BR')}')">` : '—'}</td>
+      <td>${podeEditar() ? `<button class="btn-x" onclick="excluirEvento(${e.id})">excluir</button>` : ''}</td></tr>`;
+  }).join('') || '<tr><td colspan="8" style="color:var(--t3)">Nenhum evento neste dia.</td></tr>';
+}
+async function excluirEvento(id) { if (!confirm('Excluir este evento da contagem?')) return; try { await API.del('/api/contador/eventos/' + id); analisar(); } catch (e) { avisoErro(e.message); } }
+$('aBuscar').onclick = analisar;
+$('aData').onchange = async () => { await carregarSessoesFiltro(); analisar(); };
+$('aLinha').onchange = analisar; $('aSessao').onchange = analisar;
+$('aExcel').onclick = () => { const l = linhasCache.find(x => x.id === Number($('aLinha').value)); window.location.href = `/api/export/contador?data=${$('aData').value}&celula=${encodeURIComponent(l ? l.celula : '')}`; };
+
+/* ───────── HISTÓRICO ───────── */
+async function carregarHistorico() {
+  let h; try { h = await API.get('/api/contador/historico'); } catch (e) { return avisoErro(e.message); }
+  $('hTab').innerHTML = h.map(l => {
+    const at = l.total_ciclos ? Math.round(l.contagem / l.total_ciclos * 100) : null;
+    return `<tr><td>${dataBR(l.data)}</td><td><strong>${escapar(l.celula)}</strong></td><td>${l.produto_nome ? escapar(l.produto_nome) + ' · ' + escapar(l.turno_nome) : '<span style="color:var(--t3)">sem cadenciador</span>'}</td><td>${l.takt_min != null ? l.takt_min + ' min' : '—'}</td><td>${l.total_ciclos || '—'}</td><td><strong>${l.contagem}</strong></td><td class="${at == null ? '' : at >= 100 ? 'ok' : 'ruim'}">${at != null ? at + '%' : '—'}</td><td>${l.ia}</td><td>${l.retiradas}</td><td>${l.mais}</td><td>${l.menos}</td><td>${l.estornos}</td><td>${new Date(l.primeiro).toLocaleTimeString('pt-BR')}</td><td>${new Date(l.ultimo).toLocaleTimeString('pt-BR')}</td>
+      <td><button class="btn btn-fantasma btn-sm" onclick="abrirAnalise('${l.data}',${l.linha_id || 'null'},${l.sessao_id || 'null'})">Analisar</button></td></tr>`;
+  }).join('') || '<tr><td colspan="15" style="color:var(--t3)">Ainda não há contagens.</td></tr>';
+}
+async function abrirAnalise(data, lid, sid) {
+  $('aData').value = data; await carregarSessoesFiltro(); preencherLinhasAnalise(); $('aLinha').value = lid || ''; $('aSessao').value = sid || '';
+  document.querySelector('.aba[data-aba="analise"]').click();
+}
+
+/* Aberto de dentro do Cadenciador: /cadenciador/painel?linha=ID&produto=PID&aba=ia&embed=1
+   abre direto "Configurar câmera" daquela célula, na aba pedida, com o produto em linha já escolhido. */
+const PARAMS = new URLSearchParams(location.search), EMBED = PARAMS.get('embed') === '1';
+if (EMBED) document.documentElement.classList.add('embed');
+(async () => {
+  USU = await montarTopo({ subtitulo: 'Cadenciador — painel das câmeras' });
+  if (ehAdmin()) $('btnNova').style.display = '';
+  $('aData').value = hojeISO();
+  await carregarCadastros(); await atualizarLinhas(); preencherLinhasAnalise(); carregarSessoesFiltro();
+  setInterval(atualizarLinhas, 900);
+  const lid = Number(PARAMS.get('linha'));
+  if (lid && linhasCache.some(l => l.id === lid)) {
+    await abrirCfg(lid);
+    const pid = Number(PARAMS.get('produto')) || null;
+    if (pid) { cfgProduto = pid; $('cProduto').value = pid; await carregarCfgProduto(); }
+    const aba = PARAMS.get('aba'); if (aba) document.querySelector(`[data-cfgaba="${aba}"]`).click();
+  }
+})();
+</script>
+</body>
+</html>

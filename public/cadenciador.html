@@ -1,0 +1,818 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cadenciador de Produção — Décio</title>
+<link rel="icon" href="/assets/logo-decio.png">
+<link rel="manifest" href="/cadenciador.webmanifest">
+<meta name="theme-color" content="#1C4984">
+<link rel="stylesheet" href="/css/decio.css">
+<style>
+.barra-sessao {
+  background: var(--card); border: 1px solid var(--linha); border-radius: var(--r);
+  padding: 16px 20px; margin-bottom: 20px;
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)) auto; gap: 14px; align-items: end;
+}
+.barra-sessao .acoes { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* ── Anel de cadência: o elemento de assinatura desta tela ──
+   Um arco que se esvazia até o próximo ciclo. Nada mais na tela usa círculo. */
+.cadencia { display: grid; grid-template-columns: 200px 1fr; gap: 26px; align-items: center; }
+@media (max-width: 760px) { .cadencia { grid-template-columns: 1fr; justify-items: center; text-align: center; } }
+
+.anel { position: relative; width: 200px; height: 200px; }
+.anel svg { transform: rotate(-90deg); display: block; }
+.anel .trilho { stroke: var(--linha); }
+.anel .arco { stroke: url(#fadeAnel); stroke-linecap: round; transition: stroke-dashoffset .95s linear; }
+.anel.parada .arco { stroke: var(--erro); }
+.anel-centro { position: absolute; inset: 0; display: grid; place-content: center; text-align: center; }
+.anel-rot { font-size: 9.5px; letter-spacing: .14em; text-transform: uppercase; color: var(--t3); font-weight: 700; }
+.anel-val { font-family: var(--mono); font-size: 34px; font-weight: 700; letter-spacing: -.03em; line-height: 1.1; margin-top: 3px; }
+.anel-sub { font-size: 11px; color: var(--t3); margin-top: 2px; }
+
+.painel-info { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px,1fr)); gap: 14px; width: 100%; }
+.info-bloco { background: var(--sup); border: 1px solid var(--linha); border-radius: var(--r-sm); padding: 13px 15px; }
+.info-bloco .r { font-size: 9.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--t3); font-weight: 700; }
+.info-bloco .v { font-family: var(--mono); font-size: 21px; font-weight: 700; margin-top: 4px; }
+.v-ok { color: var(--ok); } .v-erro { color: var(--erro); } .v-alerta { color: var(--alerta); }
+
+/* ── Grade de ciclos ── */
+tbody tr.passado td { color: var(--t1); }
+tbody tr.futuro td { opacity: .62; }
+tbody tr.agora { background: var(--fade-suave); }
+tbody tr.agora td:first-child { box-shadow: inset 3px 0 0 var(--verde); }
+
+.obs-input {
+  width: 100%; background: transparent; border: 1px solid transparent;
+  color: var(--t2); font-family: var(--corpo); font-size: 12.5px;
+  padding: 6px 8px; border-radius: var(--r-xs); transition: var(--tr);
+}
+.obs-input:hover { border-color: var(--linha); }
+.obs-input:focus { outline: none; background: var(--sup); border-color: var(--verde); color: var(--t1); }
+
+.check-ciclo { width: 17px; height: 17px; accent-color: var(--verde); cursor: pointer; }
+
+/* ── Painel de chão (tela cheia) ── */
+#chao {
+  position: fixed; inset: 0; z-index: 900; background: var(--fundo);
+  display: none; flex-direction: column; padding: 3vh 4vw;
+}
+#chao.ativo { display: flex; }
+.chao-topo { display: flex; align-items: center; justify-content: space-between; gap: 18px; }
+.chao-produto { font-family: var(--display); font-size: clamp(18px, 2.4vw, 34px); font-weight: 800; letter-spacing: -.02em; }
+.chao-turno { font-size: clamp(11px, 1.1vw, 15px); color: var(--t3); margin-top: 4px; letter-spacing: .1em; text-transform: uppercase; }
+.chao-relogio { font-family: var(--mono); font-size: clamp(30px, 5vw, 76px); font-weight: 700; letter-spacing: -.03em; }
+
+.chao-grade { flex: 1; display: grid; grid-template-columns: repeat(3, 1fr); gap: 2.5vw; align-content: center; }
+@media (max-width: 900px) { .chao-grade { grid-template-columns: 1fr; gap: 14px; } }
+
+.chao-caixa {
+  border: 1px solid var(--linha); border-radius: 20px; padding: 4vh 2vw;
+  text-align: center; background: var(--card); position: relative; overflow: hidden;
+}
+.chao-caixa::before { content:''; position:absolute; top:0; left:0; right:0; height:4px; background: var(--fade); }
+.chao-caixa .r { font-size: clamp(11px, 1.1vw, 16px); letter-spacing: .14em; text-transform: uppercase; color: var(--t3); font-weight: 700; }
+.chao-caixa .v { font-family: var(--mono); font-size: clamp(48px, 8vw, 130px); font-weight: 700; line-height: 1; letter-spacing: -.04em; margin-top: 2vh; }
+.chao-ok .v { color: var(--ok); }
+.chao-nok .v { color: var(--erro); }
+.chao-prox { grid-column: 1 / -1; }
+.chao-prox .v { font-size: clamp(40px, 7vw, 110px); }
+.chao-prox.parada { border-color: var(--erro-bd); }
+.chao-prox.parada::before { background: var(--erro); }
+.chao-prox.parada .v { color: var(--erro); }
+
+.chao-sair { position: absolute; top: 3vh; right: 4vw; z-index: 2; }
+.chao-cam .v { color: var(--verde-clr); }
+.chao-grade.com-camera { grid-template-columns: repeat(3, 1fr); }
+
+/* ── Câmera do pallet ── */
+.cam-grade { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 20px; align-items: start; }
+@media (max-width: 900px) { .cam-grade { grid-template-columns: 1fr; } }
+.palco { position: relative; background: #000; border-radius: var(--r); overflow: hidden; border: 1px solid var(--linha); aspect-ratio: 4/3; }
+.palco video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.palco canvas.sobre { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; }
+.palco .hud { position: absolute; left: 10px; top: 10px; display: flex; gap: 6px; flex-wrap: wrap; pointer-events: none; }
+.selo-hud { background: rgba(10,22,32,.75); color: #fff; font-size: 11px; font-weight: 700; padding: 4px 9px; border-radius: 8px; border: 1px solid rgba(255,255,255,.18); }
+.selo-hud.on { border-color: var(--verde); color: var(--verde-clr); }
+.selo-hud.alerta { border-color: var(--alerta); color: var(--alerta); }
+.selo-hud.erro { border-color: var(--erro); color: var(--erro); }
+.flash { position: absolute; inset: 0; background: rgba(52,211,153,.35); opacity: 0; pointer-events: none; transition: opacity .25s; }
+.flash.on { opacity: 1; }
+.palco .dica { pointer-events: none; position: absolute; left: 0; right: 0; bottom: 0; padding: 10px 12px; background: linear-gradient(transparent, rgba(0,0,0,.75)); color: #fff; font-size: 12.5px; text-align: center; }
+.modo { display: flex; gap: 6px; margin-top: 10px; flex-wrap: wrap; align-items: center; }
+.modo .btn.sel { background: var(--verde); color: #fff; border-color: var(--verde); }
+.cam-placar { text-align: center; }
+.cam-placar .num-grande { font-family: var(--display); font-size: 72px; font-weight: 800; line-height: 1; color: var(--verde-clr); letter-spacing: -.04em; }
+.cam-placar .comp { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; }
+.cam-placar .comp div { background: var(--sup); border-radius: 10px; padding: 8px; }
+.cam-placar .comp b { display: block; font-size: 20px; font-family: var(--display); }
+.cam-placar .comp span { font-size: 10.5px; color: var(--t3); text-transform: uppercase; letter-spacing: .06em; }
+.delta.ok { color: var(--ok); } .delta.ruim { color: var(--erro); }
+.cam-placar .botoes { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
+.btn-grande { font-size: 22px; padding: 14px; border-radius: 12px; font-weight: 800; }
+.cam-info { font-size: 12px; color: var(--t3); margin-top: 10px; line-height: 1.5; text-align: left; }
+.gr { position: relative; height: 300px; }
+#camRemota .hud { top: 36px; }
+</style>
+</head>
+<body>
+<header id="topo"></header>
+
+<main class="conteudo">
+
+  <!-- Seleção de sessão -->
+  <div class="barra-sessao">
+    <div class="campo">
+      <label class="rotulo" for="selTurno">Turno</label>
+      <select class="controle" id="selTurno"></select>
+    </div>
+    <div class="campo">
+      <label class="rotulo" for="selCelula">Célula</label>
+      <select class="controle" id="selCelula"><option value="">Todas</option></select>
+    </div>
+    <div class="campo">
+      <label class="rotulo" for="selProduto">Produto em linha</label>
+      <select class="controle" id="selProduto"></select>
+    </div>
+    <div class="campo">
+      <label class="rotulo" for="inData">Data</label>
+      <input class="controle" type="date" id="inData">
+    </div>
+    <div class="acoes">
+      <button class="btn btn-primario" id="btnAbrir">Iniciar linha</button>
+      <button class="btn btn-fantasma" id="btnChao" disabled>Painel de chão</button>
+      <a class="btn btn-fantasma" href="/cadenciador/painel">Painel das câmeras</a>
+    </div>
+  </div>
+
+  <!-- Cadência -->
+  <section class="cartao" id="cartaoCadencia">
+    <div class="cartao-topo">
+      <h2 class="cartao-titulo">Cadência da linha</h2>
+      <div class="linha-flex">
+        <label class="chave">
+          <input type="checkbox" id="chaveVoz" checked>
+          <span class="chave-tri"></span>
+          <span class="chave-txt">Avisos de voz</span>
+        </label>
+        <button class="btn btn-erro btn-sm" id="btnParar" disabled>Parar linha</button>
+        <button class="btn btn-ok btn-sm oculto" id="btnContinuar">Continuar linha</button>
+      </div>
+    </div>
+    <div class="cartao-corpo">
+      <div class="cadencia">
+        <div class="anel" id="anel">
+          <svg width="200" height="200" viewBox="0 0 200 200" aria-hidden="true">
+            <defs>
+              <linearGradient id="fadeAnel" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%"   stop-color="#26B247"/>
+                <stop offset="55%"  stop-color="#1D6574"/>
+                <stop offset="100%" stop-color="#1C4984"/>
+              </linearGradient>
+            </defs>
+            <circle class="trilho" cx="100" cy="100" r="88" fill="none" stroke-width="10"/>
+            <circle class="arco" id="arco" cx="100" cy="100" r="88" fill="none" stroke-width="10"
+                    stroke-dasharray="552.9" stroke-dashoffset="552.9"/>
+          </svg>
+          <div class="anel-centro">
+            <div class="anel-rot" id="anelRot">Aguardando</div>
+            <div class="anel-val num" id="anelVal">--:--:--</div>
+            <div class="anel-sub" id="anelSub">Selecione turno e produto</div>
+          </div>
+        </div>
+
+        <div class="painel-info">
+          <div class="info-bloco"><div class="r">Ciclos concluídos</div><div class="v v-ok num" id="iOk">0</div></div>
+          <div class="info-bloco"><div class="r">Não concluídos</div><div class="v v-erro num" id="iNok">0</div></div>
+          <div class="info-bloco"><div class="r">Takt time</div><div class="v num" id="iTakt">—</div></div>
+          <div class="info-bloco"><div class="r">Tempo parado</div><div class="v v-alerta num" id="iParado">00:00:00</div></div>
+          <div class="info-bloco"><div class="r">Total de ciclos</div><div class="v num" id="iTotal">0</div></div>
+          <div class="info-bloco"><div class="r">Fim do turno</div><div class="v num" id="iFim">—</div></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Câmera do pallet (contador) -->
+  <section class="cartao" id="cartaoCamera" style="display:none">
+    <div class="cartao-topo">
+      <h2 class="cartao-titulo">Câmera do pallet — contagem <span class="selo selo-neutro" id="camSelo">sem câmera</span></h2>
+      <div class="linha-flex">
+        <button class="btn btn-primario btn-sm" id="btnEnsinar">🧠 Ensinar a IA deste produto</button>
+        <button class="btn btn-fantasma btn-sm" id="btnCamArea">▭ Área e câmera</button>
+        <a class="btn btn-fantasma btn-sm" href="/cadenciador/painel" target="_blank">Painel das câmeras</a>
+        <button class="btn btn-fantasma btn-sm" id="btnCamParar" style="display:none">Desligar câmera</button>
+      </div>
+    </div>
+    <div class="cartao-corpo" id="camIaStatus" style="padding-bottom:0"></div>
+    <!-- passo: conectar -->
+    <div class="cartao-corpo" id="camConectar">
+      <p class="ajuda" style="margin-bottom:12px">Linha iniciada. Agora conecte a câmera que vai olhar o pallet desta célula:</p>
+      <div class="linha-flex" style="gap:10px;flex-wrap:wrap">
+        <button class="btn btn-primario" id="btnCamAqui">📷 Usar a câmera deste aparelho</button>
+        <button class="btn btn-fantasma" id="btnCamQr">📱 Conectar um celular (QR)</button>
+      </div>
+      <div class="ajuda" style="margin-top:10px" id="camConectarInfo"></div>
+    </div>
+    <!-- câmera em outro aparelho: só acompanha -->
+    <div class="cartao-corpo" id="camRemota" style="display:none">
+      <div class="cam-grade">
+        <div><div class="palco"><img id="camRemotaImg" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover"><div class="hud"><span class="selo-hud on" id="camRemotaSelo">● câmera em outro aparelho</span></div></div>
+          <div class="cam-info" id="camRemotaInfo">A área e a câmera são configuradas no painel das câmeras.</div></div>
+        <div class="cam-placar">
+          <div class="num-grande" id="camContagemR">0</div>
+          <div class="info-bloco" style="margin-top:6px"><div class="r">Produzido (câmera)</div></div>
+          <div class="comp"><div><b id="camEsperadoR">—</b><span>Esperado (takt)</span></div><div><b id="camDeltaR" class="delta">—</b><span>Diferença</span></div></div>
+          <div class="botoes"><button class="btn btn-ok btn-grande" id="camMaisR">+1</button><button class="btn btn-fantasma btn-grande" id="camMenosR">−1</button></div>
+          <div class="botoes"><button class="btn btn-fantasma btn-sm" id="btnCamQr2">📱 QR do celular</button><button class="btn btn-fantasma btn-sm" id="btnCamAqui2">📷 Usar este aparelho</button></div>
+        </div>
+      </div>
+    </div>
+    <div class="cartao-corpo" id="camLocal" style="display:none">
+      <div class="cam-grade">
+        <div>
+          <div class="palco">
+            <video id="camVideo" playsinline muted autoplay></video>
+            <canvas class="sobre" id="camSobre"></canvas>
+            <div class="flash" id="camFlash"></div>
+            <div class="hud"><span class="selo-hud" id="camHudIa">IA: carregando…</span><span class="selo-hud" id="camHudEstado">Aguardando</span><span class="selo-hud" id="camHudLive">● ao vivo</span></div>
+            <div class="dica" id="camDica">Arraste na imagem para marcar a área do pallet (toda a altura das pilhas).</div>
+          </div>
+          <div class="modo">
+            <button class="btn btn-sm btn-fantasma sel" data-modo="zona">▭ Área do pallet</button>
+            <button class="btn btn-sm btn-fantasma" data-modo="caixa">▢ Tamanho de uma caixa (opcional)</button>
+            <label class="chave" style="display:none"><input type="checkbox" id="camMult"><span class="chave-tri"></span><span class="chave-txt">Várias</span></label>
+          </div>
+          <div class="cam-info" id="camInfo"></div>
+        </div>
+        <div class="cam-placar">
+          <div class="num-grande" id="camContagem">0</div>
+          <div class="info-bloco" style="margin-top:6px"><div class="r">Produzido (câmera)</div></div>
+          <div class="comp"><div><b id="camEsperado">—</b><span>Esperado (takt)</span></div><div><b id="camDelta" class="delta">—</b><span>Diferença</span></div></div>
+          <div class="cam-info" id="camRitmo" style="text-align:center"></div>
+          <div class="botoes"><button class="btn btn-ok btn-grande" id="camMais">+1</button><button class="btn btn-fantasma btn-grande" id="camMenos">−1</button></div>
+          <div class="botoes"><button class="btn btn-fantasma btn-sm" id="camPallet">Pallet trocado</button><button class="btn btn-fantasma btn-sm" id="camRecal">Recalibrar</button></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Produção em tempo real -->
+  <section class="cartao" id="cartaoGrafico" style="display:none">
+    <div class="cartao-topo">
+      <h2 class="cartao-titulo">Produção em tempo real — takt × produzido</h2>
+      <div class="linha-flex"><span class="ajuda" id="grafResumo"></span></div>
+    </div>
+    <div class="cartao-corpo"><div class="gr"><canvas id="grafProd"></canvas></div>
+      <div class="ajuda" style="margin-top:8px">Tracejada: ciclos previstos pelo takt. Cheia: produtos contados no pallet (câmera e +1/−1). Quando a cheia fica abaixo da tracejada, a linha está atrasada.</div></div>
+  </section>
+
+  <!-- Grade de ciclos -->
+  <section class="cartao">
+    <div class="cartao-topo">
+      <h2 class="cartao-titulo">Horários de ciclo calculados</h2>
+      <div class="linha-flex">
+        <button class="btn btn-fantasma btn-sm" id="btnReset" disabled>Limpar marcações</button>
+        <button class="btn btn-fantasma btn-sm" id="btnExportar" disabled>Exportar Excel</button>
+      </div>
+    </div>
+    <div class="cartao-corpo" style="padding:0">
+      <div class="tabela-wrap" style="max-height:520px;overflow-y:auto">
+        <table>
+          <thead>
+            <tr><th style="width:80px">Ciclo</th><th style="width:130px">Horário</th><th style="width:190px">Status</th><th>Observação</th></tr>
+          </thead>
+          <tbody id="corpoCiclos">
+            <tr><td colspan="4" class="vazio">Escolha o turno e o produto, depois clique em “Carregar linha”.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+</main>
+
+<div id="mEnsinar" style="position:fixed;inset:0;z-index:950;display:none;background:var(--fundo)"><iframe id="ifEnsinar" title="Ensinar a IA" style="width:100%;height:100%;border:0"></iframe></div>
+<div class="modal-fundo" id="mQr"><div class="modal">
+  <div class="modal-topo"><div class="modal-titulo">Conectar um celular como câmera</div><button class="modal-fechar" onclick="fecharModal('mQr')">×</button></div>
+  <div class="modal-corpo" style="text-align:center">
+    <p class="ajuda" style="margin-bottom:12px">No celular, faça login no sistema, leia o QR (ou abra o endereço) e toque em <b>Conectar câmera</b>. A imagem aparece aqui e no painel; a área do pallet é marcada pelo painel ou no próprio celular.</p>
+    <img id="qrImg" alt="QR" style="width:240px;height:240px;background:#fff;border-radius:12px;padding:8px"><code id="qrLink" style="display:block;margin-top:10px;font-size:13px;word-break:break-all;background:var(--sup);padding:8px;border-radius:8px"></code>
+  </div></div></div>
+
+<!-- Painel de chão -->
+<div id="chao">
+  <button class="btn btn-fantasma btn-sm chao-sair" id="btnSairChao">Sair (Esc)</button>
+  <div class="chao-topo">
+    <div>
+      <div class="chao-produto" id="chaoProduto">—</div>
+      <div class="chao-turno" id="chaoTurno">—</div>
+    </div>
+    <div class="chao-relogio num" id="chaoRelogio">--:--:--</div>
+  </div>
+  <div class="chao-grade">
+    <div class="chao-caixa chao-prox" id="chaoProxCaixa">
+      <div class="r" id="chaoProxRot">Próximo ciclo</div>
+      <div class="v num" id="chaoProxVal">--:--:--</div>
+    </div>
+    <div class="chao-caixa chao-ok"><div class="r">Concluídos</div><div class="v num" id="chaoOk">0</div></div>
+    <div class="chao-caixa chao-nok"><div class="r">Não concluídos</div><div class="v num" id="chaoNok">0</div></div>
+    <div class="chao-caixa chao-cam" id="chaoCamCaixa" style="display:none"><div class="r">Produzido (câmera)</div><div class="v num" id="chaoCam">0</div></div>
+  </div>
+</div>
+
+<script src="/js/core.js"></script>
+<script src="/js/chart.umd.js"></script>
+<script src="/js/mediapipe/pose/pose.js"></script>
+<script src="/js/ort/ort.min.js"></script>
+<script src="/js/contador-cam.js"></script>
+<script>
+/* ═══════════ Estado ═══════════ */
+let CELULAS = [], PRODUTOS = [], CAM = null, LINHA_CAM = null, GRAF = null, eventosRemotos = [];
+
+let SESSAO = null;            // sessão carregada do servidor
+let TURNOS = [];
+let ultimaHoraFalada = '';    // evita repetir o mesmo aviso no mesmo segundo
+
+const CIRC = 2 * Math.PI * 88;   // perímetro do anel
+
+/* ═══════════ Helpers de turno ═══════════ */
+
+/** Segundos decorridos desde o início do turno, tratando virada de meia-noite. */
+function offsetNoTurno(hms, turno) {
+  let o = hmsParaSeg(hms) - hmsParaSeg(turno.hora_inicio);
+  if (o < 0) o += 86400;
+  return o;
+}
+function duracaoTurno(turno) {
+  const i = hmsParaSeg(turno.hora_inicio), f = hmsParaSeg(turno.hora_fim);
+  return f > i ? f - i : (86400 - i) + f;
+}
+function dentroDoTurno(hms, turno) {
+  const o = offsetNoTurno(hms, turno);
+  return o >= 0 && o <= duracaoTurno(turno);
+}
+
+/** Todos os eventos futuros do turno: ciclos, entradas/saídas de intervalo e fim. */
+function proximoEvento(agora) {
+  if (!SESSAO) return null;
+  const t = SESSAO;
+  const oAgora = offsetNoTurno(agora, t);
+  const eventos = [];
+
+  for (const c of t.ciclos) {
+    eventos.push({ rot: 'Próximo ciclo', off: offsetNoTurno(c.hora_prevista, t) });
+  }
+  for (const i of t.intervalos) {
+    eventos.push({ rot: 'Início do ' + i.nome, off: offsetNoTurno(i.hora_inicio, t) });
+    eventos.push({ rot: 'Retorno do ' + i.nome, off: offsetNoTurno(i.hora_fim, t) });
+  }
+  eventos.push({ rot: 'Fim do turno', off: duracaoTurno(t) });
+
+  const futuros = eventos.filter(e => e.off > oAgora).sort((a, b) => a.off - b.off);
+  if (!futuros.length) return null;
+
+  const ev = futuros[0];
+  const anteriores = eventos.filter(e => e.off <= oAgora).map(e => e.off);
+  const base = anteriores.length ? Math.max(...anteriores) : 0;
+
+  return { ...ev, restante: ev.off - oAgora, janela: Math.max(1, ev.off - base) };
+}
+
+/* ═══════════ Render ═══════════ */
+
+function contarCiclos(agora) {
+  if (!SESSAO) return { ok: 0, nok: 0 };
+  const o = offsetNoTurno(agora, SESSAO);
+  let ok = 0, nok = 0;
+  for (const c of SESSAO.ciclos) {
+    if (offsetNoTurno(c.hora_prevista, SESSAO) <= o) (c.concluido ? ok++ : nok++);
+  }
+  return { ok, nok };
+}
+
+function renderCiclos() {
+  const corpo = document.getElementById('corpoCiclos');
+  if (!SESSAO || !SESSAO.ciclos.length) {
+    corpo.innerHTML = '<tr><td colspan="4" class="vazio">Nenhum ciclo calculado para este turno.</td></tr>';
+    return;
+  }
+
+  const agora = agoraHMS();
+  const oAgora = offsetNoTurno(agora, SESSAO);
+  const dentro = dentroDoTurno(agora, SESSAO);
+
+  let idxAtual = -1;
+  if (dentro) idxAtual = SESSAO.ciclos.findIndex(c => offsetNoTurno(c.hora_prevista, SESSAO) > oAgora);
+
+  corpo.innerHTML = SESSAO.ciclos.map((c, i) => {
+    const passou = offsetNoTurno(c.hora_prevista, SESSAO) <= oAgora && dentro;
+    const classe = i === idxAtual ? 'agora' : (passou ? 'passado' : 'futuro');
+
+    const status = passou
+      ? `<label class="linha-flex" style="gap:8px;cursor:pointer">
+           <input type="checkbox" class="check-ciclo" data-num="${c.numero}" ${c.concluido ? 'checked' : ''}>
+           <span class="selo ${c.concluido ? 'selo-ok' : 'selo-erro'}">${c.concluido ? 'Concluído' : 'Não concluído'}</span>
+         </label>`
+      : `<span class="selo selo-neutro">Em andamento</span>`;
+
+    return `<tr class="${classe}">
+      <td class="num destaque">${c.numero}</td>
+      <td class="num destaque">${horaCurta(c.hora_prevista)}</td>
+      <td>${status}</td>
+      <td><input class="obs-input" data-num="${c.numero}" value="${escapar(c.observacao || '')}"
+                 placeholder="${passou ? (c.concluido ? 'Ciclo concluído' : 'Informe o motivo') : ''}"></td>
+    </tr>`;
+  }).join('');
+
+  corpo.querySelectorAll('.check-ciclo').forEach(el => el.onchange = () => salvarCiclo(el.dataset.num, { concluido: el.checked }));
+  corpo.querySelectorAll('.obs-input').forEach(el => {
+    let timer;
+    el.oninput = () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => salvarCiclo(el.dataset.num, { observacao: el.value }), 600);
+    };
+  });
+
+  const linhaAtual = corpo.querySelector('tr.agora');
+  if (linhaAtual) linhaAtual.scrollIntoView({ block: 'center', behavior: 'smooth' });
+}
+
+async function salvarCiclo(numero, dados) {
+  const c = SESSAO.ciclos.find(x => x.numero == numero);
+  try {
+    await API.put(`/api/cadenciador/sessoes/${SESSAO.id}/ciclos/${numero}`, dados);
+    if (c) Object.assign(c, dados);
+    if ('concluido' in dados) renderCiclos();
+  } catch (e) { avisoErro('Não foi possível salvar: ' + e.message); }
+}
+
+/* ═══════════ Tique de 1 segundo ═══════════ */
+
+function tique() {
+  const agora = agoraHMS();
+  document.getElementById('chaoRelogio').textContent = agora;
+
+  if (!SESSAO) return;
+
+  const { ok, nok } = contarCiclos(agora);
+  document.getElementById('iOk').textContent = ok;
+  document.getElementById('iNok').textContent = nok;
+  document.getElementById('chaoOk').textContent = ok;
+  document.getElementById('chaoNok').textContent = nok;
+
+  const anel = document.getElementById('anel');
+  const arco = document.getElementById('arco');
+  const parada = !!SESSAO.parada_aberta;
+  const caixaProx = document.getElementById('chaoProxCaixa');
+
+  if (parada) {
+    const desde = Math.floor((Date.now() - new Date(SESSAO.parada_aberta.inicio).getTime()) / 1000);
+    anel.classList.add('parada');
+    caixaProx.classList.add('parada');
+    arco.style.strokeDashoffset = 0;
+    document.getElementById('anelRot').textContent = 'Linha parada';
+    document.getElementById('anelVal').textContent = segParaHMS(desde);
+    document.getElementById('anelSub').textContent = 'Aguardando retomada';
+    document.getElementById('chaoProxRot').textContent = 'Linha parada';
+    document.getElementById('chaoProxVal').textContent = segParaHMS(desde);
+    return;
+  }
+
+  anel.classList.remove('parada');
+  caixaProx.classList.remove('parada');
+
+  if (!dentroDoTurno(agora, SESSAO)) {
+    arco.style.strokeDashoffset = CIRC;
+    document.getElementById('anelRot').textContent = 'Fora do turno';
+    document.getElementById('anelVal').textContent = '--:--:--';
+    document.getElementById('anelSub').textContent = `${horaCurta(SESSAO.hora_inicio)} às ${horaCurta(SESSAO.hora_fim)}`;
+    document.getElementById('chaoProxRot').textContent = 'Fora do turno';
+    document.getElementById('chaoProxVal').textContent = '--:--:--';
+    return;
+  }
+
+  const ev = proximoEvento(agora);
+  if (ev) {
+    const restante = segParaHMS(ev.restante);
+    arco.style.strokeDashoffset = CIRC * (1 - ev.restante / ev.janela);
+    document.getElementById('anelRot').textContent = ev.rot;
+    document.getElementById('anelVal').textContent = restante;
+    document.getElementById('anelSub').textContent = 'Tempo restante';
+    document.getElementById('chaoProxRot').textContent = ev.rot;
+    document.getElementById('chaoProxVal').textContent = restante;
+  } else {
+    arco.style.strokeDashoffset = 0;
+    document.getElementById('anelRot').textContent = 'Turno encerrado';
+    document.getElementById('anelVal').textContent = horaCurta(SESSAO.hora_fim);
+    document.getElementById('chaoProxRot').textContent = 'Turno encerrado';
+    document.getElementById('chaoProxVal').textContent = horaCurta(SESSAO.hora_fim);
+  }
+
+  avisarPorVoz(agora);
+
+  // Reclassifica a tabela quando um ciclo acabou de virar passado
+  if (agora.endsWith(':00')) renderCiclos();
+}
+
+function avisarPorVoz(agora) {
+  if (agora === ultimaHoraFalada || SESSAO.parada_aberta) return;
+
+  for (const i of SESSAO.intervalos) {
+    if (i.hora_inicio === agora) { ultimaHoraFalada = agora; Voz.falar(i.aviso_voz || `Intervalo de ${i.nome} iniciado`); return; }
+    if (i.hora_fim === agora)    { ultimaHoraFalada = agora; Voz.falar('Ciclo iniciado'); return; }
+  }
+  if (SESSAO.hora_inicio === agora) { ultimaHoraFalada = agora; Voz.falar('Ciclo iniciado'); return; }
+  if (SESSAO.hora_fim === agora)    { ultimaHoraFalada = agora; Voz.falar('Turno finalizado'); return; }
+
+  if (SESSAO.ciclos.some(c => c.hora_prevista === agora)) {
+    ultimaHoraFalada = agora;
+    Voz.falar('Ciclo finalizado');
+  }
+}
+
+/* ═══════════ Sessão ═══════════ */
+
+function aplicarSessao(s) {
+  SESSAO = s;
+  ultimaHoraFalada = '';
+
+  document.getElementById('iTakt').textContent   = s.takt_min + ' min';
+  document.getElementById('iParado').textContent = segParaHMS(s.tempo_parado_seg || 0);
+  document.getElementById('iTotal').textContent  = s.ciclos.length;
+  document.getElementById('iFim').textContent    = horaCurta(s.hora_fim);
+
+  document.getElementById('chaoProduto').textContent = s.produto_nome;
+  document.getElementById('chaoTurno').textContent   = `${s.turno_nome} · ${horaCurta(s.hora_inicio)}–${horaCurta(s.hora_fim)} · takt ${s.takt_min} min`;
+
+  const parada = !!s.parada_aberta;
+  document.getElementById('btnParar').classList.toggle('oculto', parada);
+  document.getElementById('btnContinuar').classList.toggle('oculto', !parada);
+  document.getElementById('btnParar').disabled = false;
+
+  ['btnChao', 'btnReset', 'btnExportar'].forEach(id => document.getElementById(id).disabled = false);
+
+  renderCiclos();
+  tique();
+  document.getElementById('cartaoGrafico').style.display = '';
+  renderGrafico(CAM ? CAM.eventos : eventosRemotos);
+}
+
+async function abrirSessao() {
+  const turno_id  = Number(document.getElementById('selTurno').value);
+  const produto_id = Number(document.getElementById('selProduto').value);
+  const data = document.getElementById('inData').value || hojeISO();
+
+  if (!turno_id || !produto_id) { avisoErro('Selecione o turno e o produto.'); return; }
+
+  const btn = document.getElementById('btnAbrir');
+  btn.disabled = true; btn.textContent = 'Carregando…';
+
+  const s = await tentar(() => API.post('/api/cadenciador/sessoes', { turno_id, produto_id, data }));
+  if (s) { aplicarSessao(s); manterTelaLigada(); await iniciarCamera(s); if (!$c('selCelula').value) avisoOk('Para contar com câmera, escolha a célula antes de iniciar.'); }
+
+  btn.disabled = false; btn.textContent = 'Iniciar linha';
+}
+
+/* ═══════════ Câmera do pallet (contador integrado) ═══════════ */
+
+const $c = id => document.getElementById(id);
+function atualizarPlacarCam() {
+  const c = CAM ? CAM.contagem : eventosRemotos.reduce((s, e) => s + e.valor, 0);
+  const evs = CAM ? CAM.eventos : eventosRemotos;
+  $c('camContagem').textContent = c; $c('camContagemR').textContent = c; $c('chaoCam').textContent = c;
+  const agora = agoraHMS();
+  const esperado = SESSAO ? SESSAO.ciclos.filter(x => offsetNoTurno(x.hora_prevista, SESSAO) <= offsetNoTurno(agora, SESSAO) && dentroDoTurno(agora, SESSAO)).length : 0;
+  const d = c - esperado;
+  $c('camEsperado').textContent = esperado; $c('camEsperadoR').textContent = esperado;
+  $c('camDelta').textContent = (d > 0 ? '+' : '') + d; $c('camDelta').className = 'delta ' + (d >= 0 ? 'ok' : 'ruim');
+  $c('camDeltaR').textContent = $c('camDelta').textContent; $c('camDeltaR').className = $c('camDelta').className;
+  const saidas = evs.filter(e => e.valor > 0).map(e => new Date(e.ts)).sort((a, b) => a - b);
+  if (SESSAO && saidas.length >= 2) { const int = (saidas[saidas.length - 1] - saidas[saidas.length - 2]) / 60000; $c('camRitmo').innerHTML = `Última saída: <strong>${int.toFixed(1)} min</strong> · takt ${SESSAO.takt_min} min ${int <= SESSAO.takt_min * 1.05 ? '<span style="color:var(--ok)">✓ no ritmo</span>' : '<span style="color:var(--erro)">⚠ ' + Math.round((int / SESSAO.takt_min - 1) * 100) + '% acima</span>'}`; }
+  else $c('camRitmo').textContent = SESSAO ? 'Takt ' + SESSAO.takt_min + ' min · aguardando as primeiras saídas' : '';
+  renderGrafico(evs);
+}
+/* Linha iniciada: registra a câmera da célula no servidor (o painel e um celular avulso seguem o produto)
+   e mostra o passo "conectar câmera". Se já houver câmera (este aparelho ou outro), segue com ela. */
+async function iniciarCamera(s) {
+  const celula = $c('selCelula').value;
+  if (!celula) { $c('cartaoCamera').style.display = 'none'; $c('chaoCamCaixa').style.display = 'none'; LINHA_CAM = null; if (CAM) { CAM.parar(); CAM = null; } return; }
+  LINHA_CAM = await tentar(() => API.post('/api/contador/linhas', { celula, produto_id: s.produto_id }));
+  if (!LINHA_CAM) return;
+  $c('cartaoCamera').style.display = ''; $c('chaoCamCaixa').style.display = '';
+  statusIa();
+  if (CAM && CAM.ativo) { await CAM.trocarSessao(s.produto_id, s.id); atualizarPlacarCam(); return; }
+  mostrarPassoCam('conectar');
+  await verificarCamRemota();
+  if (localStorage.getItem('cad.camera') === 'aqui' && !camRemotaOnline) conectarCamAqui();   // da última vez usou este aparelho
+}
+let camRemotaOnline = false;
+function mostrarPassoCam(qual) {
+  ['camConectar', 'camRemota', 'camLocal'].forEach(id => $c(id).style.display = id === 'cam' + qual.charAt(0).toUpperCase() + qual.slice(1) ? '' : 'none');
+  $c('btnCamParar').style.display = qual === 'local' ? '' : 'none';
+  $c('camSelo').textContent = qual === 'local' ? 'câmera deste aparelho' : qual === 'remota' ? 'câmera em outro aparelho' : 'sem câmera';
+  $c('camSelo').className = 'selo ' + (qual === 'conectar' ? 'selo-neutro' : 'selo-ok');
+}
+async function verificarCamRemota() {
+  if (!LINHA_CAM || (CAM && CAM.ativo)) return;
+  const linhas = await API.get('/api/contador/linhas').catch(() => []);
+  const l = linhas.find(x => x.id === LINHA_CAM.id);
+  camRemotaOnline = !!(l && l.online);
+  if (camRemotaOnline) {
+    if ($c('camRemota').style.display === 'none') mostrarPassoCam('remota');
+    const img = $c('camRemotaImg'); if (img.dataset.ts !== String(l.frame_ts)) { img.dataset.ts = l.frame_ts; img.src = `/api/contador/frame/${l.id}?t=${l.frame_ts}`; }
+    $c('camRemotaInfo').textContent = `${l.usuario || ''} · ${l.dispositivo || ''} · ${l.config.zona ? 'área marcada' : 'sem área marcada — marque no painel ou no celular'}`;
+    await carregarEventosRemotos();
+  } else if ($c('camRemota').style.display !== 'none') { mostrarPassoCam('conectar'); $c('camConectarInfo').textContent = 'O celular parou de transmitir.'; }
+}
+function abrirQrCam() { if (!LINHA_CAM) return; $c('qrImg').src = `/api/contador/linhas/${LINHA_CAM.id}/qr.svg`; $c('qrLink').textContent = `${location.origin}/cadenciador/camera?linha=${LINHA_CAM.id}`; abrirModal('mQr'); }
+async function conectarCamAqui() {
+  const s = SESSAO; if (!s || !LINHA_CAM) return;
+  mostrarPassoCam('local');
+  CAM = ContadorCam.criar({
+    video: $c('camVideo'), canvas: $c('camSobre'), flash: $c('camFlash'), desenhoLocal: true,
+    hud: { ia: $c('camHudIa'), estado: $c('camHudEstado'), live: $c('camHudLive') },
+    onContagem: () => atualizarPlacarCam(),
+    onSessao: () => atualizarPlacarCam(),
+    onConfig: (cfg, zona) => { $c('camDica').style.display = (zona || (CAM && CAM.modelo && CAM.modelo.tipo !== 'cls')) ? 'none' : ''; $c('camMult').checked = !!cfg.multiplas; $c('camInfo').innerHTML = (CAM && CAM.modelo ? (CAM.modelo.tipo === 'cls' ? '<b>IA treinada</b>: pallet vazio × com peças' : '<b>IA treinada</b>: reconhece pallet, caixas e peças; conta cada uma colocada (+1) e retirada (−1)') : `Sem IA treinada ainda — contando por diferença de imagem (sensibilidade ${cfg.sens}/10). Ensine a IA no painel das câmeras › Configurar › Ensinar a IA`) + ' · zoom e câmera ajustam-se pelo painel no PC'; },
+    onEncerrar: () => { CAM = null; mostrarPassoCam('conectar'); },
+    onModelo: m => { $c('camSelo').textContent = m ? 'IA treinada ativa' : 'câmera deste aparelho'; if (m) avisoOk('IA treinada carregada: a contagem passa a ser por reconhecimento das caixas.'); statusIa(); }
+  });
+  try { await CAM.conectar({ linhaId: LINHA_CAM.id, produtoId: s.produto_id, sessaoId: s.id }); }
+  catch (e) { avisoErro('Câmera: ' + e.message); CAM = null; mostrarPassoCam('conectar'); return; }
+  localStorage.setItem('cad.camera', 'aqui');
+  atualizarPlacarCam();
+}
+/* Ensinar a IA: abre o treino desta célula + produto em tela cheia, sem sair do Cadenciador */
+function abrirEnsinar(aba) {
+  if (!LINHA_CAM || !SESSAO) return avisoErro('Inicie a linha com a célula escolhida primeiro.');
+  const camLigada = (CAM && CAM.ativo) || camRemotaOnline;
+  if (aba === 'ia' && !camLigada) avisoErro('Conecte a câmera antes: os quadros de treino saem dela.');
+  $c('ifEnsinar').src = `/cadenciador/painel?linha=${LINHA_CAM.id}&produto=${SESSAO.produto_id}&aba=${aba}&embed=1`;
+  $c('mEnsinar').style.display = 'block';
+}
+window.addEventListener('message', ev => {
+  if (ev.origin !== location.origin || !ev.data || ev.data.tipo !== 'fechar-ensinar') return;
+  $c('mEnsinar').style.display = 'none'; $c('ifEnsinar').src = 'about:blank'; statusIa();
+});
+$c('btnEnsinar').onclick = () => abrirEnsinar('ia');
+$c('btnCamArea').onclick = () => abrirEnsinar('area');
+/* mostra se este produto já tem IA treinada */
+async function statusIa() {
+  const el = $c('camIaStatus'); if (!LINHA_CAM || !SESSAO) { el.innerHTML = ''; return; }
+  const m = await API.get(`/api/contador/linhas/${LINHA_CAM.id}/modelo?info=1&produto_id=${SESSAO.produto_id}`).catch(() => null);
+  const prod = escapar(SESSAO.produto_nome || 'este produto');
+  if (!m) el.innerHTML = `<div class="aviso-faixa" style="background:var(--alerta-bg);border:1px solid var(--alerta-bd);color:var(--alerta);padding:10px 12px;border-radius:10px;font-size:13px">⚠ <b>${prod}</b> ainda não tem IA treinada nesta célula — a contagem usa só diferença de imagem. Clique em <b>🧠 Ensinar a IA deste produto</b>.</div>`;
+  else {
+    const k = m.metricas || {}, ac = m.tipo === 'cls' ? k.acerto : k.map50;
+    el.innerHTML = `<div style="background:var(--fade-suave);border:1px solid rgba(38,178,71,.3);padding:10px 12px;border-radius:10px;font-size:13px">✓ IA treinada ${m.produto_id ? 'para <b>' + prod + '</b>' : '<b>geral desta câmera</b> (vale para todos os produtos; dá para treinar uma específica para ' + prod + ')'} · ${m.amostras} quadros · acerto no treino ${ac != null ? Math.round(ac * 100) + '%' : '—'} · ${new Date(m.created_at).toLocaleDateString('pt-BR')}</div>`;
+  }
+}
+$c('btnCamAqui').onclick = conectarCamAqui; $c('btnCamAqui2').onclick = conectarCamAqui;
+$c('btnCamQr').onclick = abrirQrCam; $c('btnCamQr2').onclick = abrirQrCam;
+$c('camMaisR').onclick = () => LINHA_CAM && API.post(`/api/contador/linhas/${LINHA_CAM.id}/comando`, { tipo: 'mais' }).catch(e => avisoErro(e.message));
+$c('camMenosR').onclick = () => LINHA_CAM && API.post(`/api/contador/linhas/${LINHA_CAM.id}/comando`, { tipo: 'menos' }).catch(e => avisoErro(e.message));
+async function carregarEventosRemotos() {
+  if (!LINHA_CAM || !SESSAO) return;
+  eventosRemotos = await API.get(`/api/contador/eventos?data=${hojeISO()}&linha_id=${LINHA_CAM.id}&sessao_id=${SESSAO.id}`).catch(() => []);
+  atualizarPlacarCam();
+}
+setInterval(() => { if (SESSAO) atualizarPlacarCam(); }, 5000);
+setInterval(() => { if (LINHA_CAM && !(CAM && CAM.ativo)) verificarCamRemota(); }, 2000);
+
+document.querySelectorAll('#cartaoCamera .modo [data-modo]').forEach(b => b.onclick = () => { document.querySelectorAll('#cartaoCamera .modo [data-modo]').forEach(x => x.classList.toggle('sel', x === b)); if (CAM) CAM.modoDesenho(b.dataset.modo); $c('camDica').style.display = ''; $c('camDica').textContent = b.dataset.modo === 'zona' ? 'Arraste na imagem para marcar a área do pallet (toda a altura das pilhas).' : 'Arraste em volta de uma caixa inteira deste produto.'; });
+$c('camMult').onchange = e => { if (CAM) CAM.salvarConfig({ multiplas: e.target.checked }, true); };
+$c('camMais').onclick = () => CAM && CAM.registrar('manual_mais');
+$c('camMenos').onclick = () => { if (CAM && CAM.contagem > 0) CAM.registrar('manual_menos'); };
+$c('camPallet').onclick = () => { if (CAM) { CAM.trocaPallet(); avisoOk('Referência zerada. Saia da frente do pallet por 2 s.'); } };
+$c('camRecal').onclick = () => { if (CAM) { CAM.recalibrar(); avisoOk('Recalibrando.'); } };
+$c('btnCamParar').onclick = () => { if (CAM) { CAM.parar(); CAM = null; } localStorage.removeItem('cad.camera'); mostrarPassoCam('conectar'); };
+
+/* ═══════════ Gráfico takt × produzido ═══════════ */
+function renderGrafico(evs) {
+  if (!SESSAO || typeof Chart === 'undefined') return;
+  const data = SESSAO.data ? String(SESSAO.data).slice(0, 10) : hojeISO();
+  const tempo = h => { const [H, M, S] = String(h).slice(0, 8).split(':').map(Number); return new Date(`${data}T00:00:00`).getTime() + (H * 3600 + M * 60 + (S || 0)) * 1000; };
+  const esperado = SESSAO.ciclos.map((c, i) => ({ x: tempo(c.hora_prevista), y: i + 1 }));
+  let acc = 0; const real = evs.filter(e => e.valor !== 0).slice().sort((a, b) => new Date(a.ts) - new Date(b.ts)).map(e => ({ x: new Date(e.ts).getTime(), y: (acc += e.valor) }));
+  if (real.length) real.unshift({ x: real[0].x - 1, y: 0 });
+  const agoraX = Date.now();
+  if (real.length && data === hojeISO()) real.push({ x: agoraX, y: acc });
+  const fmtT = v => new Date(v).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  const ds = [
+    { label: 'Esperado (takt)', data: esperado, borderColor: '#64748b', borderDash: [6, 4], pointRadius: 0, stepped: true, borderWidth: 2 },
+    { label: 'Produzido (câmera)', data: real, borderColor: '#35C95C', backgroundColor: 'rgba(53,201,92,.12)', fill: true, pointRadius: 0, stepped: true, borderWidth: 2.5 }
+  ];
+  if (!GRAF) GRAF = new Chart($c('grafProd'), { type: 'line', data: { datasets: ds }, options: { animation: false, responsive: true, maintainAspectRatio: false, interaction: { mode: 'nearest', intersect: false }, scales: { x: { type: 'linear', min: tempo(SESSAO.hora_inicio), max: tempo(SESSAO.hora_fim), ticks: { callback: fmtT, maxTicksLimit: 12 } }, y: { beginAtZero: true, title: { display: true, text: 'unidades' } } }, plugins: { tooltip: { callbacks: { title: it => fmtT(it[0].parsed.x) } } } } });
+  else { GRAF.data.datasets = ds; GRAF.options.scales.x.min = tempo(SESSAO.hora_inicio); GRAF.options.scales.x.max = tempo(SESSAO.hora_fim); GRAF.update(); }
+  const esperadoAgora = esperado.filter(p => p.x <= agoraX).length;
+  $c('grafResumo').textContent = `${acc} produzidos · ${esperadoAgora} esperados até agora · ${acc - esperadoAgora >= 0 ? '+' : ''}${acc - esperadoAgora}`;
+}
+
+/* ═══════════ Ações ═══════════ */
+
+document.getElementById('btnAbrir').onclick = abrirSessao;
+
+document.getElementById('btnParar').onclick = async () => {
+  const motivo = prompt('Motivo da parada (opcional):') || null;
+  const r = await tentar(() => API.post(`/api/cadenciador/sessoes/${SESSAO.id}/parar`, { motivo }));
+  if (!r) return;
+  SESSAO.parada_aberta = r;
+  document.getElementById('btnParar').classList.add('oculto');
+  document.getElementById('btnContinuar').classList.remove('oculto');
+  Voz.falar('Linha de produção parada');
+};
+
+document.getElementById('btnContinuar').onclick = async () => {
+  const s = await tentar(() => API.post(`/api/cadenciador/sessoes/${SESSAO.id}/continuar`));
+  if (!s) return;
+  aplicarSessao(s);
+  Voz.falar(`Linha continuada. Tempo de parada acumulado: ${segParaHMS(s.tempo_parado_seg)}`);
+  avisoOk('Ciclos recalculados com o tempo de parada.');
+};
+
+document.getElementById('btnReset').onclick = async () => {
+  if (!confirm('Isso marca todos os ciclos como concluídos e apaga as observações. Continuar?')) return;
+  const s = await tentar(() => API.post(`/api/cadenciador/sessoes/${SESSAO.id}/reset`), 'Marcações limpas.');
+  if (s) aplicarSessao(s);
+};
+
+document.getElementById('btnExportar').onclick = () => {
+  window.location.href = `/api/export/ciclos?sessao_id=${SESSAO.id}`;
+};
+
+document.getElementById('chaveVoz').onchange = (e) => { Voz.ativa = e.target.checked; };
+
+/* Painel de chão */
+const chao = document.getElementById('chao');
+document.getElementById('btnChao').onclick = () => {
+  chao.classList.add('ativo');
+  document.body.style.overflow = 'hidden';
+  if (chao.requestFullscreen) chao.requestFullscreen().catch(() => {});
+  manterTelaLigada();
+};
+function sairDoChao() {
+  chao.classList.remove('ativo');
+  document.body.style.overflow = '';
+  if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+}
+document.getElementById('btnSairChao').onclick = sairDoChao;
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && chao.classList.contains('ativo')) sairDoChao(); });
+
+/* Ao trocar de turno, o takt do produto pode mudar */
+document.getElementById('selTurno').onchange = () => carregarProdutos();
+document.getElementById('selCelula').onchange = () => { localStorage.setItem('cad.celula', document.getElementById('selCelula').value); carregarProdutos(); };
+
+
+async function carregarProdutos() {
+  const turnoId = document.getElementById('selTurno').value;
+  const sel = document.getElementById('selProduto');
+  const escolhido = sel.value;
+
+  PRODUTOS = await API.get('/api/cadenciador/produtos' + (turnoId ? '?turno_id=' + turnoId : '')).catch(() => []);
+  const cel = document.getElementById('selCelula').value;
+  let produtos = cel ? PRODUTOS.filter(p => p.celula_nome === cel) : PRODUTOS;
+  if (cel && !produtos.length) produtos = PRODUTOS;   // célula sem produto vinculado: mostra todos
+  sel.innerHTML = produtos.length
+    ? produtos.map(p => `<option value="${p.id}">${escapar(p.nome)} — ${p.takt_min} min</option>`).join('')
+    : '<option value="">Nenhum produto cadastrado</option>';
+
+  if (escolhido && produtos.some(p => p.id == escolhido)) sel.value = escolhido;
+}
+
+/* ═══════════ Início ═══════════ */
+
+(async () => {
+  await montarTopo({ subtitulo: 'Cadenciador de Produção' });
+
+  document.getElementById('inData').value = hojeISO();
+
+  TURNOS = await API.get('/api/config/turnos?ativos=1').catch(() => []);
+  const selTurno = document.getElementById('selTurno');
+
+  if (!TURNOS.length) {
+    selTurno.innerHTML = '<option value="">Nenhum turno ativo</option>';
+    avisoErro('Nenhum turno ativo. Cadastre um turno em Administração.');
+  } else {
+    selTurno.innerHTML = TURNOS.map(t =>
+      `<option value="${t.id}">${escapar(t.nome)} (${horaCurta(t.hora_inicio)}–${horaCurta(t.hora_fim)})</option>`).join('');
+
+    // Pré-seleciona o turno em vigor agora
+    try {
+      const { turno } = await API.get('/api/config/turnos/atual');
+      if (turno) selTurno.value = turno.id;
+    } catch {}
+  }
+
+  CELULAS = await API.get('/api/prod-celulas').catch(() => []);
+  const selCel = document.getElementById('selCelula');
+  selCel.innerHTML = '<option value="">Todas</option>' + CELULAS.filter(c => c.ativa !== false).map(c => `<option value="${escapar(c.nome)}">${escapar(c.nome)}</option>`).join('');
+  const celSalva = localStorage.getItem('cad.celula'); if (celSalva && CELULAS.some(c => c.nome === celSalva)) selCel.value = celSalva;
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { document.getElementById('btnCamAqui').disabled = true; document.getElementById('camConectarInfo').textContent = 'Este navegador não dá acesso à câmera (precisa de HTTPS). Conecte um celular pelo QR.'; }
+
+  await carregarProdutos();
+  setInterval(tique, 1000);
+})();
+</script>
+</body>
+</html>

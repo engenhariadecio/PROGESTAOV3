@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Cadenciador — câmera da linha — Décio</title>
+<link rel="icon" href="/assets/logo-decio.png">
+<link rel="stylesheet" href="/css/decio.css">
+<style>
+body { overscroll-behavior: none; }
+.conteudo { max-width: 1100px; }
+.grade { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 18px; align-items: start; }
+@media (max-width: 900px) { .grade { grid-template-columns: 1fr; } }
+.setup { background: var(--card); border: 1px solid var(--linha); border-radius: 16px; padding: 22px; max-width: 560px; margin: 0 auto; }
+.setup h2 { font-size: 20px; margin-bottom: 4px; }
+.setup p { color: var(--t3); font-size: 13px; margin-bottom: 18px; line-height: 1.5; }
+.campo { margin-bottom: 14px; }
+.rotulo { display: block; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--t3); margin-bottom: 6px; font-weight: 700; }
+.lista-linhas { display: grid; gap: 8px; }
+.linha-op { border: 1px solid var(--linha); border-radius: 10px; padding: 12px; cursor: pointer; display: flex; justify-content: space-between; gap: 10px; align-items: center; font-size: 13px; }
+.linha-op:hover { border-color: var(--linha-2); background: var(--hover); }
+.linha-op.sel { border-color: var(--verde); background: var(--fade-suave); }
+.linha-op small { color: var(--t3); }
+.aviso-cam { background: var(--alerta-bg); border: 1px solid var(--alerta-bd); color: var(--alerta); padding: 10px 12px; border-radius: 10px; font-size: 12.5px; margin-bottom: 12px; display: none; }
+.palco { position: relative; background: #000; border-radius: 16px; overflow: hidden; border: 1px solid var(--linha); aspect-ratio: 4/3; }
+.palco video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.palco canvas.sobre { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; }
+.palco .hud { position: absolute; left: 10px; top: 10px; display: flex; gap: 6px; flex-wrap: wrap; pointer-events: none; }
+.selo-hud { background: rgba(10,22,32,.75); color: #fff; font-size: 11px; font-weight: 700; padding: 4px 9px; border-radius: 8px; border: 1px solid rgba(255,255,255,.18); backdrop-filter: blur(4px); }
+.selo-hud.on { border-color: var(--verde); color: var(--verde-clr); }
+.selo-hud.alerta { border-color: var(--alerta); color: var(--alerta); }
+.selo-hud.erro { border-color: var(--erro); color: var(--erro); }
+.flash { position: absolute; inset: 0; background: rgba(52,211,153,.35); opacity: 0; pointer-events: none; transition: opacity .25s; }
+.flash.on { opacity: 1; }
+.palco .dica { pointer-events: none; position: absolute; left: 0; right: 0; bottom: 0; padding: 10px 12px; background: linear-gradient(transparent, rgba(0,0,0,.75)); color: #fff; font-size: 12.5px; text-align: center; }
+.placar { background: var(--card); border: 1px solid var(--linha); border-radius: 16px; padding: 18px; text-align: center; position: relative; overflow: hidden; }
+.placar::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: var(--fade); }
+.placar .num { font-family: var(--display); font-size: 84px; font-weight: 800; line-height: 1; color: var(--verde-clr); letter-spacing: -.04em; }
+.placar .rot { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--t3); margin-top: 4px; }
+.placar .comp { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 14px; }
+.placar .comp div { background: var(--sup); border-radius: 10px; padding: 8px; }
+.placar .comp b { display: block; font-size: 20px; font-family: var(--display); }
+.placar .comp span { font-size: 10.5px; color: var(--t3); text-transform: uppercase; letter-spacing: .06em; }
+.delta.ok { color: var(--ok); } .delta.ruim { color: var(--erro); }
+.ritmo { margin-top: 10px; font-size: 12.5px; color: var(--t2); min-height: 18px; }
+.botoes { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 14px; }
+.btn-grande { font-size: 22px; padding: 16px; border-radius: 12px; font-weight: 800; }
+.acoes { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+.acoes .btn { flex: 1; }
+.modo { display: flex; gap: 6px; margin-top: 10px; }
+.modo .btn.sel { background: var(--verde); color: #fff; border-color: var(--verde); }
+.ultimos { margin-top: 14px; display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; }
+.ultimos img { width: 64px; height: 48px; object-fit: cover; border-radius: 6px; border: 1px solid var(--linha); flex: none; }
+.ultimos .m { width: 64px; height: 48px; border-radius: 6px; border: 1px dashed var(--linha); display: grid; place-items: center; font-size: 18px; flex: none; color: var(--t3); }
+.info { margin-top: 10px; font-size: 12px; color: var(--t3); line-height: 1.5; }
+.offline { display: none; background: var(--erro-bg); border: 1px solid var(--erro-bd); color: var(--erro); padding: 8px 12px; border-radius: 10px; font-size: 12px; margin-top: 10px; }
+.offline.on { display: block; }
+</style>
+</head>
+<body>
+<header id="topo"></header>
+
+<main class="conteudo">
+  <section class="setup" id="setup">
+    <p class="olho">Câmera da linha</p>
+    <h2>Conectar a câmera deste aparelho a uma célula</h2>
+    <p>Use quando a câmera fica num aparelho separado do tablet do Cadenciador. Fixe-o num suporte apontado para o pallet e conecte; o produto em linha e a configuração vêm do Cadenciador/painel.</p>
+    <div class="aviso-cam" id="avisoCam"></div>
+    <div class="campo"><span class="rotulo">Célula</span>
+      <div class="lista-linhas" id="listaLinhas"><div class="ajuda">Carregando…</div></div></div>
+    <button class="btn btn-primario btn-lg btn-bloco" id="btnIniciar">Conectar câmera</button>
+  </section>
+
+  <div class="grade" id="contando" style="display:none">
+    <div>
+      <div class="palco" id="palco">
+        <video id="video" playsinline muted autoplay></video>
+        <canvas class="sobre" id="sobre"></canvas>
+        <div class="flash" id="flash"></div>
+        <div class="hud"><span class="selo-hud" id="hudIa">IA: carregando…</span><span class="selo-hud" id="hudEstado">Aguardando</span><span class="selo-hud" id="hudLive">● ao vivo</span></div>
+        <div class="dica" id="dica">Aguardando a área do pallet — configure pelo PC ou arraste aqui na imagem.</div>
+      </div>
+      <div class="modo"><button class="btn btn-sm btn-fantasma sel" data-modo="zona">▭ Área do pallet</button><button class="btn btn-sm btn-fantasma" data-modo="caixa">▢ Tamanho de uma caixa (opcional)</button></div>
+      <div class="offline" id="offline">Sem conexão — as contagens ficam guardadas no aparelho e sobem quando a rede voltar.</div>
+      <div class="info" id="info"></div>
+    </div>
+    <aside>
+      <div class="placar">
+        <div class="num" id="contagem">0</div>
+        <div class="rot" id="rotLinha">—</div>
+        <div class="comp"><div><b id="esperado">—</b><span>Esperado (cadenciador)</span></div><div><b id="delta" class="delta">—</b><span>Diferença</span></div></div>
+        <div class="ritmo" id="ritmo"></div>
+        <div class="botoes"><button class="btn btn-ok btn-grande" id="btnMais">+1</button><button class="btn btn-fantasma btn-grande" id="btnMenos">−1</button></div>
+        <div class="acoes"><button class="btn btn-fantasma btn-sm" id="btnPallet">Pallet trocado</button><button class="btn btn-fantasma btn-sm" id="btnSair">Encerrar</button></div>
+        <div class="ultimos" id="ultimos"></div>
+      </div>
+    </aside>
+  </div>
+</main>
+
+<script src="/js/core.js"></script>
+<script src="/js/mediapipe/pose/pose.js"></script>
+<script src="/js/ort/ort.min.js"></script>
+<script src="/js/contador-cam.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+let linha = null, cam = null, thumbs = [];
+
+async function carregarSetup() {
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { $('avisoCam').style.display = 'block'; $('avisoCam').textContent = 'Este navegador não dá acesso à câmera. Use o Chrome, pelo endereço HTTPS do sistema.'; }
+  const linhas = await API.get('/api/contador/linhas').catch(() => []);
+  const el = $('listaLinhas');
+  if (!linhas.length) { el.innerHTML = '<div class="ajuda">Nenhuma célula com linha iniciada. No tablet, abra o Cadenciador, escolha célula e produto e clique em Iniciar linha; depois volte aqui.</div>'; return; }
+  const pedida = Number(new URLSearchParams(location.search).get('linha')) || Number(localStorage.getItem('contador.linha')) || 0;
+  el.innerHTML = linhas.map(l => `<div class="linha-op${l.id === pedida ? ' sel' : ''}" data-id="${l.id}"><div><strong>${escapar(l.nome || l.celula)}</strong><br><small>${escapar(l.celula)}${l.produto_nome ? ' · ' + escapar(l.produto_nome) : ''}${l.sessao ? ' · takt ' + l.sessao.takt_min + ' min' : ' · sem cadenciador hoje'}</small></div>${l.online ? '<span class="selo selo-ok">câmera ligada</span>' : ''}</div>`).join('');
+  el.querySelectorAll('.linha-op').forEach(op => op.onclick = () => { el.querySelectorAll('.linha-op').forEach(o => o.classList.remove('sel')); op.classList.add('sel'); linha = linhas.find(l => l.id === Number(op.dataset.id)); });
+  linha = linhas.find(l => l.id === pedida) || null;
+  if (!linha && linhas.length === 1) { linha = linhas[0]; el.querySelector('.linha-op').classList.add('sel'); }
+}
+function renderUltimos() {
+  $('ultimos').innerHTML = thumbs.map(u => u.origem === 'troca_pallet' ? '<div class="m" title="Troca de pallet">⟳</div>' : u.origem === 'estorno' ? '<div class="m" title="Estorno automático">↩</div>' : u.origem === 'manual_menos' ? '<div class="m">−1</div>' : `<img src="${u.foto}">`).join('');
+}
+function atualizarPlacar() {
+  const s = cam.sessao, c = cam.contagem;
+  if (!s) { $('esperado').textContent = '—'; $('delta').textContent = '—'; $('delta').className = 'delta'; $('ritmo').textContent = 'Sem sessão do cadenciador para este produto hoje.'; return; }
+  const d = c - s.esperado; $('esperado').textContent = s.esperado;
+  $('delta').textContent = (d > 0 ? '+' : '') + d; $('delta').className = 'delta ' + (d >= 0 ? 'ok' : 'ruim');
+  const saidas = cam.eventos.filter(e => e.valor > 0).map(e => new Date(e.ts)).sort((a, b) => a - b);
+  if (saidas.length >= 2) { const int = (saidas[saidas.length - 1] - saidas[saidas.length - 2]) / 60000; $('ritmo').innerHTML = `Última saída: <strong>${int.toFixed(1)} min</strong> · takt ${s.takt_min} min ${int <= s.takt_min * 1.05 ? '<span style="color:var(--ok)">✓ no ritmo</span>' : '<span style="color:var(--erro)">⚠ ' + Math.round((int / s.takt_min - 1) * 100) + '% acima</span>'}`; }
+  else $('ritmo').textContent = 'Takt ' + s.takt_min + ' min · aguardando as primeiras saídas';
+}
+async function iniciar() {
+  if (!linha) return avisoErro('Escolha a célula.');
+  localStorage.setItem('contador.linha', linha.id);
+  cam = ContadorCam.criar({
+    video: $('video'), canvas: $('sobre'), flash: $('flash'), desenhoLocal: true,
+    hud: { ia: $('hudIa'), estado: $('hudEstado'), live: $('hudLive') },
+    onContagem: n => { $('contagem').textContent = n; atualizarPlacar(); },
+    onEvento: ev => { thumbs.unshift(ev); thumbs = thumbs.slice(0, 6); renderUltimos(); },
+    onSessao: () => atualizarPlacar(),
+    onConfig: (cfg, zona) => { $('dica').style.display = (zona || (cam && cam.modelo && cam.modelo.tipo !== 'cls')) ? 'none' : ''; $('info').innerHTML = `Sensibilidade ${cfg.sens}/10 · conta caixa colocada (+1) e retirada (−1)${cfg.caixa ? ' · tamanho da caixa marcado' : ' · aprende o tamanho da caixa sozinha'}`; },
+    onOffline: off => $('offline').classList.toggle('on', off),
+    onEncerrar: () => location.href = '/cadenciador/camera',
+    onModelo: m => { if (m) avisoOk('IA treinada carregada: contagem por reconhecimento das caixas.'); }
+  });
+  try { await cam.conectar({ linhaId: linha.id, produtoId: linha.produto_id }); }
+  catch (e) { return avisoErro('Não foi possível conectar: ' + e.message); }
+  $('setup').style.display = 'none'; $('contando').style.display = '';
+  $('rotLinha').textContent = (linha.nome || linha.celula) + (cam.estado.linha.produto_nome ? ' · ' + cam.estado.linha.produto_nome : '');
+  atualizarPlacar();
+}
+document.querySelectorAll('.modo [data-modo]').forEach(b => b.onclick = () => { document.querySelectorAll('.modo [data-modo]').forEach(x => x.classList.toggle('sel', x === b)); cam.modoDesenho(b.dataset.modo); $('dica').style.display = ''; $('dica').textContent = b.dataset.modo === 'zona' ? 'Arraste na imagem para marcar a área do pallet.' : 'Arraste em volta de uma caixa inteira.'; });
+$('btnIniciar').onclick = iniciar;
+$('btnMais').onclick = () => cam.registrar('manual_mais');
+$('btnMenos').onclick = () => { if (cam.contagem > 0) cam.registrar('manual_menos'); };
+$('btnPallet').onclick = () => { cam.trocaPallet(); avisoOk('Referência zerada. Saia da frente do pallet por 2 s.'); };
+$('btnSair').onclick = () => { if (!confirm('Encerrar a câmera neste aparelho?')) return; cam.parar(); location.href = '/cadenciador/camera'; };
+(async () => { await montarTopo({ subtitulo: 'Cadenciador — câmera da linha' }); carregarSetup(); })();
+</script>
+</body>
+</html>

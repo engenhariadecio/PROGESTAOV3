@@ -1,0 +1,14 @@
+{
+  "name": "Cadenciador de Produção — Décio",
+  "short_name": "Cadenciador",
+  "description": "Cadência da linha por takt time, com avisos de voz e painel de chão de fábrica.",
+  "start_url": "/cadenciador",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "landscape",
+  "background_color": "#0A1620",
+  "theme_color": "#1C4984",
+  "icons": [
+    { "src": "/assets/logo-decio.png", "sizes": "200x200", "type": "image/png", "purpose": "any" }
+  ]
+}

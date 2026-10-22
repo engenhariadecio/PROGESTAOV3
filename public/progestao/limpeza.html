@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ProGestão – Limpeza</title>
+<style>
+:root{--bg:#0A1620;--card:#14293A;--card2:#1A3347;--accent:#26B247;--accent2:#1C4984;--green:#34D399;--yellow:#F0B429;--red:#F26D6D;--orange:#E88C4A;--blue:#56B6E0;--purple:#1D6574;--text:#EAF4F1;--text2:#A2BCC3;--border:#1E3D52;--radius:12px;--panel:#14293A;--panel2:#1A3347;--fade:linear-gradient(135deg,#26B247 0%,#1D6574 55%,#1C4984 100%)}
+*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}a{color:var(--accent);text-decoration:none}
+.topbar{background:var(--card);padding:12px 24px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border)}.topbar .logo{font-size:1.2rem;font-weight:700;color:var(--accent)}.topbar .logo a{color:var(--text);font-weight:700}.topbar .right{display:flex;align-items:center;gap:16px}.topbar .clock{background:var(--card2);padding:4px 12px;border-radius:20px;font-size:.85rem;color:var(--text2)}.topbar .user{font-size:.9rem;color:var(--text2)}
+.btn-sm{padding:6px 14px;border:none;border-radius:8px;cursor:pointer;font-size:.85rem;font-weight:600;transition:.2s;display:inline-flex;align-items:center;gap:4px}.btn-danger{background:var(--red);color:#fff}.btn-primary{background:var(--accent);color:#fff}.btn-green{background:var(--green);color:#fff}.btn-ghost{background:transparent;border:1px solid var(--border);color:var(--text2)}.btn-orange{background:var(--orange);color:#fff}.btn-warning{background:var(--yellow);color:#000}.btn-primary:hover{background:#2563eb}.btn-green:hover{background:#16a34a}.btn-danger:hover{opacity:.85}.btn-ghost:hover{border-color:var(--accent);color:var(--accent)}.btn-orange:hover{opacity:.85}.btn-warning:hover{background:#ca8a04}
+.layout{display:flex;min-height:calc(100vh - 57px)}.sidebar{width:220px;background:var(--card);padding:16px 12px;border-right:1px solid var(--border);display:flex;flex-direction:column;gap:4px}.sidebar a{display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:var(--radius);color:var(--text2);font-size:.9rem;transition:.2s}.sidebar a:hover,.sidebar a.active{background:var(--accent);color:#fff}.main{flex:1;padding:24px;overflow-y:auto}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:16px;margin-bottom:24px}.kpi{background:var(--card);padding:20px;border-radius:var(--radius);text-align:center;border:1px solid var(--border)}.kpi .num{font-size:2rem;font-weight:700}.kpi .lbl{font-size:.8rem;color:var(--text2);margin-top:4px}
+.tabs{display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap}.tab{padding:8px 18px;border-radius:20px;cursor:pointer;font-size:.85rem;background:var(--card);color:var(--text2);border:1px solid var(--border);transition:.2s}.tab:hover,.tab.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.tbl-wrap{overflow-x:auto}table{width:100%;border-collapse:collapse}th,td{padding:10px 14px;text-align:left;border-bottom:1px solid var(--border);font-size:.88rem}th{background:var(--card2);color:var(--text2);font-weight:600}tr:hover{background:rgba(59,130,246,.08)}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;max-width:700px}.form-group{display:flex;flex-direction:column;gap:4px}.form-group label{font-size:.8rem;color:var(--text2)}.form-group input,.form-group select,.form-group textarea{padding:10px;border-radius:8px;border:1px solid var(--border);background:var(--card2);color:var(--text);font-size:.9rem}.form-group textarea{min-height:80px;resize:vertical}
+.badge{padding:3px 10px;border-radius:12px;font-size:.78rem;font-weight:600}.badge-green{background:rgba(34,197,94,.15);color:var(--green)}.badge-red{background:rgba(239,68,68,.15);color:var(--red)}.badge-yellow{background:rgba(234,179,8,.15);color:var(--yellow)}.badge-blue{background:rgba(59,130,246,.15);color:var(--accent)}.badge-purple{background:rgba(139,92,246,.15);color:var(--accent2)}.badge-orange{background:rgba(249,115,22,.15);color:var(--orange)}
+.toast{position:fixed;top:20px;right:20px;padding:14px 24px;border-radius:var(--radius);color:#fff;font-weight:600;z-index:9999;animation:slideIn .3s}@keyframes slideIn{from{transform:translateX(100%);opacity:0}to{transform:translateX(0);opacity:1}}
+.section{display:none}.section.active{display:block}
+.search-bar{display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;align-items:center}.search-bar input,.search-bar select{padding:8px 14px;border-radius:8px;border:1px solid var(--border);background:var(--card2);color:var(--text);font-size:.88rem}.search-bar input{flex:1;min-width:200px}
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:999;align-items:center;justify-content:center}
+.modal-overlay.show{display:flex}
+.modal{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:24px;max-width:500px;width:90%;max-height:90vh;overflow-y:auto}
+.modal.lg{max-width:820px}
+.modal h3{margin-bottom:12px}.modal .btns{display:flex;gap:10px;margin-top:16px;justify-content:flex-end}
+@media(max-width:768px){.sidebar{display:none}.form-grid{grid-template-columns:1fr}.kpis{grid-template-columns:1fr 1fr}}
+</style>
+<link rel="icon" href="/assets/logo-decio.png">
+
+<style>
+/* ===== Tema Décio — sobreposição sobre o CSS original do módulo ===== */
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap');
+body{font-family:'Inter','Segoe UI',system-ui,sans-serif}
+h1,h2,h3,.logo{font-family:'Manrope','Segoe UI',system-ui,sans-serif;letter-spacing:-.02em}
+
+.fita-marca{position:fixed;top:0;left:0;right:0;height:3px;background:var(--fade);z-index:9999}
+
+.btn-primary,.btn-accent{
+  background:var(--fade)!important;color:#fff!important;border:none!important;
+  box-shadow:0 2px 12px rgba(38,178,71,.22)}
+.btn-primary:hover,.btn-accent:hover{filter:brightness(1.06);transform:translateY(-1px)}
+.btn-green{background:var(--green)!important;color:#062B1E!important}
+.btn-warning{background:var(--yellow)!important;color:#2B1E00!important}
+
+a{color:var(--accent)}
+.topbar{border-bottom:1px solid var(--border)}
+.logo-decio{height:26px;width:26px;border-radius:7px;vertical-align:-7px;margin-right:8px}
+.voltar-portal{
+  display:inline-flex;align-items:center;gap:6px;padding:6px 12px;margin-right:6px;
+  border:1px solid var(--border);border-radius:8px;background:var(--card2);
+  color:var(--text2)!important;font-size:12px;font-weight:600;text-decoration:none}
+.voltar-portal:hover{background:var(--panel2);color:var(--text)!important}
+
+::-webkit-scrollbar{width:8px;height:8px}
+::-webkit-scrollbar-track{background:var(--bg)}
+::-webkit-scrollbar-thumb{background:#2C5570;border-radius:99px}
+:focus-visible{outline:2px solid #35C95C;outline-offset:2px}
+@media(prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+</style>
+<style>
+/* ===== Limpeza ===== */
+.lp-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px;margin-top:14px}
+.lp-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;border-left:4px solid var(--green);display:flex;flex-direction:column;gap:8px}
+.lp-card.vencido{border-left-color:var(--red)}.lp-card.hoje{border-left-color:var(--orange)}.lp-card.a_vencer{border-left-color:var(--yellow)}.lp-card.inativo{opacity:.55}
+.lp-card h4{font-size:.98rem;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.lp-card .meta{font-size:.8rem;color:var(--text2);line-height:1.55}
+.lp-card .meta b{color:var(--text);font-weight:600}
+.lp-card .actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:auto;padding-top:6px}
+.lp-grupo{margin-top:22px}.lp-grupo h3{display:flex;align-items:center;gap:10px;font-size:1rem}
+.lp-grupo h3 .n{font-size:.78rem;padding:2px 10px;border-radius:12px;background:var(--card2);color:var(--text2)}
+.badge-orange{background:rgba(232,140,74,.15);color:var(--orange)}.badge-gray{background:rgba(160,180,190,.15);color:var(--text2)}
+.dia-cab{background:var(--card2)!important;font-weight:700;text-transform:capitalize}
+.dia-cab.hoje-cab{color:var(--accent)}
+tr.feito td{opacity:.65}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border-radius:8px;border:1px solid var(--border);background:var(--card2);font-size:.8rem;cursor:pointer;color:var(--text2)}
+.chip.on{border-color:var(--accent);color:var(--accent);background:rgba(38,178,71,.1)}
+.vazio{color:var(--text2);font-size:.85rem;padding:14px 0}
+.freq-row{display:flex;gap:8px;align-items:center}.freq-row input{width:80px}.freq-row select{flex:1}
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:999;align-items:center;justify-content:center}
+.modal-overlay.show{display:flex}
+.modal{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:24px;max-width:520px;width:92%;max-height:90vh;overflow-y:auto}
+.modal h3{margin-bottom:12px}.modal .btns{display:flex;gap:10px;margin-top:16px;justify-content:flex-end}
+.modal .form-grid{max-width:none}
+@media(max-width:768px){.lp-grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="fita-marca"></div>
+<div class="topbar">
+  <div class="logo"><img src="/assets/logo-decio.png" class="logo-decio" alt=""><a href="/progestao">ProGestão</a> / Limpeza</div>
+  <div class="right"><a href="/" class="voltar-portal">← Portal</a><span class="clock" id="clock"></span><span class="user" id="user-display"></span><button class="btn-sm btn-danger" onclick="doLogout()">Sair</button></div>
+</div>
+<div class="layout">
+<nav class="sidebar">
+  <a href="/progestao">🏠 Início</a><a href="/progestao/ferramentas">🔧 Ferramentas</a><a href="/progestao/epis">🦺 EPIs</a>
+  <a href="/progestao/banco-horas">⏰ Banco Horas</a><a href="/progestao/treinamentos">📚 Treinamentos</a>
+  <a href="/progestao/diario-bordo">📋 Diário Bordo</a><a href="/progestao/checklist">✅ Checklist</a>
+  <a href="/progestao/producao">📊 Produção</a><a href="/progestao/limpeza" class="active">🧹 Limpeza</a>
+</nav>
+<div class="main">
+  <h2 style="margin-bottom:20px">🧹 Limpeza</h2>
+  <div class="kpis">
+    <div class="kpi"><div class="num" id="k-itens" style="color:var(--accent)">0</div><div class="lbl">Itens ativos</div></div>
+    <div class="kpi"><div class="num" id="k-vencidos" style="color:var(--red)">0</div><div class="lbl">Vencidos</div></div>
+    <div class="kpi"><div class="num" id="k-hoje" style="color:var(--orange)">0</div><div class="lbl">Vencem hoje</div></div>
+    <div class="kpi"><div class="num" id="k-vencer" style="color:var(--yellow)">0</div><div class="lbl">A vencer</div></div>
+    <div class="kpi"><div class="num" id="k-mes" style="color:var(--green)">0</div><div class="lbl">Limpezas no mês</div></div>
+  </div>
+  <div class="tabs">
+    <div class="tab active" onclick="showTab('alertas')">🔔 Alertas</div>
+    <div class="tab" onclick="showTab('agenda')">📅 Agenda</div>
+    <div class="tab" onclick="showTab('itens')">🧽 Itens</div>
+    <div class="tab" onclick="showTab('cadastro')">➕ Novo Item</div>
+    <div class="tab" onclick="showTab('historico')">📊 Histórico</div>
+  </div>
+
+  <!-- ALERTAS -->
+  <div class="section active" id="sec-alertas">
+    <p style="color:var(--text2);font-size:.85rem">A próxima limpeza de cada item é a última feita mais a frequência. Vencido = passou da data; a vencer = dentro do prazo de aviso do item.</p>
+    <div id="alertas-corpo"></div>
+  </div>
+
+  <!-- AGENDA -->
+  <div class="section" id="sec-agenda">
+    <div class="search-bar">
+      <span class="chip" data-dias="7" onclick="agendaPeriodo(7,this)">7 dias</span>
+      <span class="chip on" data-dias="15" onclick="agendaPeriodo(15,this)">15 dias</span>
+      <span class="chip" data-dias="30" onclick="agendaPeriodo(30,this)">30 dias</span>
+      <input type="date" id="ag-de" onchange="agendaPersonalizada()" title="De"><input type="date" id="ag-ate" onchange="agendaPersonalizada()" title="Até">
+      <select id="ag-colab" onchange="renderAgenda()"><option value="">Todos os colaboradores</option></select>
+      <select id="ag-status" onchange="renderAgenda()"><option value="">Agendados e feitos</option><option value="agendado">Só agendados</option><option value="feito">Só feitos</option></select>
+      <button class="btn-sm btn-primary" onclick="abrirAgendar()">+ Agendar</button>
+      <button class="btn-sm btn-ghost" onclick="abrirGerar()" title="Cria os agendamentos de todos os itens pela frequência">⚙ Gerar agenda</button>
+    </div>
+    <div class="tbl-wrap">
+      <table><thead><tr><th>Data</th><th>Item</th><th>Local</th><th>Colaborador</th><th>Turno</th><th>Status</th><th>Obs</th><th>Ações</th></tr></thead>
+      <tbody id="tb-agenda"></tbody></table>
+    </div>
+  </div>
+
+  <!-- ITENS -->
+  <div class="section" id="sec-itens">
+    <div class="search-bar">
+      <input id="busca-item" placeholder="Buscar item ou local..." oninput="renderItens()">
+      <label class="chip" style="cursor:pointer"><input type="checkbox" id="ver-inativos" onchange="renderItens()" style="accent-color:var(--accent)"> mostrar inativos</label>
+      <button class="btn-sm btn-primary" onclick="showTab('cadastro')">+ Novo Item</button>
+    </div>
+    <div class="tbl-wrap">
+      <table><thead><tr><th>Foto</th><th>Item</th><th>Local</th><th>Frequência</th><th>Responsável</th><th>Última</th><th>Próxima</th><th>Status</th><th>Ações</th></tr></thead>
+      <tbody id="tb-itens"></tbody></table>
+    </div>
+  </div>
+
+  <!-- CADASTRO -->
+  <div class="section" id="sec-cadastro">
+    <h3 id="form-title">Novo item de limpeza</h3>
+    <div class="form-grid" style="margin-top:14px">
+      <div class="form-group"><label>Item *</label><input id="i-nome" placeholder="Ex: Bancada da célula 3"></div>
+      <div class="form-group"><label>Local</label><input id="i-local" placeholder="Ex: Linha 2 / Almoxarifado"></div>
+      <div class="form-group"><label>Frequência *</label>
+        <div class="freq-row">a cada <input type="number" id="i-freq-qtd" min="1" value="1">
+          <select id="i-freq-tipo"><option value="dias">dia(s)</option><option value="semanas">semana(s)</option><option value="meses">mês(es)</option></select></div>
+      </div>
+      <div class="form-group"><label>Avisar com antecedência de</label>
+        <div class="freq-row"><input type="number" id="i-aviso" min="0" value="2"> <span style="font-size:.85rem;color:var(--text2)">dia(s) — entra em "a vencer"</span></div>
+      </div>
+      <div class="form-group"><label>Responsável padrão</label><select id="i-resp"><option value="">— nenhum —</option></select></div>
+      <div class="form-group"><label>Contar a partir de</label><input type="date" id="i-inicio"><small style="color:var(--text2)">Data da primeira limpeza prevista, se nunca foi feita.</small></div>
+      <div class="form-group" style="grid-column:1/-1"><label>Descrição / como limpar</label><textarea id="i-desc" placeholder="Produtos, cuidados, o que conferir..."></textarea></div>
+      <div class="form-group" id="i-ativo-wrap" style="display:none"><label>Situação</label><select id="i-ativo"><option value="true">Ativo</option><option value="false">Inativo (não gera alerta nem agenda)</option></select></div>
+    </div>
+    <div id="fotos-item"></div>
+    <div style="margin-top:16px;display:flex;gap:10px">
+      <button class="btn-sm btn-green" onclick="salvarItem()">💾 Salvar</button>
+      <button class="btn-sm btn-ghost" onclick="cancelarItem()">Cancelar</button>
+    </div>
+  </div>
+
+  <!-- HISTÓRICO -->
+  <div class="section" id="sec-historico">
+    <div class="search-bar">
+      <select id="h-item" onchange="renderHist()"><option value="">Todos os itens</option></select>
+      <select id="h-colab" onchange="renderHist()"><option value="">Todos os colaboradores</option></select>
+      <input type="month" id="h-mes" onchange="renderHist()">
+      <button class="btn-sm btn-ghost" onclick="document.getElementById('h-item').value='';document.getElementById('h-colab').value='';document.getElementById('h-mes').value='';renderHist()">Limpar</button>
+      <button class="btn-sm btn-green" onclick="exportExcel()" style="margin-left:auto">⬇ Excel</button>
+    </div>
+    <div id="hist-resumo" style="font-size:.85rem;color:var(--text2);margin-bottom:10px"></div>
+    <div class="tbl-wrap">
+      <table><thead><tr><th>Data</th><th>Hora</th><th>Item</th><th>Local</th><th>Quem fez</th><th>Obs</th><th></th></tr></thead>
+      <tbody id="tb-hist"></tbody></table>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- MODAL REGISTRAR LIMPEZA -->
+<div class="modal-overlay" id="modal-feito" onclick="if(event.target===this)fecharModal('modal-feito')">
+  <div class="modal">
+    <h3>✓ Registrar limpeza</h3>
+    <p id="mf-item" style="color:var(--text2);font-size:.88rem;margin-bottom:12px"></p>
+    <div class="form-grid" style="grid-template-columns:1fr 1fr">
+      <div class="form-group"><label>Data</label><input type="date" id="mf-data"></div>
+      <div class="form-group"><label>Hora</label><input type="time" id="mf-hora"></div>
+      <div class="form-group" style="grid-column:1/-1"><label>Quem fez</label><select id="mf-colab"><option value="">— não informado —</option></select></div>
+      <div class="form-group" style="grid-column:1/-1"><label>Observação</label><input id="mf-obs" placeholder="Opcional"></div>
+    </div>
+    <div class="btns"><button class="btn-sm btn-ghost" onclick="fecharModal('modal-feito')">Cancelar</button><button class="btn-sm btn-green" onclick="confirmarFeito()">Confirmar</button></div>
+  </div>
+</div>
+
+<!-- MODAL AGENDAR / EDITAR AGENDAMENTO -->
+<div class="modal-overlay" id="modal-ag" onclick="if(event.target===this)fecharModal('modal-ag')">
+  <div class="modal">
+    <h3 id="ma-titulo">📅 Agendar limpeza</h3>
+    <div class="form-grid" style="grid-template-columns:1fr 1fr">
+      <div class="form-group" style="grid-column:1/-1"><label>Item *</label><select id="ma-item"></select></div>
+      <div class="form-group"><label>Data *</label><input type="date" id="ma-data"></div>
+      <div class="form-group"><label>Turno</label><select id="ma-turno"><option value="">—</option><option>1º Turno</option><option>2º Turno</option><option>3º Turno</option></select></div>
+      <div class="form-group" style="grid-column:1/-1"><label>Colaborador</label><select id="ma-colab"><option value="">— a definir —</option></select></div>
+      <div class="form-group" style="grid-column:1/-1"><label>Observação</label><input id="ma-obs"></div>
+    </div>
+    <div class="btns"><button class="btn-sm btn-ghost" onclick="fecharModal('modal-ag')">Cancelar</button><button class="btn-sm btn-green" onclick="confirmarAgendar()">Salvar</button></div>
+  </div>
+</div>
+
+<!-- MODAL GERAR AGENDA -->
+<div class="modal-overlay" id="modal-gerar" onclick="if(event.target===this)fecharModal('modal-gerar')">
+  <div class="modal">
+    <h3>⚙ Gerar agenda</h3>
+    <p style="color:var(--text2);font-size:.88rem;margin-bottom:12px">Cria os agendamentos de todos os itens ativos seguindo a frequência de cada um, com o responsável padrão. Itens vencidos entram para hoje. O que já está agendado não é duplicado.</p>
+    <div class="form-group"><label>Gerar até</label><input type="date" id="mg-ate"></div>
+    <label style="display:flex;align-items:center;gap:8px;margin-top:12px;font-size:.88rem;cursor:pointer"><input type="checkbox" id="mg-fds" checked style="width:16px;height:16px;accent-color:var(--accent)"> Pular sábados e domingos (joga para segunda-feira)</label>
+    <div class="btns"><button class="btn-sm btn-ghost" onclick="fecharModal('modal-gerar')">Cancelar</button><button class="btn-sm btn-green" onclick="confirmarGerar()">Gerar</button></div>
+  </div>
+</div>
+
+<!-- MODAL EXCLUIR -->
+<div class="modal-overlay" id="modal-del" onclick="if(event.target===this)fecharModal('modal-del')">
+  <div class="modal"><h3>Confirmar exclusão</h3><p id="del-msg" style="color:var(--text2)"></p>
+    <div class="btns"><button class="btn-sm btn-ghost" onclick="fecharModal('modal-del')">Cancelar</button><button class="btn-sm btn-danger" id="del-btn">Excluir</button></div></div>
+</div>
+
+<script src="/js/fotos.js"></script>
+<script>
+var itens=[],agenda=[],colabs=[],colabsTodos=[],fotosItem={};   // colabs = sem desligados
+var editId=null,feitoAlvo=null,agEditId=null,agDias=15;
+var galItem=Fotos.galeria('#fotos-item',{entidade:'lp_item',titulo:'Fotos do item (como deve ficar depois de limpo)'});
+
+var api={
+  get:async function(u){var r=await fetch(u);if(r.status===401){location.href='/login';return null}return r.json()},
+  post:async function(u,d){var r=await fetch(u,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(d)});if(r.status===401){location.href='/login';return null}return r.json()},
+  put:async function(u,d){var r=await fetch(u,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(d)});if(r.status===401){location.href='/login';return null}return r.json()},
+  del:async function(u){var r=await fetch(u,{method:'DELETE'});if(r.status===401){location.href='/login';return null}return r.json()}
+};
+
+function toast(m,t){t=t||'success';var e=document.createElement('div');e.className='toast';e.style.background=t==='error'?'var(--red)':'var(--green)';e.textContent=m;document.body.appendChild(e);setTimeout(function(){e.remove()},3000)}
+function fmtDate(d){if(!d)return'-';var s=String(d).slice(0,10);var p=s.split('-');if(p.length!==3)return'-';return p[2]+'/'+p[1]+'/'+p[0]}
+function getDateVal(d){if(!d)return'';return String(d).slice(0,10)}
+function fmtHora(h){if(!h)return'';return String(h).slice(0,5)}
+function updateClock(){var n=new Date();document.getElementById('clock').textContent=n.toLocaleTimeString('pt-BR')+' — '+n.toLocaleDateString('pt-BR')}
+setInterval(updateClock,1000);updateClock();
+async function doLogout(){await fetch('/api/logout',{method:'POST'});location.href='/login'}
+
+
+/* ============ UTIL ============ */
+function hojeISO(){var n=new Date();return n.getFullYear()+'-'+String(n.getMonth()+1).padStart(2,'0')+'-'+String(n.getDate()).padStart(2,'0')}
+function addDias(iso,n){var p=iso.split('-').map(Number);var d=new Date(p[0],p[1]-1,p[2]+n);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
+function diffDias(iso){var p=iso.split('-').map(Number);var h=hojeISO().split('-').map(Number);return Math.round((Date.UTC(p[0],p[1]-1,p[2])-Date.UTC(h[0],h[1]-1,h[2]))/86400000)}
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
+function freqTxt(i){var t={dias:['dia','dias'],semanas:['semana','semanas'],meses:['mês','meses']}[i.freq_tipo]||['',''];return 'a cada '+i.freq_qtd+' '+(i.freq_qtd===1?t[0]:t[1])}
+function diaSemana(iso){var p=iso.split('-').map(Number);return new Date(p[0],p[1]-1,p[2]).toLocaleDateString('pt-BR',{weekday:'long'})}
+var ativosColabs=function(){return colabs};
+function fecharModal(id){document.getElementById(id).classList.remove('show')}
+
+/* Situação do item hoje: vencido | hoje | a_vencer | ok (| inativo) */
+function situacao(i){
+  if(!i.ativo)return{chave:'inativo',dd:null,badge:'<span class="badge badge-gray">Inativo</span>'};
+  var dd=diffDias(i.proxima);
+  if(dd<0)return{chave:'vencido',dd:dd,badge:'<span class="badge badge-red">Vencido há '+(-dd)+' dia'+(dd===-1?'':'s')+'</span>'};
+  if(dd===0)return{chave:'hoje',dd:dd,badge:'<span class="badge badge-orange">Vence hoje</span>'};
+  // o aviso nunca passa do próprio período: item diário só tem "hoje" e "vencido"
+  var freqDias=i.freq_qtd*({dias:1,semanas:7,meses:30}[i.freq_tipo]||1);
+  var aviso=Math.min(i.aviso_dias||0,Math.max(0,freqDias-1));
+  if(dd<=aviso)return{chave:'a_vencer',dd:dd,badge:'<span class="badge badge-yellow">Vence em '+dd+' dia'+(dd===1?'':'s')+'</span>'};
+  return{chave:'ok',dd:dd,badge:'<span class="badge badge-green">Em dia · '+dd+' dia'+(dd===1?'':'s')+'</span>'};
+}
+
+/* ============ LOAD ============ */
+async function loadAll(){
+  var r=await Promise.all([api.get('/api/limpeza/itens'),api.get('/api/colaboradores'),Fotos.mapa('lp_item')]);
+  itens=r[0]||[];colabsTodos=r[1]||[];colabs=colabsTodos.filter(function(c){return c.status!=='Desligado'});fotosItem=r[2]||{};
+  await loadAgenda();
+  popularSelects();updateKPIs();renderAlertas();renderAgenda();renderItens();renderHist();
+}
+async function loadAgenda(){agenda=await api.get('/api/limpeza/agenda')||[]}
+function popularSelects(){
+  var opAtivos='<option value="">— nenhum —</option>'+ativosColabs().map(function(c){return'<option value="'+c.id+'">'+esc(c.nome)+'</option>'}).join('');
+  document.getElementById('i-resp').innerHTML=opAtivos;
+  document.getElementById('mf-colab').innerHTML=opAtivos.replace('— nenhum —','— não informado —');
+  document.getElementById('ma-colab').innerHTML=opAtivos.replace('— nenhum —','— a definir —');
+  var todos='<option value="">Todos os colaboradores</option>'+colabs.map(function(c){return'<option value="'+c.id+'">'+esc(c.nome)+'</option>'}).join('');
+  ['ag-colab','h-colab'].forEach(function(id){var s=document.getElementById(id);var v=s.value;s.innerHTML=todos;s.value=v});
+  var opItens=itens.filter(function(i){return i.ativo}).map(function(i){return'<option value="'+i.id+'">'+esc(i.nome)+(i.local?' — '+esc(i.local):'')+'</option>'}).join('');
+  document.getElementById('ma-item').innerHTML=opItens;
+  var hi=document.getElementById('h-item');var hv=hi.value;hi.innerHTML='<option value="">Todos os itens</option>'+itens.map(function(i){return'<option value="'+i.id+'">'+esc(i.nome)+'</option>'}).join('');hi.value=hv;
+}
+function updateKPIs(){
+  var c={vencido:0,hoje:0,a_vencer:0};var ativos=0;
+  itens.forEach(function(i){if(!i.ativo)return;ativos++;var s=situacao(i).chave;if(c[s]!==undefined)c[s]++});
+  document.getElementById('k-itens').textContent=ativos;
+  document.getElementById('k-vencidos').textContent=c.vencido;
+  document.getElementById('k-hoje').textContent=c.hoje;
+  document.getElementById('k-vencer').textContent=c.a_vencer;
+  var mes=hojeISO().slice(0,7);
+  document.getElementById('k-mes').textContent=agenda.filter(function(a){return a.status==='feito'&&String(a.feito_em||'').slice(0,7)===mes}).length;
+}
+
+/* ============ TABS ============ */
+function showTab(t){
+  document.querySelectorAll('.tab').forEach(function(x){x.classList.remove('active')});
+  document.querySelectorAll('.section').forEach(function(x){x.classList.remove('active')});
+  var tabs={alertas:0,agenda:1,itens:2,cadastro:3,historico:4};
+  document.querySelectorAll('.tab')[tabs[t]].classList.add('active');
+  document.getElementById('sec-'+t).classList.add('active');
+  if(t==='cadastro'&&!editId){document.getElementById('i-inicio').value=document.getElementById('i-inicio').value||hojeISO()}
+}
+
+/* ============ ALERTAS ============ */
+function cardItem(i){
+  var s=situacao(i);
+  var fotos=Fotos.miniaturas(fotosItem[i.id],{max:2,vazio:''});
+  return '<div class="lp-card '+s.chave+'">'+
+    '<h4>'+esc(i.nome)+' '+s.badge+'</h4>'+
+    (fotos?'<div>'+fotos+'</div>':'')+
+    '<div class="meta">'+(i.local?'📍 '+esc(i.local)+'<br>':'')+'🔁 '+freqTxt(i)+'<br>'+
+    '👤 <b>'+esc(i.responsavel_nome||'sem responsável')+'</b><br>'+
+    '🕒 Última: <b>'+(i.ultima?fmtDate(i.ultima):'nunca')+'</b> · Próxima: <b>'+fmtDate(i.proxima)+'</b>'+
+    (i.proximo_agendamento?'<br>📅 Agendada para <b>'+fmtDate(i.proximo_agendamento)+'</b>':'')+'</div>'+
+    '<div class="actions"><button class="btn-sm btn-green" onclick="abrirFeito('+i.id+')">✓ Registrar limpeza</button>'+
+    '<button class="btn-sm btn-ghost" onclick="abrirAgendar('+i.id+')">📅 Agendar</button></div></div>';
+}
+function renderAlertas(){
+  var el=document.getElementById('alertas-corpo');
+  var ativos=itens.filter(function(i){return i.ativo});
+  if(!ativos.length){el.innerHTML='<p class="vazio">Nenhum item de limpeza cadastrado. Comece pela aba <b>Novo Item</b>.</p>';return}
+  var g={vencido:[],hoje:[],a_vencer:[],ok:[]};
+  ativos.forEach(function(i){var s=situacao(i);g[s.chave].push(i)});
+  Object.keys(g).forEach(function(k){g[k].sort(function(a,b){return a.proxima.localeCompare(b.proxima)})});
+  var blocos=[['vencido','🔴 Vencidos'],['hoje','🟠 Vencem hoje'],['a_vencer','🟡 A vencer'],['ok','🟢 Em dia']];
+  var h='';
+  blocos.forEach(function(b){
+    if(!g[b[0]].length)return;
+    h+='<div class="lp-grupo"><h3>'+b[1]+' <span class="n">'+g[b[0]].length+'</span></h3><div class="lp-grid">'+g[b[0]].map(cardItem).join('')+'</div></div>';
+  });
+  el.innerHTML=h;
+}
+
+/* ============ REGISTRAR FEITO ============ */
+function abrirFeito(itemId,agendaId){
+  feitoAlvo={itemId:itemId,agendaId:agendaId||null};
+  var i=itens.find(function(x){return x.id===itemId});
+  var a=agendaId?agenda.find(function(x){return x.id===agendaId}):null;
+  document.getElementById('mf-item').textContent=(i?i.nome:'')+(i&&i.local?' — '+i.local:'');
+  document.getElementById('mf-data').value=hojeISO();
+  document.getElementById('mf-hora').value=new Date().toTimeString().slice(0,5);
+  document.getElementById('mf-colab').value=(a&&a.colaborador_id)||(i&&i.responsavel_id)||'';
+  document.getElementById('mf-obs').value='';
+  document.getElementById('modal-feito').classList.add('show');
+}
+async function confirmarFeito(){
+  var body={feito_em:document.getElementById('mf-data').value,feito_hora:document.getElementById('mf-hora').value,feito_por_id:document.getElementById('mf-colab').value||null,obs:document.getElementById('mf-obs').value};
+  if(!body.feito_em)return toast('Informe a data','error');
+  var r=feitoAlvo.agendaId?await api.put('/api/limpeza/agenda/'+feitoAlvo.agendaId+'/feito',body):await api.post('/api/limpeza/itens/'+feitoAlvo.itemId+'/feito',body);
+  if(!r||r.error)return toast(r&&r.error?r.error:'Erro','error');
+  fecharModal('modal-feito');toast('Limpeza registrada!');await loadAll();
+}
+
+/* ============ AGENDA ============ */
+function agendaPeriodo(dias,el){agDias=dias;document.querySelectorAll('.chip[data-dias]').forEach(function(c){c.classList.remove('on')});el.classList.add('on');document.getElementById('ag-de').value='';document.getElementById('ag-ate').value='';renderAgenda()}
+function agendaPersonalizada(){document.querySelectorAll('.chip[data-dias]').forEach(function(c){c.classList.remove('on')});renderAgenda()}
+function renderAgenda(){
+  var de=document.getElementById('ag-de').value,ate=document.getElementById('ag-ate').value;
+  var h=hojeISO();
+  if(!de&&!ate){de=addDias(h,-3);ate=addDias(h,agDias)}   // 3 dias para trás para ver o que ficou atrasado
+  var fc=document.getElementById('ag-colab').value,fs=document.getElementById('ag-status').value;
+  var list=agenda.filter(function(a){
+    if(a.status==='cancelado')return false;
+    var d=a.status==='feito'?(a.feito_em||a.data):a.data;
+    if(de&&d<de)return false;if(ate&&d>ate)return false;
+    if(fc&&String(a.status==='feito'?(a.feito_por_id||a.colaborador_id):a.colaborador_id)!==fc)return false;
+    if(fs&&a.status!==fs)return false;
+    return true;
+  }).map(function(a){return Object.assign({_d:a.status==='feito'?(a.feito_em||a.data):a.data},a)});
+  // pendências atrasadas (agendadas antes de hoje) sempre aparecem, mesmo fora do período
+  agenda.forEach(function(a){if(a.status==='agendado'&&a.data<h&&!list.some(function(x){return x.id===a.id})&&(!fc||String(a.colaborador_id)===fc)&&(!fs||fs==='agendado'))list.push(Object.assign({_d:a.data},a))});
+  list.sort(function(a,b){return a._d.localeCompare(b._d)||a.status.localeCompare(b.status)||a.item_nome.localeCompare(b.item_nome)});
+  var tb=document.getElementById('tb-agenda');
+  if(!list.length){tb.innerHTML='<tr><td colspan="8" style="text-align:center;color:var(--text2)">Nada agendado no período. Use <b>+ Agendar</b> ou <b>Gerar agenda</b>.</td></tr>';return}
+  var html='',dia='';
+  list.forEach(function(a){
+    if(a._d!==dia){dia=a._d;var rot=dia===h?'Hoje':dia===addDias(h,1)?'Amanhã':dia===addDias(h,-1)?'Ontem':diaSemana(dia);html+='<tr><td colspan="8" class="dia-cab'+(dia===h?' hoje-cab':'')+'">'+fmtDate(dia)+' — '+rot+'</td></tr>'}
+    var st;
+    if(a.status==='feito')st='<span class="badge badge-green">✓ Feito '+(a.feito_hora?a.feito_hora:'')+'</span>';
+    else if(a.data<h)st='<span class="badge badge-red">Atrasado</span>';
+    else if(a.data===h)st='<span class="badge badge-orange">Hoje</span>';
+    else st='<span class="badge badge-blue">Agendado</span>';
+    var quem=a.status==='feito'?(a.feito_por_nome||a.colaborador_nome):a.colaborador_nome;
+    var acoes=a.status==='feito'
+      ?'<button class="btn-sm btn-ghost" onclick="reabrir('+a.id+')" title="Voltar para agendado">↺</button>'
+      :'<button class="btn-sm btn-green" onclick="abrirFeito('+a.item_id+','+a.id+')">✓</button> <button class="btn-sm btn-ghost" onclick="abrirAgendar(null,'+a.id+')">✏</button>';
+    acoes+=' <button class="btn-sm btn-danger" onclick="confirmarDel(\'agenda\','+a.id+',\'agendamento de '+esc(a.item_nome).replace(/'/g,'&#39;')+'\')">🗑</button>';
+    html+='<tr class="'+(a.status==='feito'?'feito':'')+'"><td>'+fmtDate(a._d)+'</td><td><strong>'+esc(a.item_nome)+'</strong></td><td>'+esc(a.item_local||'-')+'</td><td>'+esc(quem||'<span style="color:var(--yellow)">a definir</span>')+'</td><td>'+esc(a.turno||'-')+'</td><td>'+st+'</td><td style="max-width:200px;white-space:normal">'+esc(a.obs||'-')+'</td><td style="white-space:nowrap">'+acoes+'</td></tr>';
+  });
+  tb.innerHTML=html;
+}
+function abrirAgendar(itemId,agendaId){
+  agEditId=agendaId||null;
+  var a=agendaId?agenda.find(function(x){return x.id===agendaId}):null;
+  var i=itens.find(function(x){return x.id===(a?a.item_id:itemId)});
+  document.getElementById('ma-titulo').textContent=agendaId?'✏ Editar agendamento':'📅 Agendar limpeza';
+  document.getElementById('ma-item').disabled=!!agendaId;
+  document.getElementById('ma-item').value=i?i.id:(itens.find(function(x){return x.ativo})||{}).id||'';
+  document.getElementById('ma-data').value=a?a.data:(i&&i.proxima>=hojeISO()?i.proxima:hojeISO());
+  document.getElementById('ma-turno').value=a?(a.turno||''):'';
+  var sel=document.getElementById('ma-colab');
+  sel.innerHTML='<option value="">— a definir —</option>'+colabs.map(function(c){return'<option value="'+c.id+'">'+esc(c.nome)+'</option>'}).join('');
+  if(a&&a.colaborador_id&&!colabs.some(function(c){return c.id===a.colaborador_id})){var d=colabsTodos.find(function(c){return c.id===a.colaborador_id});if(d)sel.innerHTML+='<option value="'+d.id+'">'+esc(d.nome)+' (desligado)</option>'}
+  sel.value=a?(a.colaborador_id||''):(i&&i.responsavel_id||'');
+  document.getElementById('ma-obs').value=a?(a.obs||''):'';
+  document.getElementById('modal-ag').classList.add('show');
+}
+document.getElementById('ma-item').addEventListener('change',function(){if(agEditId)return;var i=itens.find(function(x){return x.id===Number(this.value)}.bind(this));if(i){document.getElementById('ma-colab').value=i.responsavel_id||'';document.getElementById('ma-data').value=i.proxima>=hojeISO()?i.proxima:hojeISO()}});
+async function confirmarAgendar(){
+  var body={item_id:document.getElementById('ma-item').value,data:document.getElementById('ma-data').value,turno:document.getElementById('ma-turno').value||'',colaborador_id:document.getElementById('ma-colab').value||'',obs:document.getElementById('ma-obs').value};
+  if(!body.item_id||!body.data)return toast('Item e data são obrigatórios','error');
+  var r=agEditId?await api.put('/api/limpeza/agenda/'+agEditId,body):await api.post('/api/limpeza/agenda',body);
+  if(!r||r.error)return toast(r&&r.error?r.error:'Erro','error');
+  fecharModal('modal-ag');toast(agEditId?'Agendamento atualizado!':'Agendado!');await loadAll();showTab('agenda');
+}
+async function reabrir(id){var r=await api.put('/api/limpeza/agenda/'+id+'/reabrir',{});if(r&&!r.error){toast('Voltou para agendado');await loadAll()}}
+function abrirGerar(){document.getElementById('mg-ate').value=addDias(hojeISO(),30);document.getElementById('modal-gerar').classList.add('show')}
+async function confirmarGerar(){
+  var ate=document.getElementById('mg-ate').value;if(!ate)return toast('Informe a data','error');
+  var r=await api.post('/api/limpeza/agenda/gerar',{ate:ate,pular_fds:document.getElementById('mg-fds').checked});
+  if(!r||r.error)return toast(r&&r.error?r.error:'Erro','error');
+  fecharModal('modal-gerar');toast(r.criados+' agendamento(s) criado(s) para '+r.itens+' item(ns)');await loadAll();showTab('agenda');
+}
+
+/* ============ ITENS ============ */
+function renderItens(){
+  var q=(document.getElementById('busca-item').value||'').toLowerCase();
+  var verIn=document.getElementById('ver-inativos').checked;
+  var list=itens.filter(function(i){return(verIn||i.ativo)&&((i.nome||'').toLowerCase().indexOf(q)>=0||(i.local||'').toLowerCase().indexOf(q)>=0)});
+  var tb=document.getElementById('tb-itens');
+  if(!list.length){tb.innerHTML='<tr><td colspan="9" style="text-align:center;color:var(--text2)">Nenhum item</td></tr>';return}
+  tb.innerHTML=list.map(function(i){
+    var s=situacao(i);
+    return '<tr'+(i.ativo?'':' style="opacity:.55"')+'><td>'+Fotos.miniaturas(fotosItem[i.id],{max:1})+'</td><td><strong>'+esc(i.nome)+'</strong>'+(i.descricao?'<div style="font-size:.75rem;color:var(--text2);max-width:260px;white-space:normal">'+esc(i.descricao)+'</div>':'')+'</td><td>'+esc(i.local||'-')+'</td><td>'+freqTxt(i)+'</td><td>'+esc(i.responsavel_nome||'-')+'</td><td>'+(i.ultima?fmtDate(i.ultima):'<span style="color:var(--text2)">nunca</span>')+'</td><td>'+fmtDate(i.proxima)+'</td><td>'+s.badge+'</td>'+
+      '<td style="white-space:nowrap"><button class="btn-sm btn-green" onclick="abrirFeito('+i.id+')" title="Registrar limpeza">✓</button> <button class="btn-sm btn-ghost" onclick="editarItem('+i.id+')">✏</button> <button class="btn-sm btn-danger" onclick="confirmarDel(\'item\','+i.id+',\''+esc(i.nome).replace(/'/g,'&#39;')+'\')">🗑</button></td></tr>';
+  }).join('');
+}
+function editarItem(id){
+  var i=itens.find(function(x){return x.id===id});if(!i)return;
+  editId=id;
+  document.getElementById('form-title').textContent='Editar item';
+  document.getElementById('i-nome').value=i.nome;document.getElementById('i-local').value=i.local||'';
+  document.getElementById('i-freq-qtd').value=i.freq_qtd;document.getElementById('i-freq-tipo').value=i.freq_tipo;
+  document.getElementById('i-aviso').value=i.aviso_dias;document.getElementById('i-resp').value=i.responsavel_id||'';
+  document.getElementById('i-inicio').value=i.inicio||'';document.getElementById('i-desc').value=i.descricao||'';
+  document.getElementById('i-ativo-wrap').style.display='';document.getElementById('i-ativo').value=String(!!i.ativo);
+  galItem.carregar(id);showTab('cadastro');
+}
+function cancelarItem(){
+  editId=null;
+  document.getElementById('form-title').textContent='Novo item de limpeza';
+  ['i-nome','i-local','i-desc','i-inicio'].forEach(function(id){document.getElementById(id).value=''});
+  document.getElementById('i-freq-qtd').value=1;document.getElementById('i-freq-tipo').value='dias';document.getElementById('i-aviso').value=2;document.getElementById('i-resp').value='';
+  document.getElementById('i-ativo-wrap').style.display='none';document.getElementById('i-ativo').value='true';
+  galItem.limpar();showTab('itens');
+}
+async function salvarItem(){
+  var nome=document.getElementById('i-nome').value.trim();if(!nome)return toast('Informe o nome do item','error');
+  var body={nome:nome,local:document.getElementById('i-local').value,descricao:document.getElementById('i-desc').value,freq_qtd:parseInt(document.getElementById('i-freq-qtd').value)||1,freq_tipo:document.getElementById('i-freq-tipo').value,aviso_dias:parseInt(document.getElementById('i-aviso').value),responsavel_id:document.getElementById('i-resp').value||null,inicio:document.getElementById('i-inicio').value||null,ativo:document.getElementById('i-ativo').value==='true'};
+  var r=editId?await api.put('/api/limpeza/itens/'+editId,body):await api.post('/api/limpeza/itens',body);
+  if(!r||r.error)return toast(r&&r.error?r.error:'Erro ao salvar','error');
+  await galItem.salvar(r.id);
+  toast(editId?'Item atualizado!':'Item cadastrado!');
+  cancelarItem();await loadAll();
+}
+
+/* ============ HISTÓRICO ============ */
+function renderHist(){
+  var fi=document.getElementById('h-item').value,fc=document.getElementById('h-colab').value,fm=document.getElementById('h-mes').value;
+  var list=agenda.filter(function(a){
+    if(a.status!=='feito')return false;
+    if(fi&&String(a.item_id)!==fi)return false;
+    if(fc&&String(a.feito_por_id||a.colaborador_id||'')!==fc)return false;
+    if(fm&&String(a.feito_em||'').slice(0,7)!==fm)return false;
+    return true;
+  }).sort(function(a,b){return(b.feito_em+(b.feito_hora||'')).localeCompare(a.feito_em+(a.feito_hora||''))});
+  document.getElementById('hist-resumo').textContent=list.length+' limpeza(s)';
+  var tb=document.getElementById('tb-hist');
+  if(!list.length){tb.innerHTML='<tr><td colspan="7" style="text-align:center;color:var(--text2)">Nenhuma limpeza registrada</td></tr>';return}
+  tb.innerHTML=list.map(function(a){return'<tr><td>'+fmtDate(a.feito_em)+'</td><td>'+(a.feito_hora||'-')+'</td><td><strong>'+esc(a.item_nome)+'</strong></td><td>'+esc(a.item_local||'-')+'</td><td>'+esc(a.feito_por_nome||a.colaborador_nome||'-')+'</td><td style="white-space:normal">'+esc(a.obs||'-')+'</td><td><button class="btn-sm btn-danger" onclick="confirmarDel(\'agenda\','+a.id+',\'registro de '+esc(a.item_nome).replace(/'/g,'&#39;')+'\')">🗑</button></td></tr>'}).join('');
+}
+async function exportExcel(){
+  try{var r=await fetch('/api/export/limpeza');if(!r.ok)throw new Error();var b=await r.blob();var a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='limpeza.xlsx';a.click();toast('Excel exportado!')}catch(e){toast('Erro ao exportar','error')}
+}
+
+/* ============ EXCLUIR ============ */
+function confirmarDel(tipo,id,nome){
+  document.getElementById('del-msg').textContent='Excluir '+nome+'?'+(tipo==='item'?' A agenda, o histórico e as fotos deste item também serão excluídos.':'');
+  document.getElementById('del-btn').onclick=async function(){
+    await api.del(tipo==='item'?'/api/limpeza/itens/'+id:'/api/limpeza/agenda/'+id);
+    fecharModal('modal-del');toast('Excluído');await loadAll();
+  };
+  document.getElementById('modal-del').classList.add('show');
+}
+
+/* ============ INIT ============ */
+(async function(){
+  try{var u=await api.get('/api/me');if(u)document.getElementById('user-display').textContent=u.nome||u.username}catch(e){}
+  await loadAll();
+})();
+</script>
+</body>
+</html>

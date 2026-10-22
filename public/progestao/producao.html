@@ -1,0 +1,1463 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ProGestão – Produção</title>
+<script src="/js/chart.umd.js"></script>
+<style>
+:root{--bg:#0A1620;--card:#14293A;--card2:#1A3347;--accent:#26B247;--accent2:#1C4984;--green:#34D399;--yellow:#F0B429;--red:#F26D6D;--orange:#E88C4A;--blue:#56B6E0;--purple:#1D6574;--text:#EAF4F1;--text2:#A2BCC3;--border:#1E3D52;--radius:12px;--panel:#14293A;--panel2:#1A3347;--fade:linear-gradient(135deg,#26B247 0%,#1D6574 55%,#1C4984 100%)}
+*{margin:0;padding:0;box-sizing:border-box;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif}
+body{background:var(--bg);color:var(--text);min-height:100vh}
+.topbar{background:var(--panel);border-bottom:1px solid var(--border);padding:12px 24px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+.topbar .logo{font-size:18px;font-weight:700;color:var(--accent)}
+.topbar .user-info{display:flex;align-items:center;gap:16px;font-size:13px}
+.topbar .clock{color:var(--text2)}
+.topbar .btn-logout{background:var(--red);color:#fff;border:none;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600}
+.layout{display:flex;min-height:calc(100vh - 56px)}
+.sidebar{width:220px;background:var(--panel);border-right:1px solid var(--border);padding:20px 0;flex-shrink:0}
+.sidebar a{display:block;padding:10px 24px;color:var(--text2);text-decoration:none;font-size:14px;border-left:3px solid transparent;transition:all .2s}
+.sidebar a:hover{background:var(--panel2);color:var(--text)}
+.sidebar a.active{background:var(--panel2);color:var(--accent);border-left-color:var(--accent)}
+.main{flex:1;padding:24px;overflow-x:auto}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px;margin-bottom:20px}
+.kpi{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:14px}
+.kpi .lbl{font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}
+.kpi .val{font-size:24px;font-weight:700;color:var(--text)}
+.kpi.green .val{color:var(--accent)}
+.kpi.blue .val{color:var(--blue)}
+.kpi.orange .val{color:var(--orange)}
+.kpi.red .val{color:var(--red)}
+.kpi.yellow .val{color:var(--yellow)}
+.tabs{display:flex;gap:4px;margin-bottom:16px;border-bottom:1px solid var(--border);flex-wrap:wrap}
+.tab{background:transparent;border:none;color:var(--text2);padding:10px 16px;cursor:pointer;font-size:13px;font-weight:600;border-bottom:2px solid transparent;transition:all .2s}
+.tab:hover{color:var(--text)}
+.tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+.section{display:none}
+.section.show{display:block}
+.card{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:18px;margin-bottom:16px}
+.card-title{font-size:14px;font-weight:700;color:var(--text);margin-bottom:14px;display:flex;align-items:center;gap:8px}
+.form-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:12px}
+.form-group{display:flex;flex-direction:column;gap:5px}
+.form-group label{font-size:11px;color:var(--text2);font-weight:600;text-transform:uppercase;letter-spacing:.3px}
+.form-group input,.form-group select,.form-group textarea{background:var(--panel2);border:1px solid var(--border);color:var(--text);padding:8px 10px;border-radius:6px;font-size:13px;outline:none;transition:border-color .2s}
+.form-group input:focus,.form-group select:focus,.form-group textarea:focus{border-color:var(--accent)}
+.form-group input.invalid{border-color:var(--red)}
+.form-group input.valid{border-color:var(--accent)}
+.form-group input[readonly]{background:#0d1419;color:var(--text2);cursor:not-allowed}
+.form-group textarea{min-height:60px;resize:vertical;font-family:inherit}
+.form-group small.hint{font-size:10px;color:var(--text2)}
+.form-group small.hint.error{color:var(--red)}
+.btn-sm{padding:8px 14px;border:none;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;transition:opacity .2s}
+.btn-sm:hover{opacity:.85}
+.btn-sm:disabled{opacity:.4;cursor:not-allowed}
+.btn-accent{background:var(--accent);color:#fff}
+.btn-blue{background:var(--blue);color:#fff}
+.btn-orange{background:var(--orange);color:#fff}
+.btn-red{background:var(--red);color:#fff}
+.btn-ghost{background:transparent;color:var(--text2);border:1px solid var(--border)}
+table{width:100%;border-collapse:collapse;font-size:12px}
+table th{background:var(--panel2);color:var(--text2);text-align:left;padding:10px 8px;font-weight:600;text-transform:uppercase;letter-spacing:.3px;font-size:11px;border-bottom:1px solid var(--border)}
+table td{padding:9px 8px;border-bottom:1px solid var(--border);color:var(--text)}
+table tr:hover{background:var(--panel2)}
+.badge{display:inline-block;padding:3px 8px;border-radius:10px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.3px}
+.badge.green{background:rgba(63,185,80,.15);color:var(--accent)}
+.badge.blue{background:rgba(88,166,255,.15);color:var(--blue)}
+.badge.orange{background:rgba(240,136,62,.15);color:var(--orange)}
+.badge.red{background:rgba(248,81,73,.15);color:var(--red)}
+.badge.yellow{background:rgba(210,153,34,.15);color:var(--yellow)}
+.badge.purple{background:rgba(163,113,247,.15);color:var(--purple)}
+#toast{position:fixed;bottom:20px;right:20px;background:var(--panel);border:1px solid var(--border);border-left:4px solid var(--accent);padding:12px 18px;border-radius:6px;color:var(--text);font-size:13px;z-index:1000;opacity:0;transform:translateY(20px);transition:all .3s;box-shadow:0 4px 12px rgba(0,0,0,.3);max-width:360px}
+#toast.show{opacity:1;transform:translateY(0)}
+#toast.error{border-left-color:var(--red)}
+#toast.warn{border-left-color:var(--yellow)}
+.autocomplete{position:relative}
+.autocomplete-list{position:absolute;top:100%;left:0;right:0;background:var(--panel);border:1px solid var(--border);border-top:none;border-radius:0 0 6px 6px;max-height:240px;overflow-y:auto;z-index:50;display:none}
+.autocomplete-list.show{display:block}
+.autocomplete-item{padding:8px 10px;cursor:pointer;font-size:12px;border-bottom:1px solid var(--border)}
+.autocomplete-item:hover{background:var(--panel2)}
+.autocomplete-item:last-child{border-bottom:none}
+.autocomplete-item strong{color:var(--accent)}
+@media(max-width:768px){.sidebar{width:60px}.sidebar a{padding:10px;text-align:center;font-size:10px}}
+
+/* ===== Dashboard ===== */
+.dash-filtros{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:12px 14px;margin-bottom:10px}
+.dash-filtros .form-group{min-width:130px}
+.dash-filtros select,.dash-filtros input{background:var(--panel2);border:1px solid var(--border);color:var(--text);padding:7px 10px;border-radius:6px;font-size:13px}
+.dash-resumo{font-size:12px;color:var(--text2);margin-bottom:14px}
+.dash-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(380px,1fr));gap:16px}
+.chart-box{position:relative;height:260px}.chart-box.tall{height:340px}
+.chart-box[data-vazio]::after{content:attr(data-vazio);position:absolute;inset:0;display:grid;place-items:center;color:var(--text2);font-size:13px;text-align:center;padding:20px}
+.chart-nota{font-size:11px;color:var(--text2);margin-top:10px;line-height:1.5}
+.kpi-sub{font-size:10px;color:var(--text2);margin-top:4px}
+@media(max-width:768px){.dash-grid{grid-template-columns:1fr}.chart-box{height:230px}.chart-box.tall{height:280px}}
+
+/* ===== Observações do status ===== */
+.obs-btn{display:inline-flex;align-items:center;gap:4px;margin-left:6px;padding:3px 8px;border-radius:10px;border:1px solid var(--border);background:var(--card2,#1A3347);color:var(--text2);font-size:11px;font-weight:700;cursor:pointer;vertical-align:middle}
+.obs-btn.tem{border-color:var(--orange,#E88C4A);color:var(--orange,#E88C4A);background:rgba(232,140,74,.12)}
+.obs-btn:hover{border-color:var(--accent);color:var(--accent)}
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.62);z-index:999;align-items:center;justify-content:center}.modal-overlay.show{display:flex}
+.modal{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:22px;max-width:640px;width:94%;max-height:88vh;overflow-y:auto}
+.modal h3{margin-bottom:4px;font-size:1rem}.modal .sub{font-size:.8rem;color:var(--text2);margin-bottom:14px}
+.obs-item{border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-bottom:8px;background:var(--card2,#1A3347)}
+.obs-item .cab{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:.75rem;color:var(--text2);margin-bottom:6px;flex-wrap:wrap}
+.obs-item .txt{white-space:pre-wrap;font-size:.9rem;line-height:1.5}
+.obs-nova textarea{width:100%;min-height:80px;padding:10px;border-radius:8px;border:1px solid var(--border);background:var(--card2,#1A3347);color:var(--text);font-family:inherit;font-size:.9rem;resize:vertical}
+.modal .btns{display:flex;gap:8px;justify-content:flex-end;margin-top:14px}
+
+/* ===== Perfil PCP: somente visualização ===== */
+body.pcp .so-edicao, body.pcp .tab[onclick*="'apontar'"], body.pcp #sec-apontar,
+body.pcp .btn-red, body.pcp button[onclick^="editar"], body.pcp button[onclick^="excluir"], body.pcp button[onclick^="salvar"],
+body.pcp .sidebar a:not([href="/progestao/producao"]), body.pcp .voltar-portal{display:none!important}
+body.pcp .logo a{pointer-events:none}
+.pcp-aviso{display:none;background:rgba(232,140,74,.12);border:1px solid var(--orange,#E88C4A);border-radius:8px;padding:8px 14px;margin-bottom:14px;font-size:.85rem}
+body.pcp .pcp-aviso{display:block}
+</style>
+<link rel="icon" href="/assets/logo-decio.png">
+
+<style>
+/* ===== Tema Décio — sobreposição sobre o CSS original do módulo ===== */
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap');
+body{font-family:'Inter','Segoe UI',system-ui,sans-serif}
+h1,h2,h3,.logo{font-family:'Manrope','Segoe UI',system-ui,sans-serif;letter-spacing:-.02em}
+
+.fita-marca{position:fixed;top:0;left:0;right:0;height:3px;background:var(--fade);z-index:9999}
+
+.btn-primary,.btn-accent{
+  background:var(--fade)!important;color:#fff!important;border:none!important;
+  box-shadow:0 2px 12px rgba(38,178,71,.22)}
+.btn-primary:hover,.btn-accent:hover{filter:brightness(1.06);transform:translateY(-1px)}
+.btn-green{background:var(--green)!important;color:#062B1E!important}
+.btn-warning{background:var(--yellow)!important;color:#2B1E00!important}
+
+a{color:var(--accent)}
+.topbar{border-bottom:1px solid var(--border)}
+.logo-decio{height:26px;width:26px;border-radius:7px;vertical-align:-7px;margin-right:8px}
+.voltar-portal{
+  display:inline-flex;align-items:center;gap:6px;padding:6px 12px;margin-right:6px;
+  border:1px solid var(--border);border-radius:8px;background:var(--card2);
+  color:var(--text2)!important;font-size:12px;font-weight:600;text-decoration:none}
+.voltar-portal:hover{background:var(--panel2);color:var(--text)!important}
+
+::-webkit-scrollbar{width:8px;height:8px}
+::-webkit-scrollbar-track{background:var(--bg)}
+::-webkit-scrollbar-thumb{background:#2C5570;border-radius:99px}
+:focus-visible{outline:2px solid #35C95C;outline-offset:2px}
+@media(prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+</style>
+</head>
+<body>
+<div class="fita-marca"></div>
+
+<div class="topbar">
+  <div class="logo"><img src="/assets/logo-decio.png" class="logo-decio" alt=""><a href="/progestao">ProGestão</a></div>
+  <div class="user-info">
+    <a href="/" class="voltar-portal">← Portal</a><span class="clock" id="clock">--:--</span>
+    <span id="user-name">Carregando...</span>
+    <button class="btn-logout" onclick="logout()">Sair</button>
+  </div>
+</div>
+
+<div class="layout">
+  <nav class="sidebar">
+    <a href="/progestao">🏠 Início</a>
+    <a href="/progestao/ferramentas">🔧 Ferramentas</a>
+    <a href="/progestao/epis">🦺 EPIs</a>
+    <a href="/progestao/banco-horas">⏰ Banco Horas</a>
+    <a href="/progestao/treinamentos">📚 Treinamentos</a>
+    <a href="/progestao/diario-bordo">📓 Diário Bordo</a>
+    <a href="/progestao/checklist">✅ Checklist</a>
+    <a href="/progestao/producao" class="active">🏭 Produção</a><a href="/progestao/limpeza">🧹 Limpeza</a>
+  </nav>
+
+  <div class="main">
+    <div class="kpis">
+      <div class="kpi blue"><div class="lbl">Produtos no Plano</div><div class="val" id="kpi-produtos">0</div></div>
+      <div class="kpi green"><div class="lbl">Meta Total</div><div class="val" id="kpi-meta">0</div></div>
+      <div class="kpi orange"><div class="lbl">Realizado Total</div><div class="val" id="kpi-realizado">0</div></div>
+      <div class="kpi yellow"><div class="lbl">% Atendimento</div><div class="val" id="kpi-pct">0%</div></div>
+      <div class="kpi red"><div class="lbl">Planos Atrasados</div><div class="val" id="kpi-atrasados">0</div></div>
+    </div>
+
+    <div style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap;align-items:center">
+      <label style="font-size:12px;color:var(--text2);font-weight:600">Mês (Plano Mensal, Apontamento e Histórico):</label>
+      <input type="month" id="filtro-mes" onchange="loadAll()" style="background:var(--panel2);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:6px;font-size:13px">
+    </div>
+
+    <div class="pcp-aviso">👁 Perfil <strong>PCP</strong>: acesso somente para visualização da Produção.</div>
+    <div class="tabs">
+      <button class="tab active" onclick="showTab('dashboard',event)">📊 Dashboard</button>
+      <button class="tab" onclick="showTab('planos',event)">📋 Plano Mensal</button>
+      <button class="tab" onclick="showTab('apontar',event)">✏️ Apontamento Diário</button>
+      <button class="tab" onclick="showTab('historico',event)">📜 Histórico</button>
+      <button class="tab" onclick="showTab('produtos',event)">🗂️ Produtos</button>
+      <button class="tab" onclick="showTab('celulas',event)">🏭 Células</button>
+    </div>
+
+    <!-- ============ DASHBOARD ============ -->
+    <div class="section show" id="sec-dashboard">
+      <div class="dash-filtros">
+        <div class="form-group" style="min-width:230px"><label>Dashboard</label>
+          <select id="d-tipo" onchange="dashTipoMudou()">
+            <option value="meta">🎯 Meta × Realizado (plano mensal)</option>
+            <option value="horas">⏱ Horas produzidas × Horas disponíveis (por célula)</option>
+          </select></div>
+        <div class="form-group"><label>Período</label>
+          <select id="d-periodo" onchange="dashPeriodoMudou()">
+            <option value="mes">Este mês</option><option value="mes_ant">Mês passado</option><option value="30">Últimos 30 dias</option><option value="90">Últimos 90 dias</option><option value="ano">Este ano</option>
+            <option value="mes_x">Mês…</option><option value="intervalo">Intervalo…</option>
+          </select></div>
+        <div class="form-group" id="d-mes-wrap" style="display:none"><label>Mês</label><input type="month" id="d-mes" onchange="renderDashboard()"></div>
+        <div class="form-group" id="d-de-wrap" style="display:none"><label>De</label><input type="date" id="d-de" onchange="renderDashboard()"></div>
+        <div class="form-group" id="d-ate-wrap" style="display:none"><label>Até</label><input type="date" id="d-ate" onchange="renderDashboard()"></div>
+        <div class="form-group"><label>Material</label><select id="d-material" onchange="renderDashboard()"><option value="">Todos</option></select></div>
+        <div class="form-group"><label>Categoria</label><select id="d-categoria" onchange="renderDashboard()"><option value="">Todas</option></select></div>
+        <div class="form-group"><label>OP</label><select id="d-op" onchange="renderDashboard()"><option value="">Todas</option></select></div>
+        <div class="form-group"><label>Célula</label><select id="d-celula" onchange="renderDashboard()"><option value="">Todas</option></select></div>
+        <div class="form-group"><label>Turno</label><select id="d-turno" onchange="renderDashboard()"><option value="">Todos</option><option value="1">1º Turno</option><option value="2">2º Turno</option><option value="3">3º Turno</option></select></div>
+        <div class="form-group" style="justify-content:flex-end"><label>&nbsp;</label><button class="btn-sm btn-ghost" onclick="limparDash()">Limpar</button></div>
+      </div>
+      <div class="dash-resumo" id="d-resumo"></div>
+
+      <div class="kpis" id="d-kpis"></div>
+
+      <!-- META × REALIZADO -->
+      <div id="dash-meta">
+        <div class="card">
+          <div class="card-title">📈 Acompanhamento do plano — linha do plano × linha do atendimento (acumulado em quantidade)</div>
+          <div class="chart-box tall"><canvas id="ch-meta-linha"></canvas></div>
+          <div class="chart-nota">Linha do plano: valores exatos do Plano Mensal — na <b>data</b> de cada plano a linha sobe a <b>meta</b> daquele plano, fechando na meta total. Linha do atendimento: o realizado desses planos, acumulado pelo dia de cada apontamento, fechando no realizado total do Plano Mensal.</div>
+        </div>
+        <div class="dash-grid">
+          <div class="card"><div class="card-title">📊 Meta × Realizado por material</div><div class="chart-box"><canvas id="ch-meta-material"></canvas></div></div>
+          <div class="card"><div class="card-title">🎯 % de atendimento por OP</div><div class="chart-box"><canvas id="ch-meta-op"></canvas></div></div>
+          <div class="card"><div class="card-title">🧩 Situação dos planos</div><div class="chart-box"><canvas id="ch-meta-status"></canvas></div></div>
+          <div class="card"><div class="card-title">📅 Produção por dia (quantidade) × meta diária</div><div class="chart-box"><canvas id="ch-meta-dia"></canvas></div></div>
+        </div>
+      </div>
+
+      <!-- HORAS -->
+      <div id="dash-horas" style="display:none">
+        <div class="card">
+          <div class="card-title">⏱ Horas produzidas × Horas disponíveis por célula</div>
+          <div class="chart-box tall"><canvas id="ch-horas-celula"></canvas></div>
+          <div class="chart-nota">Horas disponíveis = operadores × horas por operador (padrão 7 h) × dias úteis do período (até hoje). Horas produzidas = soma das horas reportadas nos apontamentos. Cadastre os operadores de cada célula na aba <b>Células</b>.</div>
+        </div>
+        <div class="dash-grid">
+          <div class="card"><div class="card-title">📈 Horas produzidas por dia × disponível/dia</div><div class="chart-box"><canvas id="ch-horas-dia"></canvas></div></div>
+          <div class="card"><div class="card-title">⚡ Eficiência por célula (produzidas ÷ disponíveis)</div><div class="chart-box"><canvas id="ch-horas-efic"></canvas></div></div>
+          <div class="card"><div class="card-title">🥧 Participação de cada célula nas horas produzidas</div><div class="chart-box"><canvas id="ch-horas-share"></canvas></div></div>
+          <div class="card"><div class="card-title">📋 Resumo por célula</div><div style="overflow:auto"><table><thead><tr><th>Célula</th><th>Categoria</th><th>Turno</th><th>Oper.</th><th>Dias úteis</th><th>Disponível (h)</th><th>Produzido (h)</th><th>Efic.</th><th>Qtd.</th></tr></thead><tbody id="tb-horas-celula"></tbody></table></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ CÉLULAS ============ -->
+    <div class="section" id="sec-celulas">
+      <div class="card so-edicao">
+        <div class="card-title" id="cel-titulo">🏷️ Nova Célula</div>
+        <input type="hidden" id="cel-edit-id">
+        <div class="form-row">
+          <div class="form-group"><label>Nome da célula *</label><input type="text" id="cel-nome" placeholder="Ex: Célula 01"></div>
+          <div class="form-group"><label>Categoria</label><input type="text" id="cel-cat" list="cel-cat-lista" placeholder="Ex: Parede, Piso, Acessórios"><datalist id="cel-cat-lista"></datalist></div>
+          <div class="form-group"><label>Turno</label><select id="cel-turno"><option value="">Todos os turnos</option><option value="1">1º Turno</option><option value="2">2º Turno</option><option value="3">3º Turno</option></select></div>
+          <div class="form-group"><label>Operadores</label><input type="number" id="cel-oper" min="0" step="1" value="0" oninput="celPrevia()"></div>
+          <div class="form-group"><label>Horas por operador/dia</label><input type="number" id="cel-horas" min="0.5" step="0.5" value="7" oninput="celPrevia()"></div>
+          <div class="form-group"><label>Horas disponíveis/dia</label><input type="text" id="cel-previa" value="0 h" readonly style="opacity:.75"></div>
+          <div class="form-group" id="cel-ativa-wrap" style="display:none"><label>Situação</label><select id="cel-ativa"><option value="true">Ativa</option><option value="false">Inativa</option></select></div>
+          <div class="form-group" style="grid-column:1/-1"><label>Descrição</label><input type="text" id="cel-desc" placeholder="Opcional"></div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn-sm btn-accent" onclick="salvarCelula()">💾 Salvar Célula</button>
+          <button class="btn-sm btn-ghost" onclick="limparCelula()">Cancelar</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">🏭 Células cadastradas <span style="margin-left:auto;font-size:11px;color:var(--text2)">As horas disponíveis alimentam o dashboard de horas</span></div>
+        <div style="overflow:auto"><table><thead><tr><th>Célula</th><th>Categoria</th><th>Turno</th><th>Operadores</th><th>h/operador</th><th>Horas disp./dia</th><th>Apontamentos</th><th>Situação</th><th>Ações</th></tr></thead><tbody id="tb-celulas"></tbody></table></div>
+      </div>
+    </div>
+
+    <!-- ============ PLANO MENSAL ============ -->
+    <div class="section" id="sec-planos">
+      <div class="card so-edicao">
+        <div class="card-title">➕ Novo Plano Mensal</div>
+        <input type="hidden" id="plano-edit-id">
+        <div class="form-row">
+          <div class="form-group">
+            <label>Data *</label>
+            <input type="date" id="p-data-limite">
+          </div>
+          <div class="form-group">
+            <label>N° OP (opcional, 8 dígitos)</label>
+            <input type="text" id="p-num-op" maxlength="8" oninput="this.value=this.value.replace(/\D/g,'')" placeholder="Ex: 12345678">
+            <small class="hint">Pode deixar em branco e preencher depois</small>
+          </div>
+          <div class="form-group autocomplete">
+            <label>Código Décio *</label>
+            <input type="text" id="p-cod-decio" oninput="autocompletePlano(this.value)" autocomplete="off">
+            <div class="autocomplete-list" id="plano-ac-list"></div>
+          </div>
+          <div class="form-group">
+            <label>Código Intelbras</label>
+            <input type="text" id="p-cod-intelbras" readonly>
+          </div>
+          <div class="form-group">
+            <label>Descrição</label>
+            <input type="text" id="p-descricao" readonly>
+          </div>
+          <div class="form-group">
+            <label>Meta Mensal *</label>
+            <input type="number" id="p-meta" step="0.01" min="0">
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn-sm btn-accent" onclick="salvarPlano()">💾 Salvar Plano</button>
+          <button class="btn-sm btn-ghost" onclick="limparPlano()">Cancelar</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">📋 Produtos do Mês</div>
+        <div style="overflow-x:auto">
+          <table>
+            <thead><tr><th>Data</th><th>N° OP</th><th>Cód. Décio</th><th>Cód. Intelbras</th><th>Descrição</th><th>Meta</th><th>Realizado</th><th>%</th><th>Status</th><th>Ações</th></tr></thead>
+            <tbody id="tb-planos"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ APONTAMENTO DIÁRIO ============ -->
+    <div class="section" id="sec-apontar">
+      <div class="card">
+        <div class="card-title" id="apont-titulo">✏️ Novo Apontamento Detalhado</div>
+        <div id="apont-edit-aviso" style="display:none;background:rgba(232,140,74,.12);border:1px solid var(--orange,#E88C4A);border-radius:8px;padding:8px 12px;margin-bottom:12px;font-size:.85rem">✏️ Editando apontamento <strong id="apont-edit-id"></strong>. O realizado do plano será recalculado ao salvar. <a href="#" onclick="limparApontamento();return false" style="color:var(--accent);margin-left:8px">Cancelar edição</a></div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Data de Execução *</label>
+            <input type="date" id="a-data">
+          </div>
+          <div class="form-group">
+            <label>Turno *</label>
+            <select id="a-turno">
+              <option value="">Selecione...</option>
+              <option value="1">1º Turno</option>
+              <option value="2">2º Turno</option>
+              <option value="3">3º Turno</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Célula *</label>
+            <select id="a-celula"><option value="">Selecione...</option></select>
+          </div>
+          <div class="form-group">
+            <label>N° OP (8 dígitos) *</label>
+            <input type="text" id="a-num-op" maxlength="8" oninput="validarDigitos(this,8)" placeholder="Ex: 12345678">
+            <small class="hint" id="hint-op">Digite 8 dígitos numéricos</small>
+          </div>
+          <div class="form-group">
+            <label>N° Série Inicial (13 caracteres) *</label>
+            <input type="text" id="a-serie-ini" maxlength="13" oninput="validarDigitos(this,13)" placeholder="Ex: A1B2C3D4E5F67">
+            <small class="hint" id="hint-sini">Digite 13 caracteres (letras/números)</small>
+          </div>
+          <div class="form-group">
+            <label>N° Série Final (13 caracteres) *</label>
+            <input type="text" id="a-serie-fim" maxlength="13" oninput="validarDigitos(this,13)" placeholder="Ex: A1B2C3D4E5F89">
+            <small class="hint" id="hint-sfim">Digite 13 caracteres (letras/números)</small>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group autocomplete">
+            <label>Código Décio *</label>
+            <input type="text" id="a-cod-decio" oninput="autocompleteApont(this.value)" autocomplete="off">
+            <div class="autocomplete-list" id="apont-ac-list"></div>
+          </div>
+          <div class="form-group">
+            <label>Código Intelbras</label>
+            <input type="text" id="a-cod-intelbras" readonly>
+          </div>
+          <div class="form-group">
+            <label>Descrição</label>
+            <input type="text" id="a-descricao" readonly>
+          </div>
+          <div class="form-group">
+            <label>Categoria (editável)</label>
+            <select id="a-categoria">
+              <option value="">Selecione...</option>
+              <option>Parede</option>
+              <option>Piso</option>
+              <option>Acessórios</option>
+              <option>Luiz</option>
+              <option>Outro</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>Meta *</label>
+            <input type="number" id="a-meta" step="0.01" min="0">
+          </div>
+          <div class="form-group">
+            <label>Realizado *</label>
+            <input type="number" id="a-realizado" step="0.01" min="0" oninput="calcularHoraTotal()">
+          </div>
+          <div class="form-group">
+            <label>Hora Reportada Total (calculada)</label>
+            <input type="text" id="a-hora-total" readonly>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group" style="grid-column:1/-1">
+            <label>Observações</label>
+            <textarea id="a-obs" placeholder="Observações sobre atrasos ou qualquer detalhe relevante..."></textarea>
+          </div>
+        </div>
+
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn-sm btn-accent" onclick="salvarApontamentoDetalhado()" id="btn-salvar-apont">💾 Salvar Apontamento</button>
+          <button class="btn-sm btn-ghost" onclick="limparApontamento()">Limpar Formulário</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">📜 Histórico de Apontamentos
+          <span style="margin-left:auto;display:flex;gap:6px;flex-wrap:wrap">
+            <button class="btn-sm btn-blue" onclick="exportarApontamentosCSV()">📥 Exportar CSV</button>
+          </span>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;margin-bottom:12px">
+          <input type="date" id="f-data-ini" onchange="renderApontamentosDet()" title="Data início" style="background:var(--panel2);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:6px;font-size:12px">
+          <input type="date" id="f-data-fim" onchange="renderApontamentosDet()" title="Data fim" style="background:var(--panel2);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:6px;font-size:12px">
+          <select id="f-turno" onchange="renderApontamentosDet()" style="background:var(--panel2);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:6px;font-size:12px">
+            <option value="">Todos turnos</option><option value="1">1º Turno</option><option value="2">2º Turno</option>
+          </select>
+          <select id="f-celula" onchange="renderApontamentosDet()" style="background:var(--panel2);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:6px;font-size:12px">
+            <option value="">Todas células</option>
+            <option>Célula 01</option><option>Célula 02</option><option>Célula 03</option><option>Célula 04</option>
+            <option>Hora Extra</option><option>Previsão Falta</option>
+          </select>
+          <input type="text" id="f-op" placeholder="N° OP" oninput="renderApontamentosDet()" style="background:var(--panel2);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:6px;font-size:12px">
+          <input type="text" id="f-decio" placeholder="Cód. Décio" oninput="renderApontamentosDet()" style="background:var(--panel2);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:6px;font-size:12px">
+        </div>
+        <div style="overflow-x:auto">
+          <table>
+            <thead><tr>
+              <th>Data</th><th>Turno</th><th>Célula</th><th>N° OP</th><th>Série Ini</th><th>Série Fim</th>
+              <th>Cód. Décio</th><th>Cód. Intel.</th><th>Descrição</th><th>Categoria</th>
+              <th>Meta</th><th>Realizado</th><th>Hora Total</th><th>Obs.</th><th>Ações</th>
+            </tr></thead>
+            <tbody id="tb-apont-det"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ HISTÓRICO ============ -->
+    <div class="section" id="sec-historico">
+      <div class="card">
+        <div class="card-title">📜 Histórico Geral de Planos</div>
+        <div style="overflow-x:auto">
+          <table>
+            <thead><tr><th>Data</th><th>N° OP</th><th>Cód. Décio</th><th>Cód. Intel.</th><th>Descrição</th><th>Meta</th><th>Realizado</th><th>%</th><th>Status</th></tr></thead>
+            <tbody id="tb-historico"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ PRODUTOS ============ -->
+    <div class="section" id="sec-produtos">
+      <div class="card so-edicao">
+        <div class="card-title">🗂️ Cadastro de Produtos</div>
+        <input type="hidden" id="prod-edit-id">
+        <div class="form-row">
+          <div class="form-group"><label>Cód. Décio *</label><input type="text" id="prod-decio"></div>
+          <div class="form-group"><label>Cód. Intelbras</label><input type="text" id="prod-intelbras"></div>
+          <div class="form-group"><label>Descrição</label><input type="text" id="prod-desc"></div>
+          <div class="form-group"><label>Categoria</label>
+            <select id="prod-cat"><option value="">--</option><option>Parede</option><option>Piso</option><option>Acessórios</option><option>Luiz</option><option>Outro</option></select>
+          </div>
+          <div class="form-group"><label>Valor (R$)</label><input type="number" id="prod-valor" step="0.01" min="0"></div>
+          <div class="form-group"><label>Min. Reportados</label><input type="number" id="prod-min" step="0.01" min="0"></div>
+          <div class="form-group"><label>Hora Reportada</label><input type="number" id="prod-hora" step="0.0001" min="0"></div>
+        </div>
+        <div id="fotos-prod" style="margin-bottom:14px"></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn-sm btn-accent" onclick="salvarProduto()">💾 Salvar Produto</button>
+          <button class="btn-sm btn-ghost" onclick="limparProduto()">Cancelar</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">📦 Produtos Cadastrados <span style="margin-left:auto;font-size:11px;color:var(--text2)">Total: <span id="prod-total">0</span></span></div>
+        <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+          <input type="text" id="prod-busca" placeholder="🔍 Buscar..." oninput="renderProdutos()" style="flex:1;background:var(--panel2);border:1px solid var(--border);color:var(--text);padding:8px 10px;border-radius:6px;font-size:13px">
+        </div>
+        <div style="overflow-x:auto">
+          <table>
+            <thead><tr><th>Foto</th><th>Cód. Décio</th><th>Cód. Intel.</th><th>Descrição</th><th>Categoria</th><th>Valor</th><th>Min.</th><th>Hora</th><th>Ações</th></tr></thead>
+            <tbody id="tb-produtos"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script src="/js/fotos.js"></script>
+<!-- MODAL OBSERVAÇÕES DO STATUS -->
+<div class="modal-overlay" id="modal-obs" onclick="if(event.target===this)fecharObs()">
+  <div class="modal">
+    <h3 id="obs-titulo">💬 Observações do status</h3>
+    <div class="sub" id="obs-sub"></div>
+    <div id="obs-lista"></div>
+    <div class="obs-nova so-edicao" style="margin-top:14px">
+      <label style="font-size:.78rem;color:var(--text2);display:block;margin-bottom:6px">Nova observação (motivo do status, o que foi combinado...)</label>
+      <textarea id="obs-texto" placeholder="Ex: Atrasado por falta de componente X — previsão de chegada 05/10."></textarea>
+      <div class="btns"><button class="btn-sm btn-accent" onclick="salvarObs()">💾 Registrar</button></div>
+    </div>
+    <div class="btns"><button class="btn-sm btn-ghost" onclick="fecharObs()">Fechar</button></div>
+  </div>
+</div>
+
+<script>
+// =================== GLOBAIS ===================
+let usuarioAtual = null;
+let obsPlanoId = null;
+let planos = [], apontamentos = [], apontamentosDet = [], produtos = [];
+let fotosProd = {};
+let apontEditId = null;   // id do apontamento em edição (null = novo)
+const galProd = Fotos.galeria('#fotos-prod', { entidade: 'produto', titulo: 'Fotos do produto' });
+
+// =================== API HELPER ===================
+async function api(url, opts = {}) {
+  opts.headers = { 'Content-Type': 'application/json', ...(opts.headers||{}) };
+  if (opts.body && typeof opts.body !== 'string') opts.body = JSON.stringify(opts.body);
+  const r = await fetch('/api' + url, opts);
+  if (!r.ok) {
+    let msg = 'Erro na requisição';
+    try { const j = await r.json(); msg = j.error || msg; } catch(e){}
+    throw new Error(msg);
+  }
+  return r.json();
+}
+
+// =================== TOAST ===================
+function toast(msg, type = 'ok') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = type === 'error' ? 'show error' : type === 'warn' ? 'show warn' : 'show';
+  setTimeout(() => t.className = '', 4500);
+}
+
+// =================== CLOCK ===================
+function updateClock() {
+  const d = new Date();
+  document.getElementById('clock').textContent = d.toLocaleTimeString('pt-BR', { hour:'2-digit', minute:'2-digit' });
+}
+setInterval(updateClock, 30000);
+updateClock();
+
+// =================== AUTH ===================
+async function loadUser() {
+  try {
+    const u = await api('/me');
+    usuarioAtual = u;
+    document.getElementById('user-name').textContent = u.nome || u.username || 'Usuário';
+    if (u.role === 'pcp') document.body.classList.add('pcp');   // somente visualização (o servidor também bloqueia)
+  } catch(e) {
+    document.getElementById('user-name').textContent = 'Usuário';
+  }
+}
+async function logout() { await fetch('/api/logout', { method:'POST' }); window.location.href = '/login'; }
+
+// =================== TABS ===================
+function showTab(name, ev) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('show'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('sec-' + name).classList.add('show');
+  if (ev) ev.target.classList.add('active');
+  if (name === 'historico') renderHistorico();
+  if (name === 'produtos') renderProdutos();
+  if (name === 'apontar') renderApontamentosDet();
+  if (name === 'dashboard') renderDashboard();
+  if (name === 'celulas') renderCelulas();
+}
+
+// =================== HELPERS ===================
+function fmtData(d) {
+  if (!d) return '-';
+  const s = String(d).substring(0,10);
+  const [ano, mes, dia] = s.split('-');
+  return `${dia}/${mes}/${ano}`;
+}
+function fmtNum(n) { return Number(n||0).toLocaleString('pt-BR', { maximumFractionDigits:2 }); }
+/* ===== OBSERVAÇÕES DO STATUS ===== */
+function escO(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function obsBtn(p){
+  const n = p.obs_qtd || 0;
+  const titulo = n ? escO((p.ultima_obs||'').slice(0,120)) : 'Registrar o motivo do status';
+  return `<button class="obs-btn ${n?'tem':''}" onclick="verObsPlano(${p.id})" title="${titulo}">💬${n?' '+n:''}</button>`;
+}
+async function verObsPlano(id){
+  const p = planos.find(x => x.id === id); if (!p) return;
+  obsPlanoId = id;
+  document.getElementById('obs-titulo').innerHTML = '💬 Observações do status — ' + badgeStatus(calcStatus(p));
+  document.getElementById('obs-sub').textContent = (p.num_op ? 'OP ' + p.num_op + ' · ' : '') + (p.cod_decio || '') + ' — ' + (p.descricao || p.produto || '') + (p.data_limite ? ' · limite ' + fmtData(p.data_limite) : '');
+  document.getElementById('obs-texto').value = '';
+  document.getElementById('obs-lista').innerHTML = '<div style="color:var(--text2);font-size:.85rem">Carregando…</div>';
+  document.getElementById('modal-obs').classList.add('show');
+  await carregarObs();
+}
+async function carregarObs(){
+  let lista = [];
+  try { lista = await api('/prod-planos/' + obsPlanoId + '/observacoes'); } catch(e) { lista = []; }
+  const el = document.getElementById('obs-lista');
+  if (!lista.length) { el.innerHTML = '<div style="color:var(--text2);font-size:.85rem;padding:8px 0">Nenhuma observação registrada para este plano.</div>'; return; }
+  const podeApagar = o => usuarioAtual && (usuarioAtual.role === 'admin' || usuarioAtual.userId === o.autor_id || usuarioAtual.id === o.autor_id);
+  el.innerHTML = lista.map(o => `<div class="obs-item">
+      <div class="cab"><span><strong style="color:var(--text)">${escO(o.autor_nome||'—')}</strong> · ${new Date(o.created_at).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'})} · status na hora: ${badgeStatus(o.status_na_hora)}</span>
+      ${podeApagar(o) ? `<button class="btn-sm btn-red so-edicao" onclick="apagarObs(${o.id})" style="padding:2px 8px;font-size:11px">🗑️</button>` : ''}</div>
+      <div class="txt">${escO(o.texto)}</div></div>`).join('');
+}
+async function salvarObs(){
+  const texto = document.getElementById('obs-texto').value.trim();
+  if (!texto) return toast('Escreva a observação', 'error');
+  try {
+    await api('/prod-planos/' + obsPlanoId + '/observacoes', { method:'POST', body:{ texto } });
+    toast('Observação registrada');
+    document.getElementById('obs-texto').value = '';
+    await carregarObs();
+    planos = await api('/prod-planos').catch(()=>planos); renderPlanos(); renderHistorico();
+  } catch(e) { toast('Erro: ' + e.message, 'error'); }
+}
+async function apagarObs(id){
+  if (!confirm('Excluir esta observação?')) return;
+  try { await api('/prod-plano-obs/' + id, { method:'DELETE' }); await carregarObs(); planos = await api('/prod-planos').catch(()=>planos); renderPlanos(); renderHistorico(); }
+  catch(e) { toast('Erro: ' + e.message, 'error'); }
+}
+function fecharObs(){ document.getElementById('modal-obs').classList.remove('show'); }
+
+function badgeStatus(s) {
+  if (s === 'concluido') return '<span class="badge green">✅ Concluído</span>';
+  if (s === 'atrasado') return '<span class="badge red">⚠️ Atrasado</span>';
+  return '<span class="badge blue">🔄 Em Andamento</span>';
+}
+
+function calcStatus(plano) {
+  const meta = Number(plano.meta) || 0;
+  const realizado = Number(plano.realizado) || 0;
+  const pct = meta > 0 ? (realizado / meta) * 100 : 0;
+  if (pct >= 100) return 'concluido';
+  if (plano.data_limite) {
+    const dataLimiteStr = String(plano.data_limite).substring(0,10);
+    const hoje = new Date();
+    const hojeStr = hoje.getFullYear() + '-' + String(hoje.getMonth()+1).padStart(2,'0') + '-' + String(hoje.getDate()).padStart(2,'0');
+    if (dataLimiteStr < hojeStr) return 'atrasado';
+  }
+  return 'em_andamento';
+}
+
+// =================== VALIDAÇÃO ===================
+function validarDigitos(input, qtd) {
+  if (input.id === 'a-num-op') {
+    input.value = input.value.replace(/\D/g, '');
+  } else {
+    input.value = input.value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+  }
+  const ok = input.value.length === qtd;
+  input.classList.toggle('valid', ok);
+  input.classList.toggle('invalid', input.value.length > 0 && !ok);
+  let hintId = '';
+  if (input.id === 'a-num-op') hintId = 'hint-op';
+  else if (input.id === 'a-serie-ini') hintId = 'hint-sini';
+  else if (input.id === 'a-serie-fim') hintId = 'hint-sfim';
+  if (hintId) {
+    const h = document.getElementById(hintId);
+    if (ok) { h.textContent = '✓ OK'; h.classList.remove('error'); }
+    else if (input.value.length === 0) {
+      h.textContent = input.id === 'a-num-op'
+        ? `Digite ${qtd} dígitos numéricos`
+        : `Digite ${qtd} caracteres (letras/números)`;
+      h.classList.remove('error');
+    }
+    else { h.textContent = `Faltam ${qtd - input.value.length} caractere(s)`; h.classList.add('error'); }
+  }
+}
+
+// =================== DATA LOADING ===================
+async function loadAll() {
+  const mes = document.getElementById('filtro-mes').value;
+  try {
+    const url = mes ? '/prod-planos?mes=' + mes : '/prod-planos';
+    planos = await api(url).catch(()=>[]);
+    apontamentos = await api('/prod-apontamentos' + (mes ? '?mes=' + mes : '')).catch(()=>[]);
+    apontamentosDet = await api('/prod-apontamentos-detalhados' + (mes ? '?mes=' + mes : '')).catch(()=>[]);
+    produtos = await api('/prod-produtos').catch(()=>[]);
+    fotosProd = await Fotos.mapa('produto');
+    // dashboards: tudo, sem o filtro de mês do topo
+    [dashPlanos, dashApont] = await Promise.all([api('/prod-planos').catch(()=>[]), api('/prod-apontamentos-detalhados').catch(()=>[])]);
+    await carregarCelulas();
+    popularFiltrosDash();
+    renderKPIs();
+    renderPlanos();
+    renderDashboard();
+    renderApontamentosDet();
+  } catch(e) {
+    console.error(e);
+    toast('Erro ao carregar dados: ' + e.message, 'error');
+  }
+}
+
+// =================== KPIs ===================
+function renderKPIs() {
+  document.getElementById('kpi-produtos').textContent = planos.length;
+  const meta = planos.reduce((s,p) => s + (parseFloat(p.meta)||0), 0);
+  const real = planos.reduce((s,p) => s + (parseFloat(p.realizado)||0), 0);
+  const pct = meta > 0 ? (real/meta)*100 : 0;
+  const atrasados = planos.filter(p => calcStatus(p) === 'atrasado').length;
+  document.getElementById('kpi-meta').textContent = fmtNum(meta);
+  document.getElementById('kpi-realizado').textContent = fmtNum(real);
+  document.getElementById('kpi-pct').textContent = pct.toFixed(1) + '%';
+  document.getElementById('kpi-atrasados').textContent = atrasados;
+}
+
+// =================== AUTOCOMPLETE: PLANO ===================
+function autocompletePlano(q) {
+  const list = document.getElementById('plano-ac-list');
+  if (!q || q.length < 1) { list.classList.remove('show'); return; }
+  const ql = q.toLowerCase();
+  const matches = produtos.filter(p =>
+    (p.cod_decio||'').toLowerCase().includes(ql) ||
+    (p.cod_intelbras||'').toLowerCase().includes(ql) ||
+    (p.descricao||'').toLowerCase().includes(ql)
+  ).slice(0,10);
+  if (!matches.length) { list.classList.remove('show'); return; }
+  list.innerHTML = matches.map(p =>
+    `<div class="autocomplete-item" onclick="selecionarProdutoPlano('${p.cod_decio}')">
+      <strong>${p.cod_decio}</strong> | ${p.cod_intelbras||'-'} | ${p.descricao||'-'}
+    </div>`).join('');
+  list.classList.add('show');
+}
+function selecionarProdutoPlano(decio) {
+  const p = produtos.find(x => x.cod_decio === decio);
+  if (!p) return;
+  document.getElementById('p-cod-decio').value = p.cod_decio;
+  document.getElementById('p-cod-intelbras').value = p.cod_intelbras || '';
+  document.getElementById('p-descricao').value = p.descricao || '';
+  document.getElementById('plano-ac-list').classList.remove('show');
+}
+
+// =================== AUTOCOMPLETE: APONTAMENTO ===================
+function autocompleteApont(q) {
+  const list = document.getElementById('apont-ac-list');
+  if (!q || q.length < 1) { list.classList.remove('show'); return; }
+  const ql = q.toLowerCase();
+  const matches = produtos.filter(p =>
+    (p.cod_decio||'').toLowerCase().includes(ql) ||
+    (p.cod_intelbras||'').toLowerCase().includes(ql) ||
+    (p.descricao||'').toLowerCase().includes(ql)
+  ).slice(0,10);
+  if (!matches.length) { list.classList.remove('show'); return; }
+  list.innerHTML = matches.map(p =>
+    `<div class="autocomplete-item" onclick="selecionarProdutoApont('${p.cod_decio}')">
+      <strong>${p.cod_decio}</strong> | ${p.cod_intelbras||'-'} | ${p.descricao||'-'}
+    </div>`).join('');
+  list.classList.add('show');
+}
+function selecionarProdutoApont(decio) {
+  const p = produtos.find(x => x.cod_decio === decio);
+  if (!p) return;
+  document.getElementById('a-cod-decio').value = p.cod_decio;
+  document.getElementById('a-cod-intelbras').value = p.cod_intelbras || '';
+  document.getElementById('a-descricao').value = p.descricao || '';
+  document.getElementById('a-categoria').value = p.categoria || '';
+  document.getElementById('a-cod-decio').dataset.horaRep = p.hora_reportado || 0;
+  document.getElementById('apont-ac-list').classList.remove('show');
+  calcularHoraTotal();
+}
+
+// =================== CALCULAR HORA TOTAL ===================
+function calcularHoraTotal() {
+  const hora = parseFloat(document.getElementById('a-cod-decio').dataset.horaRep || 0);
+  const real = parseFloat(document.getElementById('a-realizado').value || 0);
+  const total = hora * real;
+  document.getElementById('a-hora-total').value = total.toFixed(4) + ' h';
+}
+
+// =================== PLANO MENSAL: CRUD ===================
+async function salvarPlano() {
+  const data_limite = document.getElementById('p-data-limite').value;
+  const num_op = document.getElementById('p-num-op').value.trim();
+  const cod_decio = document.getElementById('p-cod-decio').value.trim();
+  const cod_intelbras = document.getElementById('p-cod-intelbras').value.trim();
+  const descricao = document.getElementById('p-descricao').value.trim();
+  const meta = parseFloat(document.getElementById('p-meta').value || 0);
+  if (!data_limite) return toast('Informe a data', 'error');
+  if (!cod_decio) return toast('Informe o código Décio', 'error');
+  if (meta <= 0) return toast('Informe uma meta válida', 'error');
+  if (num_op && !/^\d{8}$/.test(num_op)) return toast('N° OP deve ter exatos 8 dígitos numéricos (ou deixe em branco)', 'error');
+  const editId = document.getElementById('plano-edit-id').value;
+  try {
+    const body = { data_limite, cod_decio, cod_intelbras, descricao, meta, num_op: num_op || null };
+    if (editId) {
+      await api('/prod-planos/' + editId, { method:'PUT', body });
+      toast('Plano atualizado!');
+    } else {
+      await api('/prod-planos', { method:'POST', body });
+      toast('Plano salvo!');
+    }
+    limparPlano();
+    loadAll();
+  } catch(e) { toast('Erro: ' + e.message, 'error'); }
+}
+function limparPlano() {
+  document.getElementById('plano-edit-id').value = '';
+  document.getElementById('p-data-limite').value = '';
+  document.getElementById('p-num-op').value = '';
+  document.getElementById('p-cod-decio').value = '';
+  document.getElementById('p-cod-intelbras').value = '';
+  document.getElementById('p-descricao').value = '';
+  document.getElementById('p-meta').value = '';
+}
+function editarPlano(id) {
+  const p = planos.find(x => x.id === id);
+  if (!p) return;
+  document.getElementById('plano-edit-id').value = p.id;
+  document.getElementById('p-data-limite').value = p.data_limite ? String(p.data_limite).substring(0,10) : '';
+  document.getElementById('p-num-op').value = p.num_op || '';
+  document.getElementById('p-cod-decio').value = p.cod_decio || '';
+  document.getElementById('p-cod-intelbras').value = p.cod_intelbras || '';
+  document.getElementById('p-descricao').value = p.descricao || '';
+  document.getElementById('p-meta').value = p.meta || '';
+  window.scrollTo({ top:0, behavior:'smooth' });
+}
+async function excluirPlano(id) {
+  if (!confirm('Excluir este plano? Isto NÃO exclui os apontamentos detalhados já feitos.')) return;
+  try { await api('/prod-planos/' + id, { method:'DELETE' }); toast('Plano excluído'); loadAll(); }
+  catch(e) { toast('Erro: ' + e.message, 'error'); }
+}
+function renderPlanos() {
+  const tb = document.getElementById('tb-planos');
+  if (!planos.length) { tb.innerHTML = '<tr><td colspan="10" style="text-align:center;color:var(--text2);padding:24px">Nenhum plano cadastrado.</td></tr>'; return; }
+  tb.innerHTML = planos.map(p => {
+    const meta = parseFloat(p.meta)||0;
+    const real = parseFloat(p.realizado)||0;
+    const pct = meta > 0 ? (real/meta)*100 : 0;
+    const status = calcStatus(p);
+    return `<tr>
+      <td>${fmtData(p.data_limite)}</td>
+      <td>${p.num_op ? '<strong>'+p.num_op+'</strong>' : '<span style="color:var(--text2)">-</span>'}</td>
+      <td><strong>${p.cod_decio||'-'}</strong></td>
+      <td>${p.cod_intelbras||'-'}</td>
+      <td>${p.descricao||p.produto||'-'}</td>
+      <td>${fmtNum(meta)}</td>
+      <td>${fmtNum(real)}</td>
+      <td>${pct.toFixed(1)}%</td>
+      <td style="white-space:nowrap">${badgeStatus(status)}${obsBtn(p)}</td>
+      <td>
+        <button class="btn-sm btn-blue" onclick="editarPlano(${p.id})" style="padding:4px 8px;font-size:11px">✏️</button>
+        <button class="btn-sm btn-red" onclick="excluirPlano(${p.id})" style="padding:4px 8px;font-size:11px">🗑️</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+// =================== APONTAMENTO DETALHADO: CRUD ===================
+async function salvarApontamentoDetalhado() {
+  const data_execucao = document.getElementById('a-data').value;
+  const turno = document.getElementById('a-turno').value;
+  const celula = document.getElementById('a-celula').value;
+  const num_op = document.getElementById('a-num-op').value;
+  const serie_inicial = document.getElementById('a-serie-ini').value;
+  const serie_final = document.getElementById('a-serie-fim').value;
+  const cod_decio = document.getElementById('a-cod-decio').value.trim();
+  const cod_intelbras = document.getElementById('a-cod-intelbras').value.trim();
+  const descricao = document.getElementById('a-descricao').value.trim();
+  const categoria = document.getElementById('a-categoria').value;
+  const meta = parseFloat(document.getElementById('a-meta').value || 0);
+  const realizado = parseFloat(document.getElementById('a-realizado').value || 0);
+  const horaRep = parseFloat(document.getElementById('a-cod-decio').dataset.horaRep || 0);
+  const hora_reportada_total = horaRep * realizado;
+  const observacoes = document.getElementById('a-obs').value.trim();
+
+  if (!data_execucao) return toast('Informe a data de execução', 'error');
+  if (!turno) return toast('Selecione o turno', 'error');
+  if (!celula) return toast('Selecione a célula', 'error');
+  if (!/^\d{8}$/.test(num_op)) return toast('N° OP deve ter exatos 8 dígitos numéricos', 'error');
+  if (!/^[A-Z0-9]{13}$/.test(serie_inicial)) return toast('Série Inicial deve ter exatos 13 caracteres (letras/números)', 'error');
+  if (!/^[A-Z0-9]{13}$/.test(serie_final)) return toast('Série Final deve ter exatos 13 caracteres (letras/números)', 'error');
+  if (!cod_decio) return toast('Informe o código Décio', 'error');
+  if (realizado <= 0) return toast('Informe a quantidade realizada', 'error');
+
+  const btn = document.getElementById('btn-salvar-apont');
+  btn.disabled = true;
+  btn.textContent = 'Salvando...';
+
+  try {
+    const body = { data_execucao, turno, celula, num_op, serie_inicial, serie_final,
+                   cod_decio, cod_intelbras, descricao, categoria, meta, realizado,
+                   hora_reportada_total, observacoes };
+    if (apontEditId) {
+      await api('/prod-apontamentos-detalhados/' + apontEditId, { method:'PUT', body });
+      toast('✅ Apontamento atualizado — plano da OP ' + num_op + ' recalculado');
+    } else {
+      await api('/prod-apontamentos-detalhados', { method:'POST', body });
+      toast('✅ Apontamento salvo e somado ao plano da OP ' + num_op + '!');
+    }
+    limparApontamento();
+    loadAll();
+  } catch(e) {
+    toast('Erro: ' + e.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '💾 Salvar Apontamento';
+  }
+}
+
+function limparApontamento() {
+  apontEditId = null;
+  document.getElementById('apont-titulo').textContent = '✏️ Novo Apontamento Detalhado';
+  document.getElementById('apont-edit-aviso').style.display = 'none';
+  document.getElementById('btn-salvar-apont').textContent = '💾 Salvar Apontamento';
+  ['a-data','a-turno','a-celula','a-num-op','a-serie-ini','a-serie-fim',
+   'a-cod-decio','a-cod-intelbras','a-descricao','a-categoria',
+   'a-meta','a-realizado','a-hora-total','a-obs'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  document.getElementById('a-cod-decio').dataset.horaRep = 0;
+  document.querySelectorAll('#sec-apontar input').forEach(i => i.classList.remove('valid','invalid'));
+  document.getElementById('hint-op').textContent = 'Digite 8 dígitos numéricos';
+  document.getElementById('hint-sini').textContent = 'Digite 13 caracteres (letras/números)';
+  document.getElementById('hint-sfim').textContent = 'Digite 13 caracteres (letras/números)';
+  ['hint-op','hint-sini','hint-sfim'].forEach(id => document.getElementById(id).classList.remove('error'));
+}
+
+function editarApontamentoDet(id) {
+  const a = apontamentosDet.find(x => x.id === id);
+  if (!a) return;
+  apontEditId = id;
+  const set = (i, v) => { const el = document.getElementById(i); if (el) el.value = v == null ? '' : v; };
+  set('a-data', String(a.data_execucao || '').substring(0, 10));
+  set('a-turno', a.turno);
+  const selCel = document.getElementById('a-celula');   // célula antiga/inativa continua selecionável no registro dela
+  if (a.celula && ![...selCel.options].some(o => o.value === a.celula)) selCel.innerHTML += `<option value="${a.celula}">${a.celula}</option>`;
+  set('a-celula', a.celula); set('a-num-op', a.num_op);
+  set('a-serie-ini', a.serie_inicial); set('a-serie-fim', a.serie_final);
+  set('a-cod-decio', a.cod_decio); set('a-cod-intelbras', a.cod_intelbras); set('a-descricao', a.descricao);
+  set('a-categoria', a.categoria); set('a-meta', a.meta); set('a-realizado', a.realizado); set('a-obs', a.observacoes);
+  // hora reportada por peça: do produto cadastrado, senão a proporção do próprio apontamento
+  const p = produtos.find(x => x.cod_decio === a.cod_decio);
+  const horaRep = p ? (p.hora_reportado || 0) : (parseFloat(a.realizado) ? (parseFloat(a.hora_reportada_total) || 0) / parseFloat(a.realizado) : 0);
+  document.getElementById('a-cod-decio').dataset.horaRep = horaRep;
+  calcularHoraTotal();
+  document.getElementById('apont-titulo').textContent = '✏️ Editar Apontamento';
+  document.getElementById('apont-edit-aviso').style.display = 'block';
+  document.getElementById('apont-edit-id').textContent = '#' + id + ' (OP ' + (a.num_op || '-') + ', ' + fmtData(a.data_execucao) + ')';
+  document.getElementById('btn-salvar-apont').textContent = '💾 Atualizar Apontamento';
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+async function excluirApontamentoDet(id) {
+  if (!confirm('Excluir este apontamento? O realizado será subtraído do plano mensal.')) return;
+  try { await api('/prod-apontamentos-detalhados/' + id, { method:'DELETE' }); toast('Apontamento excluído'); loadAll(); }
+  catch(e) { toast('Erro: ' + e.message, 'error'); }
+}
+
+function renderApontamentosDet() {
+  const tb = document.getElementById('tb-apont-det');
+  let lista = [...apontamentosDet];
+  const dIni = document.getElementById('f-data-ini').value;
+  const dFim = document.getElementById('f-data-fim').value;
+  const turno = document.getElementById('f-turno').value;
+  const celula = document.getElementById('f-celula').value;
+  const op = document.getElementById('f-op').value.trim().toLowerCase();
+  const decio = document.getElementById('f-decio').value.trim().toLowerCase();
+  if (dIni) lista = lista.filter(a => String(a.data_execucao).substring(0,10) >= dIni);
+  if (dFim) lista = lista.filter(a => String(a.data_execucao).substring(0,10) <= dFim);
+  if (turno) lista = lista.filter(a => a.turno === turno);
+  if (celula) lista = lista.filter(a => a.celula === celula);
+  if (op) lista = lista.filter(a => (a.num_op||'').toLowerCase().includes(op));
+  if (decio) lista = lista.filter(a => (a.cod_decio||'').toLowerCase().includes(decio));
+  if (!lista.length) { tb.innerHTML = '<tr><td colspan="15" style="text-align:center;color:var(--text2);padding:24px">Nenhum apontamento encontrado.</td></tr>'; return; }
+  tb.innerHTML = lista.map(a => `<tr>
+    <td>${fmtData(a.data_execucao)}</td>
+    <td>${a.turno}º</td>
+    <td>${a.celula||'-'}</td>
+    <td><strong>${a.num_op||'-'}</strong></td>
+    <td>${a.serie_inicial||'-'}</td>
+    <td>${a.serie_final||'-'}</td>
+    <td><strong>${a.cod_decio||'-'}</strong></td>
+    <td>${a.cod_intelbras||'-'}</td>
+    <td title="${a.descricao||''}">${(a.descricao||'-').substring(0,30)}${(a.descricao||'').length>30?'...':''}</td>
+    <td>${a.categoria||'-'}</td>
+    <td>${fmtNum(a.meta)}</td>
+    <td>${fmtNum(a.realizado)}</td>
+    <td>${fmtNum(a.hora_reportada_total)} h</td>
+    <td title="${a.observacoes||''}">${(a.observacoes||'-').substring(0,20)}${(a.observacoes||'').length>20?'...':''}</td>
+    <td style="white-space:nowrap"><button class="btn-sm btn-ghost" onclick="editarApontamentoDet(${a.id})" style="padding:4px 8px;font-size:11px" title="Editar">✏️</button> <button class="btn-sm btn-red" onclick="excluirApontamentoDet(${a.id})" style="padding:4px 8px;font-size:11px">🗑️</button></td>
+  </tr>`).join('');
+}
+
+function exportarApontamentosCSV() {
+  if (!apontamentosDet.length) return toast('Nada para exportar', 'warn');
+  const headers = ['Data','Turno','Célula','N° OP','Série Inicial','Série Final','Cód. Décio','Cód. Intelbras','Descrição','Categoria','Meta','Realizado','Hora Total','Observações'];
+  const rows = apontamentosDet.map(a => [
+    fmtData(a.data_execucao), a.turno+'º', a.celula||'', a.num_op||'', a.serie_inicial||'', a.serie_final||'',
+    a.cod_decio||'', a.cod_intelbras||'', (a.descricao||'').replace(/[\r\n;]/g,' '), a.categoria||'',
+    a.meta||0, a.realizado||0, a.hora_reportada_total||0, (a.observacoes||'').replace(/[\r\n;]/g,' ')
+  ]);
+  const csv = [headers, ...rows].map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(';')).join('\n');
+  const blob = new Blob(['\uFEFF'+csv], { type:'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = `apontamentos_${new Date().toISOString().substring(0,10)}.csv`;
+  a.click(); URL.revokeObjectURL(url);
+  toast('CSV exportado!');
+}
+
+// =================== HISTÓRICO ===================
+function renderHistorico() {
+  const tb = document.getElementById('tb-historico');
+  if (!planos.length) { tb.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--text2);padding:24px">Nenhum plano.</td></tr>'; return; }
+  tb.innerHTML = planos.map(p => {
+    const meta = parseFloat(p.meta)||0;
+    const real = parseFloat(p.realizado)||0;
+    const pct = meta > 0 ? (real/meta)*100 : 0;
+    const status = calcStatus(p);
+    return `<tr>
+      <td>${fmtData(p.data_limite)}</td>
+      <td>${p.num_op||'-'}</td>
+      <td>${p.cod_decio||'-'}</td>
+      <td>${p.cod_intelbras||'-'}</td>
+      <td>${p.descricao||p.produto||'-'}</td>
+      <td>${fmtNum(meta)}</td>
+      <td>${fmtNum(real)}</td>
+      <td>${pct.toFixed(1)}%</td>
+      <td style="white-space:nowrap">${badgeStatus(status)}${obsBtn(p)}</td>
+    </tr>`;
+  }).join('');
+}
+
+// =================== PRODUTOS ===================
+async function salvarProduto() {
+  const cod_decio = document.getElementById('prod-decio').value.trim();
+  const cod_intelbras = document.getElementById('prod-intelbras').value.trim();
+  const descricao = document.getElementById('prod-desc').value.trim();
+  const categoria = document.getElementById('prod-cat').value;
+  const valor = parseFloat(document.getElementById('prod-valor').value || 0);
+  const minutos_reportados = parseFloat(document.getElementById('prod-min').value || 0);
+  const hora_reportado = parseFloat(document.getElementById('prod-hora').value || 0);
+  if (!cod_decio) return toast('Informe o código Décio', 'error');
+  const editId = document.getElementById('prod-edit-id').value;
+  try {
+    let salvo;
+    if (editId) {
+      salvo = await api('/prod-produtos/' + editId, { method:'PUT', body:{ cod_decio, cod_intelbras, descricao, categoria, valor, minutos_reportados, hora_reportado } });
+    } else {
+      salvo = await api('/prod-produtos', { method:'POST', body:{ cod_decio, cod_intelbras, descricao, categoria, valor, minutos_reportados, hora_reportado } });
+    }
+    await galProd.salvar(salvo.id);
+    toast(editId ? 'Produto atualizado!' : 'Produto criado!');
+    limparProduto();
+    produtos = await api('/prod-produtos').catch(()=>[]);
+    fotosProd = await Fotos.mapa('produto');
+    renderProdutos();
+  } catch(e) { toast('Erro: ' + e.message, 'error'); }
+}
+function limparProduto() {
+  ['prod-edit-id','prod-decio','prod-intelbras','prod-desc','prod-cat','prod-valor','prod-min','prod-hora'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
+  galProd.limpar();
+}
+function editarProduto(id) {
+  const p = produtos.find(x => x.id === id); if (!p) return;
+  document.getElementById('prod-edit-id').value = p.id;
+  document.getElementById('prod-decio').value = p.cod_decio || '';
+  document.getElementById('prod-intelbras').value = p.cod_intelbras || '';
+  document.getElementById('prod-desc').value = p.descricao || '';
+  document.getElementById('prod-cat').value = p.categoria || '';
+  document.getElementById('prod-valor').value = p.valor || '';
+  document.getElementById('prod-min').value = p.minutos_reportados || '';
+  document.getElementById('prod-hora').value = p.hora_reportado || '';
+  galProd.carregar(p.id);
+  window.scrollTo({ top:0, behavior:'smooth' });
+}
+async function excluirProduto(id) {
+  if (!confirm('Excluir este produto?')) return;
+  try { await api('/prod-produtos/' + id, { method:'DELETE' }); toast('Produto excluído'); produtos = await api('/prod-produtos').catch(()=>[]); renderProdutos(); }
+  catch(e) { toast('Erro: ' + e.message, 'error'); }
+}
+function renderProdutos() {
+  const tb = document.getElementById('tb-produtos');
+  const q = (document.getElementById('prod-busca')?.value || '').toLowerCase();
+  let lista = [...produtos];
+  if (q) lista = lista.filter(p =>
+    (p.cod_decio||'').toLowerCase().includes(q) ||
+    (p.cod_intelbras||'').toLowerCase().includes(q) ||
+    (p.descricao||'').toLowerCase().includes(q));
+  document.getElementById('prod-total').textContent = lista.length;
+  if (!lista.length) { tb.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--text2);padding:24px">Nenhum produto.</td></tr>'; return; }
+  tb.innerHTML = lista.map(p => `<tr>
+    <td>${Fotos.miniaturas(fotosProd[p.id],{max:1})}</td>
+    <td><strong>${p.cod_decio||'-'}</strong></td>
+    <td>${p.cod_intelbras||'-'}</td>
+    <td>${p.descricao||'-'}</td>
+    <td>${p.categoria||'-'}</td>
+    <td>${fmtNum(p.valor)}</td>
+    <td>${fmtNum(p.minutos_reportados)}</td>
+    <td>${fmtNum(p.hora_reportado)}</td>
+    <td>
+      <button class="btn-sm btn-blue" onclick="editarProduto(${p.id})" style="padding:4px 8px;font-size:11px">✏️</button>
+      <button class="btn-sm btn-red" onclick="excluirProduto(${p.id})" style="padding:4px 8px;font-size:11px">🗑️</button>
+    </td>
+  </tr>`).join('');
+}
+
+// =================== DASHBOARD CHARTS ===================
+// =================== DASHBOARD ===================
+/* Os dashboards usam dados completos (todos os planos e apontamentos),
+   independentes do "Filtrar por mês" do topo — o período é escolhido aqui. */
+let dashPlanos = [], dashApont = [], celulas = [];
+const charts = {};
+const COR = { verde:'#34D399', azul:'#56B6E0', laranja:'#E88C4A', vermelho:'#F26D6D', amarelo:'#F0B429', roxo:'#A78BFA', ciano:'#22D3EE', cinza:'#8aa0ab', accent:'#26B247' };
+const PALETA = [COR.azul, COR.verde, COR.laranja, COR.roxo, COR.amarelo, COR.ciano, COR.vermelho, '#F472B6', '#A3E635', '#FB923C'];
+const txtCor = '#A2BCC3', gridCor = 'rgba(162,188,195,.12)';
+const hex2rgba = (h, a) => { const n = parseInt(h.slice(1), 16); return `rgba(${(n>>16)&255},${(n>>8)&255},${n&255},${a})`; };
+
+function isoHoje() { const n = new Date(); return n.getFullYear() + '-' + String(n.getMonth()+1).padStart(2,'0') + '-' + String(n.getDate()).padStart(2,'0'); }
+function isoDe(d) { return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); }
+function addDias(iso, n) { const p = iso.split('-').map(Number); return isoDe(new Date(p[0], p[1]-1, p[2]+n)); }
+function fimMes(ym) { const [y, m] = ym.split('-').map(Number); return isoDe(new Date(y, m, 0)); }
+function ehDiaUtil(iso) { const p = iso.split('-').map(Number); const dow = new Date(p[0], p[1]-1, p[2]).getDay(); return dow >= 1 && dow <= 5; }
+function diasEntre(de, ate) { const out = []; let d = de; let g = 0; while (d <= ate && g++ < 800) { out.push(d); d = addDias(d, 1); } return out; }
+function fmtDiaCurto(iso) { return iso.slice(8,10) + '/' + iso.slice(5,7); }
+function fmtH(h) { return (Math.round(h * 10) / 10).toLocaleString('pt-BR', { minimumFractionDigits:1, maximumFractionDigits:1 }) + ' h'; }
+
+function dashPeriodo() {
+  const p = document.getElementById('d-periodo').value, h = isoHoje();
+  if (p === 'mes') return [h.slice(0,8) + '01', fimMes(h.slice(0,7))];
+  if (p === 'mes_ant') { const d = new Date(); const ym = isoDe(new Date(d.getFullYear(), d.getMonth()-1, 1)).slice(0,7); return [ym + '-01', fimMes(ym)]; }
+  if (p === '30') return [addDias(h, -29), h];
+  if (p === '90') return [addDias(h, -89), h];
+  if (p === 'ano') return [h.slice(0,4) + '-01-01', h.slice(0,4) + '-12-31'];
+  if (p === 'mes_x') { const m = document.getElementById('d-mes').value || h.slice(0,7); return [m + '-01', fimMes(m)]; }
+  const de = document.getElementById('d-de').value, ate = document.getElementById('d-ate').value;
+  return [de || h.slice(0,8) + '01', ate || h];
+}
+function dashPeriodoMudou() {
+  const p = document.getElementById('d-periodo').value;
+  document.getElementById('d-mes-wrap').style.display = p === 'mes_x' ? '' : 'none';
+  document.getElementById('d-de-wrap').style.display = document.getElementById('d-ate-wrap').style.display = p === 'intervalo' ? '' : 'none';
+  if (p === 'mes_x' && !document.getElementById('d-mes').value) document.getElementById('d-mes').value = isoHoje().slice(0,7);
+  if (p === 'intervalo' && !document.getElementById('d-de').value) { document.getElementById('d-de').value = isoHoje().slice(0,8) + '01'; document.getElementById('d-ate').value = isoHoje(); }
+  renderDashboard();
+}
+function dashTipoMudou() {
+  const horas = document.getElementById('d-tipo').value === 'horas';
+  document.getElementById('dash-meta').style.display = horas ? 'none' : '';
+  document.getElementById('dash-horas').style.display = horas ? '' : 'none';
+  renderDashboard();
+}
+function limparDash() {
+  ['d-material','d-categoria','d-op','d-celula','d-turno','d-mes','d-de','d-ate'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('d-periodo').value = 'mes'; dashPeriodoMudou();
+}
+function popularFiltrosDash() {
+  const keep = (id, html) => { const s = document.getElementById(id); const v = s.value; s.innerHTML = html; s.value = v; };
+  const mats = new Map();
+  dashPlanos.forEach(p => { if (p.cod_decio) mats.set(p.cod_decio, p.descricao || p.produto || ''); });
+  dashApont.forEach(a => { if (a.cod_decio && !mats.has(a.cod_decio)) mats.set(a.cod_decio, a.descricao || ''); });
+  keep('d-material', '<option value="">Todos</option>' + [...mats].sort().map(([c, d]) => `<option value="${c}">${c}${d ? ' — ' + d.slice(0,40) : ''}</option>`).join(''));
+  const cats = new Set(produtos.map(p => p.categoria).filter(Boolean)); dashApont.forEach(a => { if (a.categoria) cats.add(a.categoria); });
+  keep('d-categoria', '<option value="">Todas</option>' + [...cats].sort().map(c => `<option>${c}</option>`).join(''));
+  const ops = new Set(dashPlanos.map(p => p.num_op).filter(Boolean)); dashApont.forEach(a => { if (a.num_op) ops.add(a.num_op); });
+  keep('d-op', '<option value="">Todas</option>' + [...ops].sort().reverse().map(o => `<option>${o}</option>`).join(''));
+  const cels = new Set(celulas.map(c => c.nome)); dashApont.forEach(a => { if (a.celula) cels.add(a.celula); });
+  keep('d-celula', '<option value="">Todas</option>' + [...cels].sort().map(c => `<option>${c}</option>`).join(''));
+}
+function categoriaDe(cod) { const p = produtos.find(x => x.cod_decio === cod); return p ? (p.categoria || '') : ''; }
+function filtrosDash() {
+  const [de, ate] = dashPeriodo();
+  const f = { de, ate, material: document.getElementById('d-material').value, categoria: document.getElementById('d-categoria').value, op: document.getElementById('d-op').value, celula: document.getElementById('d-celula').value, turno: document.getElementById('d-turno').value };
+  f.planos = dashPlanos.filter(p => {
+    const mes = p.mes || String(p.data_limite || '').slice(0,7);
+    if (mes && (mes < de.slice(0,7) || mes > ate.slice(0,7))) return false;
+    if (f.material && p.cod_decio !== f.material) return false;
+    if (f.op && p.num_op !== f.op) return false;
+    if (f.categoria && categoriaDe(p.cod_decio) !== f.categoria) return false;
+    return true;
+  });
+  f.apont = dashApont.filter(a => {
+    const d = String(a.data_execucao).slice(0,10);
+    if (d < de || d > ate) return false;
+    if (f.material && a.cod_decio !== f.material) return false;
+    if (f.op && a.num_op !== f.op) return false;
+    if (f.celula && a.celula !== f.celula) return false;
+    if (f.turno && String(a.turno) !== f.turno) return false;
+    if (f.categoria && (a.categoria || categoriaDe(a.cod_decio)) !== f.categoria) return false;
+    return true;
+  });
+  return f;
+}
+function descreverDash(f) {
+  const partes = [fmtData(f.de) + ' a ' + fmtData(f.ate)];
+  if (f.material) partes.push('material ' + f.material); if (f.categoria) partes.push(f.categoria); if (f.op) partes.push('OP ' + f.op); if (f.celula) partes.push(f.celula); if (f.turno) partes.push(f.turno + 'º turno');
+  document.getElementById('d-resumo').textContent = 'Mostrando: ' + partes.join(' · ') + ` — ${f.planos.length} plano(s), ${f.apont.length} apontamento(s)`;
+}
+function kpisHTML(lista) { return lista.map(k => `<div class="kpi ${k.cor||''}"><div class="lbl">${k.lbl}</div><div class="val">${k.val}</div>${k.sub ? `<div class="kpi-sub">${k.sub}</div>` : ''}</div>`).join(''); }
+
+function grafico(id, cfg) {
+  const el = document.getElementById(id); if (!el) return;
+  if (charts[id]) charts[id].destroy();
+  cfg.options = cfg.options || {};
+  cfg.options.responsive = true; cfg.options.maintainAspectRatio = false;
+  cfg.options.plugins = Object.assign({ legend: { labels: { color: '#EAF4F1', boxWidth: 12 } } }, cfg.options.plugins || {});
+  if (cfg.type !== 'doughnut' && cfg.type !== 'pie') {
+    cfg.options.scales = cfg.options.scales || {};
+    ['x','y'].forEach(ax => { cfg.options.scales[ax] = Object.assign({ ticks: { color: txtCor }, grid: { color: gridCor } }, cfg.options.scales[ax] || {}); });
+  }
+  charts[id] = new Chart(el, cfg);
+}
+function semDados(id, msg) { const el = document.getElementById(id); if (charts[id]) { charts[id].destroy(); delete charts[id]; } const c = el.getContext('2d'); c.clearRect(0,0,el.width,el.height); el.parentElement.setAttribute('data-vazio', msg || 'Sem dados no período'); }
+function comDados(id) { document.getElementById(id).parentElement.removeAttribute('data-vazio'); }
+
+function renderDashboard() {
+  if (!document.getElementById('sec-dashboard').classList.contains('show')) return;
+  const f = filtrosDash();
+  descreverDash(f);
+  if (document.getElementById('d-tipo').value === 'horas') renderDashHoras(f); else renderDashMeta(f);
+}
+
+/* ---------- META × REALIZADO ---------- */
+function renderDashMeta(f) {
+  const metaTotal = f.planos.reduce((s, p) => s + (parseFloat(p.meta) || 0), 0);
+  const realPlanos = f.planos.reduce((s, p) => s + (parseFloat(p.realizado) || 0), 0);
+  const realApont = f.apont.reduce((s, a) => s + (parseFloat(a.realizado) || 0), 0);
+  const pct = metaTotal > 0 ? realPlanos / metaTotal * 100 : 0;
+  const st = { concluido:0, em_andamento:0, atrasado:0 };
+  f.planos.forEach(p => st[calcStatus(p)]++);
+  const hoje = isoHoje();
+  const dias = diasEntre(f.de, f.ate);
+  const uteis = dias.filter(ehDiaUtil);
+  const uteisAteHoje = uteis.filter(d => d <= hoje).length;
+  const esperado = uteis.length ? metaTotal * uteisAteHoje / uteis.length : 0;
+  const desvio = realApont - esperado;
+  document.getElementById('d-kpis').innerHTML = kpisHTML([
+    { lbl:'Planos no período', val: f.planos.length, cor:'blue' },
+    { lbl:'Meta total', val: fmtNum(metaTotal), cor:'green' },
+    { lbl:'Realizado', val: fmtNum(realPlanos), cor:'orange', sub: fmtNum(realApont) + ' nos apontamentos do período' },
+    { lbl:'% Atendimento', val: pct.toFixed(1) + '%', cor: pct >= 100 ? 'green' : pct >= 80 ? 'yellow' : 'red' },
+    { lbl:'Esperado até hoje', val: fmtNum(esperado), cor:'blue', sub: (desvio >= 0 ? '+' : '') + fmtNum(desvio) + ' em relação ao plano' },
+    { lbl:'Planos atrasados', val: st.atrasado, cor:'red' }
+  ]);
+
+  // linha plano × atendimento
+  if (!dias.length || (!metaTotal && !f.apont.length)) semDados('ch-meta-linha'); else {
+    comDados('ch-meta-linha');
+    const porDia = {}; f.apont.forEach(a => { const d = String(a.data_execucao).slice(0,10); porDia[d] = (porDia[d] || 0) + (parseFloat(a.realizado) || 0); });
+    /* Linha do plano: valores exatos do Plano Mensal. Cada linha do plano tem
+       uma data e uma meta — nessa data a linha sobe exatamente a meta daquele
+       plano (degrau). No fim, a linha fecha na soma das metas. */
+    const planoDia = {};
+    const clamp = d => d < f.de ? f.de : d > f.ate ? f.ate : d;
+    f.planos.forEach(pl => {
+      const meta = parseFloat(pl.meta) || 0; if (!meta) return;
+      const d = clamp(pl.data_limite ? String(pl.data_limite).slice(0,10) : f.ate);
+      planoDia[d] = (planoDia[d] || 0) + meta;
+    });
+    /* Linha do atendimento: exatamente os apontamentos do Apontamento Diário,
+       dia a dia, dentro do período (e com os mesmos filtros de material, OP,
+       célula e turno). Apontamento fora do período não entra em dia nenhum. */
+    const realDia = {};
+    f.apont.forEach(a => {
+      const d = String(a.data_execucao).slice(0,10);
+      realDia[d] = (realDia[d] || 0) + (parseFloat(a.realizado) || 0);
+    });
+    let accP = 0, accR = 0;
+    const plano = [], atend = [];
+    dias.forEach(d => { accP += planoDia[d] || 0; plano.push(Math.round(accP * 100) / 100); if (d <= hoje) { accR += realDia[d] || 0; atend.push(Math.round(accR * 100) / 100); } else atend.push(null); });
+    // "esperado até hoje" segue a mesma linha
+    const idxHoje = dias.filter(d => d <= hoje).length - 1;
+    const esperadoLinha = idxHoje >= 0 ? plano[idxHoje] : 0;
+    const kpiEsp = document.querySelector('#d-kpis .kpi:nth-child(5)');
+    const realLinha = idxHoje >= 0 ? atend[idxHoje] : 0;
+    if (kpiEsp) { kpiEsp.querySelector('.val').textContent = fmtNum(esperadoLinha); const dv = realLinha - esperadoLinha; kpiEsp.querySelector('.kpi-sub').textContent = (dv >= 0 ? '+' : '') + fmtNum(dv) + ' em relação ao plano'; }
+    grafico('ch-meta-linha', { type:'line', data:{ labels: dias.map(fmtDiaCurto), datasets:[
+      { label:'Plano (meta acumulada)', data: plano, borderColor: COR.azul, backgroundColor: hex2rgba(COR.azul, .08), borderDash:[6,4], pointRadius:0, tension:0, stepped:true, fill:true },
+      { label:'Atendimento (realizado acumulado)', data: atend, borderColor: COR.verde, backgroundColor: hex2rgba(COR.verde, .15), pointRadius: dias.length > 45 ? 0 : 3, tension:.25, fill:true }
+    ] }, options:{ interaction:{ mode:'index', intersect:false }, scales:{ y:{ beginAtZero:true, title:{ display:true, text:'Quantidade', color: txtCor } } } } });
+  }
+
+  // material
+  const porMat = {};
+  f.planos.forEach(p => { const k = p.cod_decio || '-'; porMat[k] = porMat[k] || { meta:0, real:0 }; porMat[k].meta += parseFloat(p.meta) || 0; porMat[k].real += parseFloat(p.realizado) || 0; });
+  const mats = Object.entries(porMat).sort((a, b) => b[1].meta - a[1].meta).slice(0, 15);
+  if (!mats.length) semDados('ch-meta-material'); else { comDados('ch-meta-material');
+    grafico('ch-meta-material', { type:'bar', data:{ labels: mats.map(m => m[0]), datasets:[
+      { label:'Meta', data: mats.map(m => m[1].meta), backgroundColor: hex2rgba(COR.azul, .75), borderRadius:4 },
+      { label:'Realizado', data: mats.map(m => m[1].real), backgroundColor: hex2rgba(COR.verde, .85), borderRadius:4 } ] },
+      options:{ scales:{ y:{ beginAtZero:true } } } }); }
+
+  // % por OP
+  const ops = f.planos.filter(p => p.num_op).map(p => ({ op: p.num_op, pct: (parseFloat(p.meta) || 0) > 0 ? (parseFloat(p.realizado) || 0) / parseFloat(p.meta) * 100 : 0, status: calcStatus(p) })).sort((a, b) => a.pct - b.pct).slice(0, 20);
+  if (!ops.length) semDados('ch-meta-op'); else { comDados('ch-meta-op');
+    grafico('ch-meta-op', { type:'bar', data:{ labels: ops.map(o => 'OP ' + o.op), datasets:[{ label:'% atendimento', data: ops.map(o => Math.round(o.pct * 10) / 10), backgroundColor: ops.map(o => o.status === 'concluido' ? hex2rgba(COR.verde,.85) : o.status === 'atrasado' ? hex2rgba(COR.vermelho,.85) : hex2rgba(COR.azul,.8)), borderRadius:4 }] },
+      options:{ indexAxis:'y', plugins:{ legend:{ display:false } }, scales:{ x:{ beginAtZero:true, max: Math.max(100, ...ops.map(o => o.pct)) + 5, ticks:{ color: txtCor, callback: v => v + '%' } } } } }); }
+
+  // status
+  if (!f.planos.length) semDados('ch-meta-status'); else { comDados('ch-meta-status');
+    grafico('ch-meta-status', { type:'doughnut', data:{ labels:['Concluídos','Em andamento','Atrasados'], datasets:[{ data:[st.concluido, st.em_andamento, st.atrasado], backgroundColor:[COR.verde, COR.azul, COR.vermelho], borderColor:'#14293A', borderWidth:2 }] }, options:{ cutout:'60%', plugins:{ legend:{ position:'right', labels:{ color:'#EAF4F1' } } } } }); }
+
+  // por dia
+  const porDia2 = {}; f.apont.forEach(a => { const d = String(a.data_execucao).slice(0,10); porDia2[d] = (porDia2[d] || 0) + (parseFloat(a.realizado) || 0); });
+  const diasAp = dias.filter(d => d <= hoje);
+  if (!diasAp.length || !Object.keys(porDia2).length) semDados('ch-meta-dia'); else { comDados('ch-meta-dia');
+    const metaDia = uteis.length ? metaTotal / uteis.length : 0;
+    grafico('ch-meta-dia', { type:'bar', data:{ labels: diasAp.map(fmtDiaCurto), datasets:[
+      { type:'bar', label:'Realizado no dia', data: diasAp.map(d => porDia2[d] || 0), backgroundColor: diasAp.map(d => ehDiaUtil(d) ? hex2rgba(COR.verde,.8) : hex2rgba(COR.cinza,.5)), borderRadius:3 },
+      { type:'line', label:'Meta diária (média dos dias úteis)', data: diasAp.map(d => ehDiaUtil(d) ? Math.round(metaDia * 100) / 100 : null), borderColor: COR.laranja, borderDash:[5,4], pointRadius:0, spanGaps:true } ] },
+      options:{ scales:{ y:{ beginAtZero:true } } } }); }
+}
+
+/* ---------- HORAS PRODUZIDAS × DISPONÍVEIS ---------- */
+function renderDashHoras(f) {
+  const hoje = isoHoje();
+  const dias = diasEntre(f.de, f.ate > hoje ? hoje : f.ate);
+  const uteis = dias.filter(ehDiaUtil);
+  const nomes = f.celula ? [f.celula] : [...new Set([...celulas.filter(c => c.ativa !== false && (!f.turno || !c.turno || c.turno === f.turno)).map(c => c.nome), ...f.apont.map(a => a.celula)])].filter(Boolean).sort();
+  const linhas = nomes.map(nome => {
+    const c = celulas.find(x => x.nome === nome) || {};
+    const ap = f.apont.filter(a => a.celula === nome);
+    const disponivel = (parseFloat(c.operadores) || 0) * (parseFloat(c.horas_operador) || 7) * uteis.length;
+    const produzido = ap.reduce((s, a) => s + (parseFloat(a.hora_reportada_total) || 0), 0);
+    const qtd = ap.reduce((s, a) => s + (parseFloat(a.realizado) || 0), 0);
+    return { nome, categoria: c.categoria || '-', turno: c.turno || '', oper: parseFloat(c.operadores) || 0, hOper: parseFloat(c.horas_operador) || 7, disponivel, produzido, qtd, efic: disponivel > 0 ? produzido / disponivel * 100 : null, cadastrada: !!c.id };
+  }).filter(l => l.disponivel > 0 || l.produzido > 0);
+  const totDisp = linhas.reduce((s, l) => s + l.disponivel, 0), totProd = linhas.reduce((s, l) => s + l.produzido, 0);
+  const efic = totDisp > 0 ? totProd / totDisp * 100 : 0;
+  const semCad = linhas.filter(l => !l.cadastrada).map(l => l.nome);
+  document.getElementById('d-kpis').innerHTML = kpisHTML([
+    { lbl:'Dias úteis no período', val: uteis.length, cor:'blue', sub: f.ate > hoje ? 'contados até hoje' : '' },
+    { lbl:'Horas disponíveis', val: fmtH(totDisp), cor:'blue', sub: linhas.reduce((s, l) => s + l.oper, 0) + ' operador(es) × h/dia × dias úteis' },
+    { lbl:'Horas produzidas', val: fmtH(totProd), cor:'green', sub: f.apont.length + ' apontamento(s)' },
+    { lbl:'Eficiência', val: efic.toFixed(1) + '%', cor: efic >= 90 ? 'green' : efic >= 70 ? 'yellow' : 'red', sub:'produzidas ÷ disponíveis' },
+    { lbl:'Saldo de horas', val: (totProd - totDisp >= 0 ? '+' : '') + fmtH(totProd - totDisp), cor: totProd >= totDisp ? 'green' : 'orange' },
+    { lbl:'Células', val: linhas.length, cor:'blue', sub: semCad.length ? '⚠ sem cadastro: ' + semCad.join(', ') : '' }
+  ]);
+
+  if (!linhas.length) { ['ch-horas-celula','ch-horas-dia','ch-horas-efic','ch-horas-share'].forEach(id => semDados(id, 'Cadastre as células (aba Células) e registre apontamentos')); document.getElementById('tb-horas-celula').innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--text2)">Sem dados</td></tr>'; return; }
+
+  comDados('ch-horas-celula');
+  grafico('ch-horas-celula', { type:'bar', data:{ labels: linhas.map(l => l.nome), datasets:[
+    { label:'Horas disponíveis (operadores × h × dias úteis)', data: linhas.map(l => Math.round(l.disponivel * 10) / 10), backgroundColor: hex2rgba(COR.azul,.7), borderRadius:4 },
+    { label:'Horas produzidas (apontamentos)', data: linhas.map(l => Math.round(l.produzido * 10) / 10), backgroundColor: hex2rgba(COR.verde,.85), borderRadius:4 } ] },
+    options:{ scales:{ y:{ beginAtZero:true, title:{ display:true, text:'Horas', color: txtCor } } } } });
+
+  // por dia
+  const porDia = {}; f.apont.forEach(a => { const d = String(a.data_execucao).slice(0,10); porDia[d] = (porDia[d] || 0) + (parseFloat(a.hora_reportada_total) || 0); });
+  const dispDia = linhas.reduce((s, l) => s + l.oper * l.hOper, 0);
+  if (!dias.length) semDados('ch-horas-dia'); else { comDados('ch-horas-dia');
+    grafico('ch-horas-dia', { type:'bar', data:{ labels: dias.map(fmtDiaCurto), datasets:[
+      { type:'bar', label:'Horas produzidas', data: dias.map(d => Math.round((porDia[d] || 0) * 10) / 10), backgroundColor: dias.map(d => ehDiaUtil(d) ? hex2rgba(COR.verde,.8) : hex2rgba(COR.cinza,.5)), borderRadius:3 },
+      { type:'line', label:'Disponível por dia útil', data: dias.map(d => ehDiaUtil(d) ? Math.round(dispDia * 10) / 10 : null), borderColor: COR.azul, borderDash:[6,4], pointRadius:0, spanGaps:true } ] },
+      options:{ scales:{ y:{ beginAtZero:true } } } }); }
+
+  // eficiência
+  const comEf = linhas.filter(l => l.efic !== null);
+  if (!comEf.length) semDados('ch-horas-efic', 'Informe os operadores das células para calcular'); else { comDados('ch-horas-efic');
+    grafico('ch-horas-efic', { type:'bar', data:{ labels: comEf.map(l => l.nome), datasets:[{ label:'Eficiência %', data: comEf.map(l => Math.round(l.efic * 10) / 10), backgroundColor: comEf.map(l => l.efic >= 90 ? hex2rgba(COR.verde,.85) : l.efic >= 70 ? hex2rgba(COR.amarelo,.85) : hex2rgba(COR.vermelho,.85)), borderRadius:4 }] },
+      options:{ indexAxis:'y', plugins:{ legend:{ display:false } }, scales:{ x:{ beginAtZero:true, max: Math.max(100, ...comEf.map(l => l.efic)) + 5, ticks:{ color: txtCor, callback: v => v + '%' } } } } }); }
+
+  // share
+  const comProd = linhas.filter(l => l.produzido > 0);
+  if (!comProd.length) semDados('ch-horas-share'); else { comDados('ch-horas-share');
+    grafico('ch-horas-share', { type:'doughnut', data:{ labels: comProd.map(l => l.nome), datasets:[{ data: comProd.map(l => Math.round(l.produzido * 10) / 10), backgroundColor: comProd.map((_, i) => PALETA[i % PALETA.length]), borderColor:'#14293A', borderWidth:2 }] }, options:{ cutout:'55%', plugins:{ legend:{ position:'right', labels:{ color:'#EAF4F1' } } } } }); }
+
+  document.getElementById('tb-horas-celula').innerHTML = linhas.map(l => `<tr>
+    <td><strong>${l.nome}</strong>${l.cadastrada ? '' : ' <span class="badge red" title="Cadastre na aba Células">sem cadastro</span>'}</td><td>${l.categoria}</td><td>${l.turno ? l.turno + 'º' : '-'}</td><td>${l.oper}</td><td>${uteis.length}</td>
+    <td>${fmtH(l.disponivel)}</td><td>${fmtH(l.produzido)}</td>
+    <td>${l.efic === null ? '-' : `<span class="badge ${l.efic >= 90 ? 'green' : l.efic >= 70 ? 'yellow' : 'red'}">${l.efic.toFixed(1)}%</span>`}</td><td>${fmtNum(l.qtd)}</td></tr>`).join('') +
+    `<tr style="font-weight:700"><td>Total</td><td></td><td></td><td>${linhas.reduce((s,l)=>s+l.oper,0)}</td><td>${uteis.length}</td><td>${fmtH(totDisp)}</td><td>${fmtH(totProd)}</td><td>${efic.toFixed(1)}%</td><td>${fmtNum(linhas.reduce((s,l)=>s+l.qtd,0))}</td></tr>`;
+}
+
+// =================== CÉLULAS ===================
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('a-celula').addEventListener('change', function () {
+    const t = this.selectedOptions[0] && this.selectedOptions[0].dataset.turno;
+    if (t && !apontEditId) document.getElementById('a-turno').value = t;
+  });
+});
+function turnoTxt(t) { return t ? t + 'º Turno' : '<span style="color:var(--text2)">Todos</span>'; }
+function celPrevia() { const o = parseFloat(document.getElementById('cel-oper').value) || 0, h = parseFloat(document.getElementById('cel-horas').value) || 0; document.getElementById('cel-previa').value = fmtH(o * h); }
+async function carregarCelulas() {
+  celulas = await api('/prod-celulas').catch(() => []);
+  // select do apontamento: células ativas + a já escolhida (edição de apontamento antigo)
+  const sel = document.getElementById('a-celula'); const atual = sel.value;
+  sel.innerHTML = '<option value="">Selecione...</option>' + celulas.filter(c => c.ativa !== false).map(c => `<option value="${c.nome}" data-turno="${c.turno || ''}">${c.nome}${c.categoria ? ' — ' + c.categoria : ''}${c.turno ? ' (' + c.turno + 'º turno)' : ''}</option>`).join('');
+  if (atual && ![...sel.options].some(o => o.value === atual)) sel.innerHTML += `<option value="${atual}">${atual}</option>`;
+  sel.value = atual;
+  document.getElementById('cel-cat-lista').innerHTML = [...new Set(celulas.map(c => c.categoria).filter(Boolean))].map(c => `<option value="${c}">`).join('');
+  renderCelulas();
+}
+function renderCelulas() {
+  const tb = document.getElementById('tb-celulas');
+  if (!celulas.length) { tb.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--text2);padding:24px">Nenhuma célula cadastrada.</td></tr>'; return; }
+  tb.innerHTML = celulas.map(c => `<tr style="${c.ativa === false ? 'opacity:.55' : ''}">
+    <td><strong>${c.nome}</strong>${c.descricao ? `<div style="font-size:11px;color:var(--text2)">${c.descricao}</div>` : ''}</td><td>${c.categoria || '-'}</td><td>${turnoTxt(c.turno)}</td><td>${c.operadores || 0}</td><td>${parseFloat(c.horas_operador) || 7} h</td>
+    <td><strong>${fmtH((parseFloat(c.operadores) || 0) * (parseFloat(c.horas_operador) || 7))}</strong></td><td>${c.apontamentos || 0}</td>
+    <td>${c.ativa === false ? '<span class="badge red">Inativa</span>' : '<span class="badge green">Ativa</span>'}</td>
+    <td style="white-space:nowrap"><button class="btn-sm btn-blue" onclick="editarCelula(${c.id})" style="padding:4px 8px;font-size:11px">✏️</button> <button class="btn-sm btn-red" onclick="excluirCelula(${c.id})" style="padding:4px 8px;font-size:11px">🗑️</button></td></tr>`).join('');
+}
+function editarCelula(id) {
+  const c = celulas.find(x => x.id === id); if (!c) return;
+  document.getElementById('cel-edit-id').value = id; document.getElementById('cel-titulo').textContent = '✏️ Editar Célula';
+  document.getElementById('cel-nome').value = c.nome; document.getElementById('cel-cat').value = c.categoria || ''; document.getElementById('cel-oper').value = c.operadores || 0;
+  document.getElementById('cel-horas').value = parseFloat(c.horas_operador) || 7; document.getElementById('cel-desc').value = c.descricao || ''; document.getElementById('cel-turno').value = c.turno || '';
+  document.getElementById('cel-ativa-wrap').style.display = ''; document.getElementById('cel-ativa').value = String(c.ativa !== false);
+  celPrevia(); window.scrollTo({ top:0, behavior:'smooth' });
+}
+function limparCelula() {
+  document.getElementById('cel-edit-id').value = ''; document.getElementById('cel-titulo').textContent = '🏷️ Nova Célula';
+  ['cel-nome','cel-cat','cel-desc','cel-turno'].forEach(id => document.getElementById(id).value = ''); document.getElementById('cel-oper').value = 0; document.getElementById('cel-horas').value = 7;
+  document.getElementById('cel-ativa-wrap').style.display = 'none'; document.getElementById('cel-ativa').value = 'true'; celPrevia();
+}
+async function salvarCelula() {
+  const id = document.getElementById('cel-edit-id').value;
+  const body = { nome: document.getElementById('cel-nome').value.trim(), categoria: document.getElementById('cel-cat').value, operadores: parseInt(document.getElementById('cel-oper').value) || 0, horas_operador: parseFloat(document.getElementById('cel-horas').value) || 7, descricao: document.getElementById('cel-desc').value, turno: document.getElementById('cel-turno').value || null, ativa: document.getElementById('cel-ativa').value === 'true' };
+  if (!body.nome) return toast('Informe o nome da célula', 'error');
+  try {
+    if (id) await api('/prod-celulas/' + id, { method:'PUT', body }); else await api('/prod-celulas', { method:'POST', body });
+    toast(id ? 'Célula atualizada!' : 'Célula cadastrada!'); limparCelula(); await carregarCelulas(); popularFiltrosDash();
+  } catch(e) { toast('Erro: ' + e.message, 'error'); }
+}
+async function excluirCelula(id) {
+  if (!confirm('Excluir esta célula?')) return;
+  try { await api('/prod-celulas/' + id, { method:'DELETE' }); toast('Célula excluída'); await carregarCelulas(); popularFiltrosDash(); }
+  catch(e) { toast('Erro: ' + e.message, 'error'); }
+}
+
+// =================== INIT ===================
+function init() {
+  const hoje = new Date();
+  document.getElementById('filtro-mes').value = hoje.toISOString().substring(0,7);
+  document.getElementById('a-data').value = hoje.toISOString().substring(0,10);
+  loadUser();
+  loadAll();
+  document.addEventListener('click', e => {
+    if (!e.target.closest('.autocomplete')) {
+      document.querySelectorAll('.autocomplete-list').forEach(l => l.classList.remove('show'));
+    }
+  });
+}
+init();
+</script>
+</body>
+</html>

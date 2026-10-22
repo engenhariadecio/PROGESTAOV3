@@ -17,7 +17,7 @@ RUN npm ci --omit=dev || npm install --omit=dev
 
 # 2) treino da IA (opcional). PyTorch só de CPU — a versão de placa de vídeo ocuparia ~3 GB a mais.
 RUN ( pip3 install --break-system-packages --index-url https://download.pytorch.org/whl/cpu torch torchvision \
-   && pip3 install --break-system-packages "ultralytics>=8.3" "onnx>=1.16" \
+   && pip3 install --break-system-packages "ultralytics>=8.3" "onnx>=1.16" "onnxruntime>=1.17" \
    && echo "IA: treino instalado" ) \
  || echo "AVISO: treino da IA não foi instalado — o sistema funciona normalmente sem ele"
 

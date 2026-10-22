@@ -36,6 +36,29 @@ Os sistemas eram independentes e guardavam dados em lugares diferentes. Agora co
 - As consultas de aniversariantes usavam `HAVING` sem `GROUP BY`, o que o Postgres rejeita. Reescritas com subquery.
 - Layout retematizado com a identidade da Décio.
 
+**Treino que funciona com poucas fotos (22/10/2026) — v39**
+- Com poucas fotos (6–10), o treino fazia pouquíssimos ajustes e a IA ficava "tímida" (confiança abaixo de 35%: não detectava nada). Agora o `treinar.py` repete as fotos até ~100 por passada (cada repetição sai diferente pela variação automática). Nas fotos de teste do pallet/peça: de 0% para 89–97% de confiança.
+- Passo 2 (Peça): se o **pallet saiu do lugar** (foi tirado para pôr a peça), o sistema avisa e não marca nada sozinho — antes ele marcava o "buraco" do pallet como peça e o pallet onde não havia pallet, e o treino aprendia errado. Também ignora manchas ralas (sombra/luz) e tudo que estiver longe do pallet; pedaços só se juntam se um estiver quase todo dentro do outro.
+- Passo 1: se o pallet mudou de lugar desde a última foto vazia, pede para contornar de novo em vez de reaproveitar o contorno antigo.
+- Câmera: quando a IA não reconhece nada, o aviso mostra a maior confiança vista (ex.: "máx. 12% — precisa de 35%").
+- Servidor de teste: verifica o treino num processo separado e mostra o motivo real do erro; botão "↻ Verificar de novo"; conexões cortadas pelo celular não geram mais Traceback.
+
+**IA de contorno + treino em 2 passos (22/10/2026) — v38**
+- A marcação deixou de ser retângulo: cada peça e o pallet são marcados pelo **contorno** (polígono). A IA passou de detecção para **segmentação** (`python/pesos/yolov8n-seg.pt`, `treinar.py --modo seg`, rótulos YOLO-seg `classe x1 y1 x2 y2 …`) e aprende o formato exato. Na câmera, o contorno de cada peça aparece pintado na imagem; a contagem (+1 colocada, −1 retirada, pallet trocado) continua igual.
+- *Ensinar a IA* tem **um fluxo só**, com duas coisas: **1) Pallet vazio** — captura e contorna o pallet uma vez (segurar e passar em volta); as próximas fotos vazias já vêm contornadas. **2) Peça** — coloca a peça, captura: a diferença com o pallet vazio vira o **contorno da peça sozinho**. Ajustes: arrastar os pontos, clicar num contorno + ✕ para apagar, contornar à mão o que faltou. A próxima captura salva a anterior. Mínimo 1 vazio + 3 com peça (ideal 3 + 15). Caixa conta como peça (classes: `peca`, `pallet`).
+- Os modos antigos (retângulos caixa/peça/pallet e "vazio × com peças") saíram da tela; os modelos já treinados neles continuam funcionando. Marcações antigas em retângulo viram contorno de 4 pontos.
+- `public/js/contorno.js`: máscara → polígono (rastreio de borda + simplificação), usado no painel e na câmera.
+
+**Importar fotos e 🪄 Sugerir (22/10/2026) — v37**
+- *Ensinar a IA*: **📁 Importar fotos** — várias de uma vez, do celular ou do PC (reduzidas para 1280 px, orientação corrigida); entram como quadros de treino junto com os da câmera.
+- **🪄 Sugerir**: a IA propõe os retângulos e você só corrige. Antes do 1º treino usa a IA genérica (`python/pesos/yolov8s-oiv7.pt`, "Box" → caixa — erra bastante com caixas grandes/empilhadas); depois do 1º treino usa a **IA treinada daquela câmera**, que melhora a cada rodada (marcar → treinar → sugerir → corrigir → treinar). `python/sugerir.py`; rota `POST /api/contador/amostras/:id/sugerir`. Requer `onnxruntime` (já no Dockerfile/requirements).
+- A tela de marcação segue o formato de cada foto (em pé/deitada) sem esticar.
+
+**Assistente de treino: pallet vazio → peça sozinha (22/10/2026) — v36**
+- *Ensinar a IA* abre no **Assistente** (padrão): **1)** captura o **pallet vazio** (na 1ª vez você marca o pallet; depois ele é marcado sozinho) — vira a imagem de referência; **2)** coloca **uma peça** (ou caixa), sai da frente e captura: o sistema compara com o pallet vazio e **acha a peça sozinho** (manchas de diferença de cor, compensando a câmera clarear/escurecer); você só confere e clica *Confirmar*. Repetindo com a peça em posições diferentes e depois com 2–3 peças, junta os quadros para o treino. Mínimo 3 vazios + 10 com peças. O modo manual continua disponível.
+- Se o servidor não tiver o treino instalado, o painel avisa logo ao abrir (e os quadros continuam sendo guardados).
+- Servidor de teste: link curto `https://IP:3000/c`, `http://IP:3001` redireciona para o https, IP principal primeiro e dicas de rede na tela.
+
 **Deploy à prova de falha (22/10/2026) — v35**
 - O Dockerfile não depende mais de arquivos da pasta `python` para montar a imagem (antes, um commit com o Dockerfile mas sem a pasta `python` derrubava o build) e a instalação do treino da IA é opcional: se falhar, o build segue e o sistema sobe (o botão *Treinar IA* avisa). `npm ci` cai para `npm install` se o lockfile não bater.
 

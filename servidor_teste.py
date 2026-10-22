@@ -33,6 +33,26 @@ LOCK = threading.Lock()
 LINHA = { 'id': 1, 'celula': 'Teste', 'produto_id': 1, 'nome': 'Linha de teste', 'ativa': True }
 PRODUTOS = [{ 'id': 1, 'nome': 'Produto de teste', 'takt_min': 10, 'celula_nome': 'Teste', 'cod_decio': None, 'ativo': True }]
 CLASSES_DET = ['caixa', 'peca', 'pallet']
+CLASSES_SEG = ['peca', 'pallet']   # modelo de contorno: caixa conta como peça
+
+def limpar_marc(lista):
+    """marcação = {c, x, y, w, h, pts?}; pts = contorno [[x,y],…] (0–1). O retângulo sai do contorno."""
+    out = []
+    for c in (lista or []):
+        if not isinstance(c, dict): continue
+        o = { 'c': c.get('c') if c.get('c') in CLASSES_DET else 'peca' }
+        pts = [[min(1, max(0, round(float(p[0]), 4))), min(1, max(0, round(float(p[1]), 4)))] for p in (c.get('pts') or [])[:300] if isinstance(p, (list, tuple)) and len(p) >= 2]
+        if len(pts) >= 3:
+            xs = [p[0] for p in pts]; ys = [p[1] for p in pts]
+            o.update(x=min(xs), y=min(ys), w=max(xs) - min(xs), h=max(ys) - min(ys), pts=pts)
+        elif all(k in c for k in 'xywh'): o.update(x=float(c['x']), y=float(c['y']), w=float(c['w']), h=float(c['h']))
+        else: continue
+        if o['w'] > 0.005 and o['h'] > 0.005: out.append(o)
+    return out
+
+def linha_seg(c):
+    pts = c.get('pts') if c.get('pts') and len(c['pts']) >= 3 else [[c['x'], c['y']], [c['x'] + c['w'], c['y']], [c['x'] + c['w'], c['y'] + c['h']], [c['x'], c['y'] + c['h']]]
+    return ('1 ' if c.get('c') == 'pallet' else '0 ') + ' '.join(f"{min(1, max(0, x)):.5f} {min(1, max(0, y)):.5f}" for x, y in pts)
 CONFIG_PADRAO = { 'zona': None, 'caixa': None, 'caixa_pos': None, 'sens': 5, 'camera': '', 'zoom': None, 'lanterna': False, 'resolucao': 'media', 'multiplas': False }
 CFG_PATH = os.path.join(DADOS, 'config.json')
 CONFIG = { **CONFIG_PADRAO, **(json.load(open(CFG_PATH)) if os.path.exists(CFG_PATH) else {}) }
@@ -72,10 +92,35 @@ def sessao_fake():
     return { 'id': 1, 'takt_min': takt, 'status': 'aberta', 'produto_id': 1, 'turno_nome': 'Teste', 'turno_codigo': 'T', 'total_ciclos': 0, 'esperado': 0 }
 
 # ───────── treino ─────────
-def treinar(produto_id, epocas, imgsz, modo='det'):
+PY_TREINO = None
+def treino_disponivel(forcar=False):
+    """Testa o ultralytics num processo separado: se o torch der erro de DLL no Windows, o servidor não cai
+    e o painel mostra o motivo real. Guarda o resultado quando dá certo."""
+    global PY_TREINO
+    if PY_TREINO and (PY_TREINO.get('ok') or not forcar): return PY_TREINO
+    try:
+        r = subprocess.run([sys.executable, '-c', 'import ultralytics, onnx, onnxruntime; print(ultralytics.__version__)'],
+                           capture_output=True, text=True, timeout=300, env=dict(os.environ, YOLO_VERBOSE='False'))
+        if r.returncode == 0: PY_TREINO = { 'ok': True, 'versao': (r.stdout.strip().splitlines() or ['?'])[-1] }
+        else:
+            linhas = [l for l in (r.stderr or '').strip().splitlines() if l.strip()]
+            PY_TREINO = { 'ok': False, 'motivo': (linhas[-1] if linhas else 'erro ao importar o ultralytics')[:300] }
+    except Exception as e: PY_TREINO = { 'ok': False, 'motivo': ('%s: %s' % (type(e).__name__, e))[:300] }
+    return PY_TREINO
+
+def treinar(produto_id, epocas, imgsz, modo='seg'):
     global TREINO
     d = tempfile.mkdtemp(prefix='treino-'); extra = []
-    if modo == 'det':
+    usadas = len(AMOSTRAS)
+    if modo == 'seg':
+        os.makedirs(os.path.join(d, 'images')); os.makedirs(os.path.join(d, 'labels')); usadas = 0
+        for a in AMOSTRAS:
+            src = os.path.join(DADOS, 'amostras', f"{a['id']}.jpg")
+            if not a.get('caixas') or not os.path.exists(src): continue
+            shutil.copy(src, os.path.join(d, 'images', f"a{a['id']}.jpg")); usadas += 1
+            with open(os.path.join(d, 'labels', f"a{a['id']}.txt"), 'w') as f: f.write('\n'.join(linha_seg(c) for c in a['caixas']) + '\n')
+        extra = ['--classes', ','.join(CLASSES_SEG)]
+    elif modo == 'det':
         os.makedirs(os.path.join(d, 'images')); os.makedirs(os.path.join(d, 'labels'))
         for a in AMOSTRAS:
             src = os.path.join(DADOS, 'amostras', f"{a['id']}.jpg")
@@ -93,7 +138,7 @@ def treinar(produto_id, epocas, imgsz, modo='det'):
         if z: extra = ['--zona', f"{z['x']},{z['y']},{z['w']},{z['h']}"]
         imgsz = 224
     saida = os.path.join(d, 'modelo.onnx')
-    TREINO = { 'estado': 'rodando', 'progresso': 0, 'total': epocas, 'log': [], 'inicio': time.time() * 1000, 'fim': None, 'erro': None, 'amostras': len(AMOSTRAS), 'modo': modo }
+    TREINO = { 'estado': 'rodando', 'progresso': 0, 'total': epocas, 'log': [], 'inicio': time.time() * 1000, 'fim': None, 'erro': None, 'amostras': usadas, 'modo': modo }
     cmd = [sys.executable, os.path.join(RAIZ, 'python', 'treinar.py'), '--modo', modo, '--dados', d, '--saida', saida, '--epocas', str(epocas), '--imgsz', str(imgsz), '--batch', '4'] + extra
     env = dict(os.environ, YOLO_VERBOSE='False')
     p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, env=env, cwd=RAIZ)
@@ -115,13 +160,13 @@ def treinar(produto_id, epocas, imgsz, modo='det'):
         TREINO['estado'] = 'erro'; TREINO['erro'] = 'Treino terminou com erro (código %s): %s' % (p.returncode, ' | '.join(l for l in TREINO['log'] if re.search('ERRO|Error', l))[-300:])
     else:
         shutil.copy(saida, MODELO_PATH)
-        json.dump({ 'id': int(time.time()), 'imgsz': imgsz, 'tipo': modo, 'classes': metricas.get('classes') if modo == 'cls' else CLASSES_DET, 'metricas': metricas, 'amostras': len(AMOSTRAS), 'created_at': agora_iso() }, open(MODELO_INFO, 'w'))
+        json.dump({ 'id': int(time.time()), 'imgsz': imgsz, 'tipo': modo, 'classes': metricas.get('classes') if modo == 'cls' else (CLASSES_SEG if modo == 'seg' else CLASSES_DET), 'metricas': metricas, 'amostras': usadas, 'created_at': agora_iso() }, open(MODELO_INFO, 'w'))
         global CONFIG_TS; CONFIG_TS = time.time()
         TREINO['estado'] = 'concluido'; TREINO['metricas'] = metricas; TREINO['modelo_id'] = modelo_info()['id']; TREINO['tamanho'] = os.path.getsize(MODELO_PATH)
     shutil.rmtree(d, ignore_errors=True)
 
 # ───────── HTTP ─────────
-PAGINAS = { '/': 'contador-painel.html', '/cadenciador/painel': 'contador-painel.html', '/contador/painel': 'contador-painel.html',
+PAGINAS = { '/c': 'contador.html', '/': 'contador-painel.html', '/cadenciador/painel': 'contador-painel.html', '/contador/painel': 'contador-painel.html',
             '/cadenciador/camera': 'contador.html', '/contador': 'contador.html', '/cadenciador': 'contador-painel.html', '/login': 'contador-painel.html' }
 
 class H(SimpleHTTPRequestHandler):
@@ -149,7 +194,19 @@ class H(SimpleHTTPRequestHandler):
         with open(p, 'rb') as f: b = f.read()
         self.send_response(200); self.send_header('Content-Type', ctype); self.send_header('Content-Length', str(len(b))); self.end_headers(); self.wfile.write(b)
 
-    def do_GET(self):
+    # qualquer erro numa rota vira resposta JSON com o motivo (o painel mostra), em vez de derrubar a conexão
+    def _seguro(self, fn):
+        try: fn()
+        except (ConnectionResetError, ConnectionAbortedError, BrokenPipeError): pass
+        except Exception as e:
+            print('  ERRO em', self.command, self.path, '→', type(e).__name__, e)
+            try: self.json({ 'error': '%s: %s' % (type(e).__name__, e) }, 500)
+            except Exception: pass
+    def do_GET(self): self._seguro(self._get)
+    def do_POST(self): self._seguro(self._post)
+    def do_PUT(self): self._seguro(self._put)
+    def do_DELETE(self): self._seguro(self._delete)
+    def _get(self):
         u = urlparse(self.path); p = u.path; q = { k: v[0] for k, v in parse_qs(u.query).items() }
         if p in PAGINAS: return self.arquivo(PAGINAS[p])
         if not p.startswith('/api/'): return self.arquivo(p)
@@ -159,8 +216,7 @@ class H(SimpleHTTPRequestHandler):
         if p == '/api/cadenciador/sessoes': return self.json([])
         if p == '/api/config/turnos/atual': return self.json({ 'turno': None })
         if p == '/api/contador/treino/disponivel':
-            try: import ultralytics; return self.json({ 'ok': True, 'versao': ultralytics.__version__ })
-            except ImportError: return self.json({ 'ok': False, 'motivo': 'ultralytics não instalado' })
+            return self.json(treino_disponivel(forcar=True))
         if p == '/api/contador/linhas':
             online = time.time() - QUADRO['ts'] < 8
             return self.json([{ **LINHA, 'produto_nome': PRODUTOS[0]['nome'], 'takt_padrao': PRODUTOS[0]['takt_min'], 'config': CONFIG, 'config_linha': CONFIG, 'config_produto': {}, 'produtos_configurados': [],
@@ -209,7 +265,7 @@ class H(SimpleHTTPRequestHandler):
         if p == '/api/export/contador': return self.json({ 'error': 'exportação não existe no servidor de teste' }, 404)
         return self.json({ 'error': 'rota não existe no servidor de teste: ' + p }, 404)
 
-    def do_POST(self):
+    def _post(self):
         global CONFIG_TS
         p = urlparse(self.path).path; b = self.corpo()
         if p == '/api/logout' or p == '/api/login': return self.json({ 'ok': True })
@@ -237,16 +293,35 @@ class H(SimpleHTTPRequestHandler):
         if p == '/api/contador/linhas/1/amostras':
             buf = b64jpeg(b.get('jpeg')) or (QUADRO['limpo'] if b.get('da_camera') else None)
             if not buf: return self.json({ 'error': 'Sem imagem (a câmera está transmitindo?)' }, 400)
-            a = { 'id': (max(x['id'] for x in AMOSTRAS) + 1) if AMOSTRAS else 1, 'produto_id': b.get('produto_id'), 'caixas': [dict(c, c=c.get('c') if c.get('c') in CLASSES_DET else 'caixa') for c in (b.get('caixas') or []) if isinstance(c, dict)], 'rotulo': b.get('rotulo') if b.get('rotulo') in ('vazio', 'com_pecas') else None, 'created_at': agora_iso() }
+            a = { 'id': (max(x['id'] for x in AMOSTRAS) + 1) if AMOSTRAS else 1, 'produto_id': b.get('produto_id'), 'caixas': limpar_marc(b.get('caixas')), 'rotulo': b.get('rotulo') if b.get('rotulo') in ('vazio', 'com_pecas') else None, 'created_at': agora_iso() }
             open(os.path.join(DADOS, 'amostras', f"{a['id']}.jpg"), 'wb').write(buf)
             with LOCK: AMOSTRAS.append(a); salvar_amostras()
             return self.json({ 'id': a['id'], 'created_at': a['created_at'], 'n': len(a['caixas']), 'rotulo': a['rotulo'] })
+        m = re.match(r'^/api/contador/amostras/(\d+)/sugerir$', p)
+        if m:
+            img = os.path.join(DADOS, 'amostras', m.group(1) + '.jpg')
+            if not os.path.exists(img): return self.json({ 'error': 'Quadro não encontrado' }, 404)
+            d = treino_disponivel()
+            if not d['ok']: return self.json({ 'error': 'Sugestão indisponível: ' + d['motivo'] }, 503)
+            args = [sys.executable, os.path.join(RAIZ, 'python', 'sugerir.py'), '--imagem', img]; fonte = 'IA genérica'
+            info = modelo_info()
+            if info and info.get('tipo', 'det') in ('det', 'seg') and not b.get('generica'):
+                args += ['--modelo', MODELO_PATH, '--classes', ','.join(info.get('classes') or CLASSES_DET), '--tipo', info.get('tipo', 'det')]; fonte = 'IA treinada desta câmera'
+            r = subprocess.run(args, capture_output=True, text=True, timeout=180, env=dict(os.environ, YOLO_VERBOSE='False'))
+            linha = next((l for l in r.stdout.splitlines() if l.startswith('SUGESTOES ')), None)
+            if not linha: return self.json({ 'error': 'A IA não respondeu: ' + (r.stderr or '')[-300:] }, 500)
+            return self.json({ 'fonte': fonte, 'caixas': json.loads(linha[10:]) })
         if p == '/api/contador/linhas/1/treinar':
             if TREINO.get('estado') == 'rodando': return self.json({ 'error': 'Já existe um treino rodando.' }, 409)
-            try: import ultralytics  # noqa
-            except ImportError: return self.json({ 'error': 'Treino indisponível: ultralytics não instalado neste Python. Rode: python -m pip install -r python/requirements-local.txt' }, 503)
-            modo = 'cls' if b.get('modo') == 'cls' else 'det'
-            if modo == 'det':
+            d = treino_disponivel()
+            if not d['ok']: return self.json({ 'error': 'Treino indisponível: ' + d['motivo'] + ' — rode: python -m pip install -r python/requirements-local.txt' }, 503)
+            modo = b.get('modo') if b.get('modo') in ('cls', 'det') else 'seg'
+            if modo == 'seg':
+                marcadas = [a for a in AMOSTRAS if a.get('caixas')]
+                com = len([a for a in marcadas if any(c.get('c') != 'pallet' for c in a['caixas'])]); vaz = len(marcadas) - com
+                if com < 3: return self.json({ 'error': f'Faltam quadros com peça: há {com} (mínimo 3, ideal 15+). Use o passo 2 (Peça).' }, 400)
+                if vaz < 1: return self.json({ 'error': 'Falta o pallet vazio: capture pelo menos 1 no passo 1 (ideal 3+).' }, 400)
+            elif modo == 'det':
                 marcadas = [a for a in AMOSTRAS if a.get('caixas')]
                 if len(marcadas) < 3: return self.json({ 'error': f'Marque caixas em pelo menos 3 quadros (há {len(marcadas)}). O ideal são 15 ou mais.' }, 400)
             else:
@@ -258,7 +333,7 @@ class H(SimpleHTTPRequestHandler):
         if p == '/api/cadenciador/sessoes': return self.json({ 'error': 'sem cadenciador no servidor de teste' }, 400)
         return self.json({ 'error': 'rota não existe no servidor de teste: ' + p }, 404)
 
-    def do_PUT(self):
+    def _put(self):
         global CONFIG_TS
         p = urlparse(self.path).path; b = self.corpo()
         if p == '/api/contador/linhas/1/config':
@@ -271,12 +346,12 @@ class H(SimpleHTTPRequestHandler):
             a = next((x for x in AMOSTRAS if x['id'] == int(m.group(1))), None)
             if not a: return self.json({}, 404)
             if 'rotulo' in b: a['rotulo'] = b['rotulo'] if b['rotulo'] in ('vazio', 'com_pecas') else None
-            if isinstance(b.get('caixas'), list): a['caixas'] = [dict(c, c=c.get('c') if c.get('c') in CLASSES_DET else 'caixa') for c in b['caixas'] if isinstance(c, dict)]
+            if isinstance(b.get('caixas'), list): a['caixas'] = limpar_marc(b['caixas'])
             salvar_amostras()
             return self.json({ 'ok': True, 'n': len(a['caixas']) })
         return self.json({ 'error': 'rota não existe' }, 404)
 
-    def do_DELETE(self):
+    def _delete(self):
         global CONFIG_TS
         p = urlparse(self.path).path
         m = re.match(r'^/api/contador/amostras/(\d+)$', p)
@@ -295,26 +370,63 @@ class H(SimpleHTTPRequestHandler):
         return self.json({ 'error': 'rota não existe' }, 404)
 
 def ips():
-    out = []
-    try:
-        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM); s.connect(('10.255.255.255', 1)); out.append(s.getsockname()[0]); s.close()
-    except Exception: pass
+    """IP principal (o da rota para fora) primeiro; adaptadores virtuais (VirtualBox, WSL/Hyper-V, VPN) por último."""
+    principal, out = None, []
+    for alvo in ('8.8.8.8', '10.255.255.255'):
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM); s.connect((alvo, 1)); principal = s.getsockname()[0]; s.close(); break
+        except Exception: pass
     try: out += [i[4][0] for i in socket.getaddrinfo(socket.gethostname(), None, socket.AF_INET)]
     except Exception: pass
-    return sorted(set(i for i in out if not i.startswith('127.')))
+    virt = lambda ip: ip.startswith(('169.254.', '192.168.56.', '172.17.', '172.18.', '172.19.', '172.2', '172.30.', '172.31.'))
+    resto = sorted(set(i for i in out if not i.startswith('127.') and i != principal), key=virt)
+    return ([principal] if principal and not principal.startswith('127.') else []) + resto
+
+class Redireciona(SimpleHTTPRequestHandler):
+    """http://IP:3001 → https://IP:3000 (quem digitar sem https:// no celular cai no lugar certo)"""
+    def log_message(self, *a): pass
+    def do_GET(self):
+        host = (self.headers.get('Host') or 'localhost').split(':')[0]
+        caminho = self.path if self.path not in ('/', '/c') else '/cadenciador/camera'
+        self.send_response(302); self.send_header('Location', f'https://{host}:{PORTA}{caminho}'); self.end_headers()
+
+class Servidor(ThreadingHTTPServer):
+    """Ignora conexões que o celular/navegador cortou no meio (recarregou a página, trocou de rede,
+    tela apagou). Isso é normal e não é erro do servidor — antes aparecia como um Traceback enorme."""
+    daemon_threads = True
+    def handle_error(self, request, client_address):
+        e = sys.exc_info()[1]
+        if isinstance(e, (ConnectionResetError, ConnectionAbortedError, BrokenPipeError, TimeoutError, ssl.SSLError)): return
+        if isinstance(e, OSError) and getattr(e, 'winerror', None) in (10053, 10054): return
+        super().handle_error(request, client_address)
 
 if __name__ == '__main__':
-    srv = ThreadingHTTPServer(('0.0.0.0', PORTA), H)
+    srv = Servidor(('0.0.0.0', PORTA), H)
     proto = 'http'
     cert = os.path.join(RAIZ, 'cert_teste', 'cert.pem'); key = os.path.join(RAIZ, 'cert_teste', 'key.pem')
     if os.path.exists(cert) and os.path.exists(key) and os.environ.get('HTTPS', '1') == '1':
         ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER); ctx.load_cert_chain(cert, key)
         srv.socket = ctx.wrap_socket(srv.socket, server_side=True); proto = 'https'
-    print('=' * 60); print('  Servidor de TESTE da câmera (só Python)'); print('=' * 60)
-    print(f'  No PC:        {proto}://localhost:{PORTA}/cadenciador/painel')
-    for ip in ips(): print(f'  Na rede:      {proto}://{ip}:{PORTA}/cadenciador/camera   (celular/tablet: conectar câmera)')
-    try: import ultralytics; print('  Treino da IA: disponível (ultralytics', ultralytics.__version__ + ')')
-    except ImportError: print('  Treino da IA: indisponível — python -m pip install -r python/requirements-local.txt')
+    if proto == 'https':
+        try:
+            red = Servidor(('0.0.0.0', PORTA + 1), Redireciona)
+            threading.Thread(target=red.serve_forever, daemon=True).start()
+        except Exception: pass
+    lista = ips()
+    print('=' * 64); print('  Servidor de TESTE da câmera (só Python)'); print('=' * 64)
+    print(f'  No PC (painel):    {proto}://localhost:{PORTA}/cadenciador/painel')
+    if lista:
+        print(f'  NO CELULAR digite: {proto}://{lista[0]}:{PORTA}/c')
+        for ip in lista[1:]: print(f'     (outro IP deste PC, se o de cima não abrir: {proto}://{ip}:{PORTA}/c)')
+    print('  -> no celular aparece "conexão não é particular": Avançado > Continuar (é o certificado de teste)')
+    print('  Celular não abre a página?')
+    print('     1) celular e PC na MESMA rede Wi-Fi')
+    print('     2) Firewall do Windows: na 1a vez ele pergunta — permita o Python em redes privadas E públicas')
+    print('     3) Wi-Fi de empresa costuma bloquear aparelho com aparelho: ligue o "Hotspot móvel" do Windows,')
+    print('        conecte o celular nele e use o IP que aparecer acima (normalmente 192.168.137.1)')
+    print('  Treino da IA: verificando…', end='', flush=True)
+    d = treino_disponivel()
+    print('\r  Treino da IA: ' + ('disponível (ultralytics ' + d['versao'] + ')' if d['ok'] else 'INDISPONÍVEL — ' + d['motivo'] + '\n      → python -m pip install -r python/requirements-local.txt'))
     print('  Dados em:    ', DADOS); print('  Ctrl+C para parar'); print('=' * 60, flush=True)
     try: srv.serve_forever()
     except KeyboardInterrupt: print('\nEncerrado.')

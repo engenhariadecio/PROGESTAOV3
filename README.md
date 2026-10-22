@@ -36,6 +36,13 @@ Os sistemas eram independentes e guardavam dados em lugares diferentes. Agora co
 - As consultas de aniversariantes usavam `HAVING` sem `GROUP BY`, o que o Postgres rejeita. Reescritas com subquery.
 - Layout retematizado com a identidade da Décio.
 
+**Treino da IA no Railway (22/10/2026) — v42**
+- O Dockerfile instala a IA num ambiente Python separado (`/opt/ia`, `PYTHON_BIN=/opt/ia/bin/python`) em vez de `--break-system-packages` no Python do Debian, que podia falhar e deixava o treino indisponível ("Command failed: python3 -c import ultralytics…"). O build termina mostrando "IA: treino instalado — ultralytics x.y" ou "AVISO: treino da IA não foi instalado".
+- O painel mostra a última linha do erro do Python (o motivo real) em vez de "Command failed".
+
+**Recuperar a senha do admin (22/10/2026) — v41**
+- O `ADMIN_PASS` só vale quando o administrador é criado (1º deploy). Para trocar a senha depois: variável `RESET_ADMIN_PASS=true` no Railway → redeploy → entra com o `ADMIN_PASS` → apaga a `RESET_ADMIN_PASS`. Se o banco não tiver nenhum admin, ele é criado mesmo com `SEED_ON_BOOT=false`.
+
 **Pasta python leve para o GitHub (22/10/2026) — v40**
 - Os pesos da IA (`python/pesos/*.pt`, ~43 MB) saíram do projeto: `python/pesos_ia.py` baixa o que precisa na 1ª vez (github.com/ultralytics/assets), e o Dockerfile já baixa o do contorno (`yolov8n-seg.pt`, 7 MB) no deploy. A pasta `python` ficou com ~30 KB. `.gitignore` ignora `python/pesos/*.pt`.
 

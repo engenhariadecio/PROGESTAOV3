@@ -416,8 +416,13 @@ const chaveTreino = (l, p) => `${l}:${p || 0}`;
 let pyDisponivel = null;
 function verificarPython(cb) {
   if (pyDisponivel && pyDisponivel.ok) return cb(pyDisponivel);   // erro não fica guardado: dá para verificar de novo depois de instalar
-  execFile(PY, ['-c', 'import ultralytics, onnx; print(ultralytics.__version__)'], { timeout: 60000 }, (err, out) => {
-    pyDisponivel = err ? { ok: false, motivo: (err.message || '').split('\n')[0].slice(0, 200) } : { ok: true, versao: String(out).trim() };
+  execFile(PY, ['-c', 'import ultralytics, onnx, onnxruntime; print(ultralytics.__version__)'], { timeout: 180000, env: { ...process.env, YOLO_VERBOSE: 'False' } }, (err, out, errOut) => {
+    if (!err) { pyDisponivel = { ok: true, versao: String(out).trim().split('\n').pop() }; return cb(pyDisponivel); }
+    // o motivo real é a última linha do erro do Python (ex.: "ModuleNotFoundError: No module named 'ultralytics'")
+    const linhas = String(errOut || '').split('\n').map(l => l.trim()).filter(Boolean);
+    let motivo = linhas.length ? linhas[linhas.length - 1] : (err.code === 'ENOENT' ? `Python não encontrado (${PY})` : String(err.message || '').split('\n')[0]);
+    if (/No module named/.test(motivo)) motivo += ' — os pacotes da IA não foram instalados no deploy. No Railway: Deployments › Build Logs, procure "AVISO: treino da IA" ou "IA: treino instalado".';
+    pyDisponivel = { ok: false, motivo: motivo.slice(0, 400), python: PY };
     cb(pyDisponivel);
   });
 }

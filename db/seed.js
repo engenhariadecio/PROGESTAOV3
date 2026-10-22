@@ -140,6 +140,26 @@ const CONFIG_PADRAO = [
   ['cad_limite_ciclos',   '500',                         'Máximo de ciclos calculados por turno']
 ];
 
+/* Garante que dá para entrar como administrador:
+   - se não existe nenhum usuário admin, cria com ADMIN_USER / ADMIN_PASS;
+   - com RESET_ADMIN_PASS=true, a senha do ADMIN_USER passa a ser a do ADMIN_PASS (e ele é reativado).
+     O ADMIN_PASS só vale na 1ª criação; trocar a variável depois não muda a senha sem este reset. */
+async function garantirAdmin() {
+  const admUser = (process.env.ADMIN_USER || 'admin').trim();
+  const admPass = process.env.ADMIN_PASS || 'Decio@2026';
+  const admNome = process.env.ADMIN_NOME || 'Administrador';
+  const reset = String(process.env.RESET_ADMIN_PASS || '').toLowerCase() === 'true';
+  const existe = await pool.query('SELECT id FROM users WHERE username=$1', [admUser]);
+  const temAdmin = await pool.query("SELECT 1 FROM users WHERE role='admin' AND ativo IS NOT FALSE LIMIT 1");
+  if (!existe.rows.length && (!temAdmin.rows.length || reset)) {
+    await pool.query('INSERT INTO users (username,password,nome,role) VALUES ($1,$2,$3,$4)', [admUser, await bcrypt.hash(admPass, 10), admNome, 'admin']);
+    console.log(`  ✓ Administrador criado: ${admUser}`);
+  } else if (existe.rows.length && reset) {
+    await pool.query("UPDATE users SET password=$2, role='admin', ativo=TRUE WHERE username=$1", [admUser, await bcrypt.hash(admPass, 10)]);
+    console.log(`  ✓ Senha do administrador "${admUser}" redefinida pelo ADMIN_PASS (RESET_ADMIN_PASS=true) — apague essa variável depois de entrar`);
+  }
+}
+
 async function seed() {
   const client = await pool.connect();
   try {
@@ -243,7 +263,7 @@ async function seed() {
   }
 }
 
-module.exports = { seed };
+module.exports = { seed, garantirAdmin };
 
 /* Permite rodar isolado: npm run db:seed */
 if (require.main === module) {

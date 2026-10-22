@@ -7,7 +7,7 @@ const path = require('path');
 
 const { pool } = require('./db');
 const { initDB } = require('./db/schema');
-const { seed } = require('./db/seed');
+const { seed, garantirAdmin } = require('./db/seed');
 const { requireAuth, requireAdmin } = require('./middleware/auth');
 
 const app = express();
@@ -149,6 +149,7 @@ async function iniciar() {
       console.log('› Verificando dados iniciais...');
       await seed();
     }
+    try { await garantirAdmin(); } catch (e) { console.error('Aviso (admin):', e.message); }
 
     /* HTTPS=1: sobe com certificado autoassinado (rede local). A câmera do celular só
        abre em HTTPS — no primeiro acesso o navegador avisa "não seguro": Avançado → Continuar. */

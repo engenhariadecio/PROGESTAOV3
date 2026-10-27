@@ -561,6 +561,35 @@ router.delete('/modelos/:id', requireAuth, naoPcp, async (req, res) => {
   try { await pool.query('DELETE FROM cont_modelos WHERE id = $1', [req.params.id]); res.json({ ok: true }); }
   catch (e) { res.status(500).json({ error: e.message }); }
 });
+/* 📤 exportar / 📥 importar modelo — arquivo .iamodelo = 1ª linha JSON (nome, tipo, imgsz, classes, métricas) + bytes do ONNX.
+   Serve para levar um modelo treinado num servidor (PC) para outro (Railway), ou guardar uma cópia. */
+router.get('/modelos/:id/exportar', requireAuth, async (req, res) => {
+  try {
+    const r = await pool.query('SELECT nome, tipo, imgsz, classes, metricas, amostras, onnx FROM cont_modelos WHERE id = $1', [req.params.id]);
+    const m = r.rows[0]; if (!m) return res.status(404).json({ error: 'Modelo não encontrado' });
+    const cab = JSON.stringify({ formato: 'iamodelo-1', nome: m.nome, tipo: m.tipo, imgsz: m.imgsz, classes: m.classes, metricas: m.metricas, amostras: m.amostras, exportado_em: new Date().toISOString() });
+    const nomeArq = (m.nome || 'modelo').replace(/[^\w\-]+/g, '_').slice(0, 40) + '.iamodelo';
+    res.set({ 'Content-Type': 'application/octet-stream', 'Content-Disposition': `attachment; filename="${nomeArq}"` });
+    res.send(Buffer.concat([Buffer.from(cab + '\n', 'utf8'), m.onnx]));
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+router.post('/modelos/importar', requireAuth, naoPcp, express.raw({ type: '*/*', limit: '120mb' }), async (req, res) => {
+  try {
+    const buf = Buffer.isBuffer(req.body) ? req.body : null;
+    if (!buf || buf.length < 100) return res.status(400).json({ error: 'Arquivo vazio' });
+    const nl = buf.indexOf(10); let cab = null;
+    try { cab = nl > 0 && nl < 4000 ? JSON.parse(buf.slice(0, nl).toString('utf8')) : null; } catch (_) {}
+    if (!cab || cab.formato !== 'iamodelo-1') return res.status(400).json({ error: 'Este arquivo não é um modelo exportado (.iamodelo)' });
+    const onnx = buf.slice(nl + 1);
+    if (onnx.length < 1000) return res.status(400).json({ error: 'Modelo sem conteúdo' });
+    const nome = String(req.query.nome || cab.nome || 'Modelo importado').trim().slice(0, 80);
+    const temPadrao = (await pool.query('SELECT 1 FROM cont_modelos WHERE padrao LIMIT 1')).rows.length > 0;
+    const r = await pool.query('INSERT INTO cont_modelos (linha_id, produto_id, onnx, imgsz, tipo, classes, metricas, amostras, nome, padrao, updated_at) VALUES (NULL,NULL,$1,$2,$3,$4,$5,$6,$7,$8,NOW()) RETURNING id',
+      [onnx, Number(cab.imgsz) || 416, ['seg', 'det', 'cls'].includes(cab.tipo) ? cab.tipo : 'seg', JSON.stringify(cab.classes || CLASSES_SEG), JSON.stringify(cab.metricas || {}), Number(cab.amostras) || 0, nome, !temPadrao]);
+    await pool.query('UPDATE cont_linhas SET updated_at = NOW()');
+    res.json({ ok: true, id: r.rows[0].id, nome, padrao: !temPadrao, tamanho: onnx.length });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
 /* modelo de um produto: { modelo_id } = usa esse; { modelo_id: null } = usa o padrão */
 router.get('/produtos/:pid/modelo', requireAuth, async (req, res) => {
   try { const r = await pool.query('SELECT modelo_id FROM cont_modelo_produto WHERE produto_id = $1', [req.params.pid]); res.json({ modelo_id: r.rows[0] ? r.rows[0].modelo_id : null }); }

@@ -278,6 +278,13 @@ class H(SimpleHTTPRequestHandler):
             f = os.path.join(DADOS, 'amostras', m.group(1) + '.jpg')
             return self.bytes(open(f, 'rb').read(), 'image/jpeg') if os.path.exists(f) else self.json({}, 404)
         if p in ('/api/contador/linhas/1/treino', '/api/contador/treino/atual'): return self.json({ **TREINO, 'log': TREINO.get('log', [])[-12:] })
+        m = re.match(r'^/api/contador/modelos/(\d+)/exportar$', p)
+        if m:
+            mod = modelo_por_id(m.group(1))
+            if not mod or not os.path.exists(modelo_path(mod['id'])): return self.json({ 'error': 'Modelo não encontrado' }, 404)
+            cab = json.dumps({ 'formato': 'iamodelo-1', 'nome': mod.get('nome'), 'tipo': mod.get('tipo'), 'imgsz': mod.get('imgsz'), 'classes': mod.get('classes'), 'metricas': mod.get('metricas'), 'amostras': mod.get('amostras'), 'exportado_em': agora_iso() })
+            nome_arq = re.sub(r'[^\w\-]+', '_', mod.get('nome') or 'modelo')[:40] + '.iamodelo'
+            return self.bytes(cab.encode('utf-8') + b'\n' + open(modelo_path(mod['id']), 'rb').read(), 'application/octet-stream', extra={ 'Content-Disposition': 'attachment; filename="%s"' % nome_arq })
         if p == '/api/contador/modelos':
             out = []
             for m in sorted(BIBLIO, key=lambda x: (not x.get('padrao'), x['id'])):
@@ -296,7 +303,22 @@ class H(SimpleHTTPRequestHandler):
 
     def _post(self):
         global CONFIG_TS
-        p = urlparse(self.path).path; b = self.corpo()
+        u = urlparse(self.path); p = u.path
+        if p == '/api/contador/modelos/importar':
+            q = { k: v[0] for k, v in parse_qs(u.query).items() }
+            n = int(self.headers.get('Content-Length') or 0); buf = self.rfile.read(n) if n else b''
+            nl = buf.find(b'\n'); cab = None
+            try: cab = json.loads(buf[:nl].decode('utf-8')) if 0 < nl < 4000 else None
+            except Exception: cab = None
+            if not cab or cab.get('formato') != 'iamodelo-1': return self.json({ 'error': 'Este arquivo não é um modelo exportado (.iamodelo)' }, 400)
+            onnx = buf[nl + 1:]
+            if len(onnx) < 1000: return self.json({ 'error': 'Modelo sem conteúdo' }, 400)
+            m = { 'id': max([x['id'] for x in BIBLIO] + [0]) + 1, 'nome': (q.get('nome') or cab.get('nome') or 'Modelo importado')[:80], 'padrao': not any(x.get('padrao') for x in BIBLIO),
+                  'imgsz': int(cab.get('imgsz') or 416), 'tipo': cab.get('tipo') if cab.get('tipo') in ('seg', 'det', 'cls') else 'seg', 'classes': cab.get('classes') or CLASSES_SEG,
+                  'metricas': cab.get('metricas') or {}, 'amostras': int(cab.get('amostras') or 0), 'created_at': agora_iso(), 'updated_at': agora_iso() }
+            open(modelo_path(m['id']), 'wb').write(onnx); BIBLIO.append(m); salvar_biblio(); CONFIG_TS = time.time()
+            return self.json({ 'ok': True, 'id': m['id'], 'nome': m['nome'], 'padrao': m['padrao'], 'tamanho': len(onnx) })
+        b = self.corpo()
         if p == '/api/logout' or p == '/api/login': return self.json({ 'ok': True })
         if p == '/api/contador/frame':
             buf = b64jpeg(b.get('jpeg'))

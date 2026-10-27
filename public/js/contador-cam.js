@@ -128,7 +128,7 @@ window.ContadorCam = (function () {
       else if (c.tipo === 'reiniciar_camera') abrirCamera().catch(e => avisoErro('Câmera: ' + e.message));
       else if (c.tipo === 'encerrar') { parar(); o.onEncerrar && o.onEncerrar(); }
     }
-    function recalibrar() { S.ref = null; S.refAnterior = null; S.fundo = null; S.estado = 'calibrando'; S.livreDesde = 0; S.contEstavel = null; S.chaveEstavel = null; S.histCont = []; S.pallet = null; S.histPallet = []; S.areaAuto = null; }
+    function recalibrar() { S.ref = null; S.refAnterior = null; S.fundo = null; S.estado = 'calibrando'; S.livreDesde = 0; S.contEstavel = null; S.chaveEstavel = null; S.histCont = []; S.pallet = null; S.histPallet = []; S.areaAuto = null; S.palletRef = null; }
 
     /* ───────── análise da área ───────── */
     const COR_CLASSE = { caixa: '#F0B429', peca: '#56B6E0', pallet: '#A78BFA', objeto: '#35C95C' };
@@ -311,7 +311,7 @@ window.ContadorCam = (function () {
       S.modeloCarregando = false;
     }
     /* contorno de uma detecção: máscara = coeficientes · protótipos, só dentro da caixa; vira polígono */
-    function contornoDet(b, d, A, c0, nm, pr, sz, s, ox, oy, vw, vh) {
+    function contornoDet(b, d, A, c0, nm, pr, sz, s, ox, oy, vw, vh, cx0 = 0, cy0 = 0) {
       try {
         const mh = pr.dims[2], mw = pr.dims[3], P = pr.data, k = sz / mw, area = mh * mw;
         const u0 = Math.max(0, Math.floor(b.lb[0] / k)), v0 = Math.max(0, Math.floor(b.lb[1] / k));
@@ -325,7 +325,7 @@ window.ContadorCam = (function () {
           mask[v * W + u] = z > 0 ? 1 : 0;           // sigmoid(z) > 0,5
         }
         const r = Contorno.maior(mask, W, H, 0.8); if (!r || r.pts.length < 3) return null;
-        return r.pts.map(([u, v]) => [Math.min(1, Math.max(0, ((u0 + u) * k - ox) / s / vw)), Math.min(1, Math.max(0, ((v0 + v) * k - oy) / s / vh))]);
+        return r.pts.map(([u, v]) => [Math.min(1, Math.max(0, (cx0 + ((u0 + u) * k - ox) / s) / vw)), Math.min(1, Math.max(0, (cy0 + ((v0 + v) * k - oy) / s) / vh))]);
       } catch (_) { return null; }
     }
     /* desenha a marcação: contorno (se houver) ou retângulo */
@@ -340,9 +340,19 @@ window.ContadorCam = (function () {
       if (m.tipo === 'cls') return classificar(t);
       S.detOcupado = true;
       try {
-        const sz = m.imgsz, vw = video.videoWidth, vh = video.videoHeight, s = sz / Math.max(vw, vh);
+        const sz = m.imgsz, VW = video.videoWidth, VH = video.videoHeight;
+        // Recorta em volta da área (pallet + altura da pilha) antes de mandar para a IA: caixas finas/empilhadas ficam
+        // com o dobro de pixels. Sem área (ou pallet sumido há várias leituras) usa o quadro inteiro.
+        const za = areaAtiva(); let cx0 = 0, cy0 = 0, vw = VW, vh = VH;
+        if (za && (S.semPalletN || 0) < 2) {
+          const mx = za.w * 0.25, my = za.h * 0.2;
+          const x0 = Math.max(0, za.x - mx), y0 = Math.max(0, za.y - my), x1 = Math.min(1, za.x + za.w + mx), y1 = Math.min(1, za.y + za.h + my * 0.6);
+          if (x1 - x0 > 0.15 && y1 - y0 > 0.15 && (x1 - x0) * (y1 - y0) < 0.85) { cx0 = Math.round(x0 * VW); cy0 = Math.round(y0 * VH); vw = Math.round((x1 - x0) * VW); vh = Math.round((y1 - y0) * VH); }
+        }
+        const s = sz / Math.max(vw, vh);
         const dw = Math.round(vw * s), dh = Math.round(vh * s), ox = Math.floor((sz - dw) / 2), oy = Math.floor((sz - dh) / 2);
-        det.width = sz; det.height = sz; dctx.fillStyle = 'rgb(114,114,114)'; dctx.fillRect(0, 0, sz, sz); dctx.drawImage(video, ox, oy, dw, dh);
+        det.width = sz; det.height = sz; dctx.fillStyle = 'rgb(114,114,114)'; dctx.fillRect(0, 0, sz, sz); dctx.drawImage(video, cx0, cy0, vw, vh, ox, oy, dw, dh);
+        S.recorte = (cx0 || cy0 || vw !== VW || vh !== VH) ? { x: cx0 / VW, y: cy0 / VH, w: vw / VW, h: vh / VH } : null;
         const px = dctx.getImageData(0, 0, sz, sz).data, n = sz * sz, f = new Float32Array(3 * n);
         for (let i = 0; i < n; i++) { f[i] = px[i * 4] / 255; f[n + i] = px[i * 4 + 1] / 255; f[2 * n + i] = px[i * 4 + 2] / 255; }
         const out = await m.sess.run({ [m.entrada]: new ort.Tensor('float32', f, [1, 3, sz, sz]) });
@@ -358,30 +368,33 @@ window.ContadorCam = (function () {
           if (sc > melhor) melhor = sc;
           if (sc < 0.35) continue;
           const cx = d[a], cy = d[A + a], w = d[2 * A + a], h = d[3 * A + a];
-          const b = { x: (cx - w / 2 - ox) / s / vw, y: (cy - h / 2 - oy) / s / vh, w: w / s / vw, h: h / s / vh, sc, classe: nomes[ci] === 'caixa' && m.tipo === 'seg' ? 'peca' : (nomes[ci] || 'objeto') };
+          const b = { x: (cx0 + (cx - w / 2 - ox) / s) / VW, y: (cy0 + (cy - h / 2 - oy) / s) / VH, w: w / s / VW, h: h / s / VH, sc, classe: nomes[ci] === 'caixa' && m.tipo === 'seg' ? 'peca' : (nomes[ci] || 'objeto') };
           if (pr) { b.a = a; b.lb = [cx - w / 2, cy - h / 2, cx + w / 2, cy + h / 2]; }
           cand.push(b);
         }
         cand.sort((p, q) => q.sc - p.sc);
         const fin = [];
         for (const c of cand) { if (fin.every(k => k.classe !== c.classe || iou(k, c) < 0.45)) fin.push(c); if (fin.length >= 60) break; }
-        if (pr && window.Contorno) for (const b of fin) b.pts = contornoDet(b, d, A, 4 + nc, nm, pr, sz, s, ox, oy, vw, vh);
+        if (pr && window.Contorno) for (const b of fin) b.pts = contornoDet(b, d, A, 4 + nc, nm, pr, sz, s, ox, oy, VW, VH, cx0, cy0);
         S.dets = fin; S.melhorSc = melhor;   // maior confiança vista (diagnóstico: IA "tímida" = precisa de mais fotos)
         // pallet: o mais confiável; define a área automática (coluna acima dele) quando não há área marcada
-        const pallet = fin.filter(b => b.classe === 'pallet').sort((p, q) => q.sc - p.sc)[0] || null;
+        // pallet: tem que ser grande (≥ 22 % da largura — a câmera fica perto); entre vários, o que está onde o pallet já estava
+        const pallets = fin.filter(b => b.classe === 'pallet' && b.w >= 0.22);
+        const pallet = (S.palletRef ? pallets.sort((p, q) => iou(q, S.palletRef) - iou(p, S.palletRef) || q.sc - p.sc)[0] : pallets.sort((p, q) => q.sc - p.sc)[0]) || null;
         S.temClassePallet = nomes.includes('pallet');
         S.palletBox = pallet;
+        S.semPalletN = (S.temClassePallet && !pallet) ? (S.semPalletN || 0) + 1 : 0;   // 2 leituras sem pallet no recorte → volta ao quadro inteiro
         if (pallet && !S.zona) {
           // coluna acima do pallet até ~1,6× a largura dele (altura de pilha); de cima, cobre o próprio pallet
-          const alturaPilha = pallet.w * (vw / vh) * 1.6, topo = Math.max(0, pallet.y - alturaPilha);
+          const alturaPilha = pallet.w * (VW / VH) * 1.6, topo = Math.max(0, pallet.y - alturaPilha);
           const nova = { x: Math.max(0, pallet.x - pallet.w * 0.08), y: topo, w: Math.min(1, pallet.w * 1.16), h: Math.min(1, pallet.y + pallet.h) - topo };
           const a0 = S.areaAuto, difere = (a, b) => Math.abs(a.x - b.x) > 0.03 || Math.abs(a.w - b.w) > 0.03 || Math.abs(a.y - b.y) > 0.03 || Math.abs(a.h - b.h) > 0.03;
-          if (!a0) { S.areaAuto = nova; S.ultimoQuadro = null; }
+          if (!a0) { S.areaAuto = nova; S.palletRef = pallet; S.ultimoQuadro = null; }
           else if (difere(a0, nova)) {
             // só move a área se o pallet aparecer no novo lugar em 4 leituras seguidas (pessoa tapando o pallet não mexe na área)
             if (S.areaCand && !difere(S.areaCand, nova)) S.areaCandN++; else { S.areaCand = nova; S.areaCandN = 1; }
-            if (S.areaCandN >= 4) { S.areaAuto = nova; S.ultimoQuadro = null; S.areaCand = null; }
-          } else S.areaCand = null;
+            if (S.areaCandN >= 4) { S.areaAuto = nova; S.palletRef = pallet; S.ultimoQuadro = null; S.areaCand = null; }
+          } else { S.areaCand = null; S.palletRef = pallet; }
         }
         const z = areaAtiva();
         const itens = fin.filter(b => b.classe !== 'pallet');
@@ -554,6 +567,7 @@ window.ContadorCam = (function () {
       if (S.modelo && S.modelo.tipo !== 'cls') {
         const za = areaAtiva();
         if (za && !S.zona) { sctx.strokeStyle = 'rgba(167,139,250,.6)'; sctx.lineWidth = 1.5; sctx.setLineDash([6, 4]); sctx.strokeRect(mapX(za.x), mapY(za.y), za.w / sw * W, za.h / sh * H); sctx.setLineDash([]); }
+        if (S.recorte) { const r = S.recorte; sctx.strokeStyle = 'rgba(255,255,255,.25)'; sctx.lineWidth = 1; sctx.setLineDash([2, 4]); sctx.strokeRect(mapX(r.x), mapY(r.y), r.w / sw * W, r.h / sh * H); sctx.setLineDash([]); }
         sctx.lineWidth = 2; sctx.font = 'bold 11px sans-serif';
         for (const b of S.dets) {
           const cx = b.x + b.w / 2, cy = b.y + b.h / 2, dentro = b.classe === 'pallet' || !za || (cx >= za.x && cx <= za.x + za.w && cy >= za.y && cy <= za.y + za.h);
@@ -647,7 +661,7 @@ window.ContadorCam = (function () {
       conectar, parar, trocarSessao, registrar: (origem) => registrar(origem, 0, null), recalibrar: () => { recalibrar(); },
       trocaPallet: () => { recalibrar(); registrar('troca_pallet', 0, null); },
       modoDesenho: m => { modoDesenho = m; }, salvarConfig, estado: S,
-      get modelo() { return S.modelo; }, get resumo() { return resumoPallet(); }, get contAtual() { return S.contAtual; }, get palletOk() { return S.palletOk; }, get dets() { return S.dets; }, get contagem() { return S.contagem; }, get sessao() { return S.sessao; }, get eventos() { return S.eventos; }, get cfg() { return S.cfg; }, get zona() { return S.zona; }, get ativo() { return S.ativo; }
+      get modelo() { return S.modelo; }, get resumo() { return resumoPallet(); }, get contAtual() { return S.contAtual; }, get palletOk() { return S.palletOk; }, get dets() { return S.dets; }, get contagem() { return S.contagem; }, get sessao() { return S.sessao; }, get eventos() { return S.eventos; }, get cfg() { return S.cfg; }, get zona() { return S.zona; }, get ativo() { return S.ativo; }, get recorte() { return S.recorte; }, get areaAuto() { return S.areaAuto; }, debugRecorte() { return det.toDataURL('image/jpeg', 0.7); }
     };
   }
   return { criar, CFG_PADRAO };

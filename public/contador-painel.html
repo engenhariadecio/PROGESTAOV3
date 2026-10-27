@@ -223,6 +223,11 @@ td img { width: 72px; height: 54px; object-fit: cover; border-radius: 6px; curso
           <button class="btn btn-sm btn-fantasma" id="ensAchar" disabled title="Compara de novo com o pallet vazio">⟳ Achar a peça de novo</button>
           <button class="btn btn-sm btn-fantasma" id="ensSugerir" disabled title="A IA já treinada propõe os contornos; você só corrige">🪄 Sugerir</button>
           <label class="btn btn-sm btn-fantasma" id="ensImportarLbl" title="Fotos tiradas no celular ou guardadas no PC">📁 Importar fotos<input type="file" id="ensImportar" accept="image/*" multiple hidden></label>
+          <label class="btn btn-sm btn-fantasma" title="Vídeo gravado da posição da câmera, do pallet vazio até cheio, uma caixa por vez: vira fotos já contornadas">📹 Ensinar com vídeo<input type="file" id="ensVideo" accept="video/*" multiple hidden></label>
+          <button class="btn btn-sm btn-ok" id="ensVidProcessar" style="display:none">▶ Processar vídeo</button>
+          <label class="lbl" id="ensVidVazioLbl" style="display:none;align-self:center"><input type="checkbox" id="ensVidVazio" checked> <span>o vídeo começa com o pallet <b>vazio</b></span></label>
+          <button class="btn btn-sm btn-fantasma" id="ensVidCancelar" style="display:none">■ Parar</button>
+          <span class="ajuda" id="ensVidStatus" style="display:none;align-self:center"></span>
           <button class="btn btn-sm btn-fantasma" id="ensExcluir" disabled>🗑 Excluir foto</button>
         </div>
         <div class="ajuda" id="ensDica" style="margin-top:8px"></div>
@@ -245,7 +250,8 @@ td img { width: 72px; height: 54px; object-fit: cover; border-radius: 6px; curso
           <select class="controle" id="ensUso"></select>
           <div id="ensModelo" class="ajuda" style="margin-top:6px"></div>
         </div>
-        <div class="grupo"><h5>Modelos salvos</h5><div id="ensBiblio" class="biblio"></div></div>
+        <div class="grupo"><h5>Modelos salvos</h5><div id="ensBiblio" class="biblio"></div>
+          <div class="modo" style="margin-top:8px"><label class="btn btn-sm btn-fantasma" title="Arquivo .iamodelo exportado de outro servidor (PC, Railway)">📥 Importar modelo<input type="file" id="ensImportarModelo" accept=".iamodelo,application/octet-stream" hidden></label><span class="ajuda" id="ensImpStatus"></span></div></div>
       </div>
     </div>
     <div class="cfg" id="cfgArea">
@@ -667,11 +673,10 @@ async function carregarPixels(id, W, H) {
   const c = document.createElement('canvas'); c.width = W; c.height = H; const cx = c.getContext('2d', { willReadFrequently: true });
   cx.drawImage(img, 0, 0, W, H); return cx.getImageData(0, 0, W, H).data;
 }
-/* compara a foto com o pallet vazio: o que mudou é peça → CONTORNO de cada mancha.
-   Devolve { pecas, palletMudou } — palletMudou = fração do pallet que mudou (pallet tirado/mexido). */
-async function acharPecas(refId, id, palletPts) {
-  const W = 320, H = 240, N = W * H;
-  const a = await carregarPixels(refId, W, H), b = await carregarPixels(id, W, H);
+/* compara dois conjuntos de pixels (RGBA, W×H): o que mudou é peça → CONTORNO de cada mancha.
+   Devolve { pecas, palletMudou, mudouDentro, mascara } — palletMudou = fração do pallet que mudou (pallet tirado/mexido). */
+function diffPecas(a, b, W, H, palletPts) {
+  const N = W * H;
   let soma = 0; for (let i = 0; i < N; i++) soma += (b[i * 4] + b[i * 4 + 1] + b[i * 4 + 2]) - (a[i * 4] + a[i * 4 + 1] + a[i * 4 + 2]);
   const desloc = soma / N / 3;   // compensa a câmera ter clareado/escurecido tudo
   let m = new Uint8Array(N);
@@ -682,24 +687,21 @@ async function acharPecas(refId, id, palletPts) {
   m = passo(m, (v, s) => s && v >= 4);
   m = passo(m, (v, s) => s || v >= 1); m = passo(m, (v, s) => s || v >= 1);   // fecha buracos (peça com cor parecida com o fundo)
   m = passo(m, (v, s) => s && v >= 9); m = passo(m, (v, s) => s && v >= 9);   // …e volta ao tamanho certo
-  // o pallet continua no lugar? (a peça tem que ser colocada EM CIMA dele; se ele saiu, a diferença é o buraco dele)
-  let palletMudou = 0, col = null;
-  if (palletPts && palletPts.length >= 3) {
-    const pb = Contorno.caixaDe(palletPts); let den = 0, mud = 0;
-    for (let y = Math.floor(pb.y * H); y < Math.min(H, Math.ceil((pb.y + pb.h) * H)); y++) for (let x = Math.floor(pb.x * W); x < Math.min(W, Math.ceil((pb.x + pb.w) * W)); x++)
-      if (Contorno.dentro(palletPts, (x + 0.5) / W, (y + 0.5) / H)) { den++; if (m[y * W + x]) mud++; }
-    palletMudou = den ? mud / den : 0;
-    // peça só vale perto do pallet: na "coluna" acima dele (altura de pilha ~1,6× a largura) ou sobre ele
-    const alt = pb.w * (4 / 3) * 1.6;
-    col = { x0: pb.x - pb.w * 0.06, x1: pb.x + pb.w * 1.06, y0: Math.max(0, pb.y - alt), y1: pb.y + pb.h };
-  }
-  const mudouDentro = pts => {   // fração de um contorno que mudou entre as duas fotos
+  const dentroFrac = pts => {   // fração de um contorno que mudou entre as duas fotos
     const bb = Contorno.caixaDe(pts); let den = 0, mud = 0;
     for (let y = Math.floor(bb.y * H); y < Math.min(H, Math.ceil((bb.y + bb.h) * H)); y++) for (let x = Math.floor(bb.x * W); x < Math.min(W, Math.ceil((bb.x + bb.w) * W)); x++)
       if (Contorno.dentro(pts, (x + 0.5) / W, (y + 0.5) / H)) { den++; if (m[y * W + x]) mud++; }
     return den ? mud / den : 0;
   };
-  if (palletMudou > 0.4) return { pecas: [], palletMudou, mudouDentro };
+  // o pallet continua no lugar? (a peça tem que ser colocada EM CIMA dele; se ele saiu, a diferença é o buraco dele)
+  let palletMudou = 0, col = null;
+  if (palletPts && palletPts.length >= 3) {
+    const pb = Contorno.caixaDe(palletPts); palletMudou = dentroFrac(palletPts);
+    // peça só vale perto do pallet: na "coluna" acima dele (altura de pilha ~1,6× a largura) ou sobre ele
+    const alt = pb.w * (W / H) * 1.6;
+    col = { x0: pb.x - pb.w * 0.06, x1: pb.x + pb.w * 1.06, y0: Math.max(0, pb.y - alt), y1: pb.y + pb.h };
+  }
+  if (palletMudou > 0.4) return { pecas: [], palletMudou, mudouDentro: dentroFrac, mascara: m };
   let regs = Contorno.regioes(m, W, H, N * 0.0025, 1.5).filter(r => r.x1 - r.x0 >= 5 && r.y1 - r.y0 >= 5)
     .filter(r => r.area >= (r.x1 - r.x0 + 1) * (r.y1 - r.y0 + 1) * 0.2)          // mancha rala = sombra/luz, não peça
     .filter(r => { if (!col) return true; const cx = (r.x0 + r.x1) / 2 / W, cy = (r.y0 + r.y1) / 2 / H; return cx >= col.x0 && cx <= col.x1 && cy >= col.y0 && cy <= col.y1; });
@@ -715,8 +717,158 @@ async function acharPecas(refId, id, palletPts) {
       if (ix > 0 && iy > 0 && ix * iy >= menor * 0.5) { regs[i] = { x0: Math.min(p.x0, k.x0), x1: Math.max(p.x1, k.x1), y0: Math.min(p.y0, k.y0), y1: Math.max(p.y1, k.y1), area: p.area + k.area, pts: Contorno.envoltoria([...p.pts, ...k.pts]) }; regs.splice(j, 1); mudou = true; }
     } }
   const pecas = regs.filter(r => (r.x1 - r.x0) * (r.y1 - r.y0) < N * 0.6).sort((p, q) => p.x0 - q.x0)
-    .map(r => ({ c: 'peca', pts: r.pts.map(([x, y]) => [+(x / W).toFixed(4), +(y / H).toFixed(4)]) }));
-  return { pecas, palletMudou, mudouDentro };
+    .map(r => ({ c: 'peca', pts: r.pts.map(([x, y]) => [+(x / W).toFixed(4), +(y / H).toFixed(4)]), x0: r.x0, x1: r.x1, y0: r.y0, y1: r.y1, area: r.area }));
+  return { pecas, palletMudou, mudouDentro: dentroFrac, mascara: m };
+}
+async function acharPecas(refId, id, palletPts) {
+  const W = 320, H = 240;
+  const a = await carregarPixels(refId, W, H), b = await carregarPixels(id, W, H);
+  return diffPecas(a, b, W, H, palletPts);
+}
+
+/* ───── 📹 Ensinar com vídeo (tudo no navegador, nada do vídeo sobe para o servidor) ─────
+   1) o usuário escolhe o(s) arquivo(s) de vídeo, gravados da posição da câmera, com as caixas colocadas uma por vez;
+   2) contorna o pallet no 1º quadro;
+   3) o navegador percorre o vídeo (16× mais rápido), acha os momentos em que a cena ficou parada, e em cada mudança
+      contorna só a caixa nova (comparando com o momento parado anterior). Cada momento vira uma foto com os contornos
+      acumulados — igual ao passo 2 feito à mão, só que automático. Pallet que sai → começa outra sequência. */
+let VID = null;   // { arquivos, palletPts, ... }
+$('ensVideo').onchange = async e => {
+  const arqs = [...e.target.files].sort((a, b) => a.name.localeCompare(b.name, 'pt', { numeric: true })); e.target.value = '';
+  if (!arqs.length || !cfgLinha) return;
+  VID = { arquivos: arqs, cancelar: false };
+  // 1º quadro do 1º vídeo vira uma foto; o usuário contorna o pallet nela
+  try {
+    const v = await vidAbrir(arqs[0]); await vidIr(v, Math.min(1, v.duration / 2));
+    const quadro = vidQuadro(v); URL.revokeObjectURL(v.src);
+    const r = await API.post(`/api/contador/linhas/${cfgLinha.id}/amostras`, { jpeg: quadro.jpeg, largura: quadro.w, altura: quadro.h, produto_id: $('ensProduto').value || null, caixas: [] });
+    VID.primeiraId = r.id;
+    await listarAmostras(); irPasso('vazio'); abrirAmostra({ id: r.id, caixas: [], created_at: r.created_at }, []);
+    $('ensVidProcessar').style.display = ''; $('ensVidVazioLbl').style.display = '';
+    dica(`<b>📹 ${arqs.length} vídeo(s)</b> (${arqs.map(a => escapar(a.name)).join(', ')}). <b>Contorne o PALLET</b> nesta imagem (segure e passe em volta, rente às bordas) e clique em <b>▶ Processar vídeo</b>. Se o vídeo começar com o pallet já carregado, desmarque "começa vazio": aí só entram as fotos depois da 1ª troca de pallet.`);
+  } catch (err) { avisoErro('Vídeo: ' + err.message); VID = null; }
+};
+$('ensVidProcessar').onclick = async () => {
+  if (!VID) return;
+  const pal = ensCaixas.find(c => c.c === 'pallet');
+  if (!pal) return avisoErro('Contorne o pallet primeiro (segure e passe em volta dele).');
+  VID.palletPts = pal.pts; VID.produtoId = $('ensProduto').value || null; VID.comecaVazio = $('ensVidVazio').checked;
+  try { await salvarAtual(true); } catch (_) {}
+  $('ensVidProcessar').style.display = 'none'; $('ensVidVazioLbl').style.display = 'none'; $('ensVidCancelar').style.display = '';
+  const st = $('ensVidStatus'); st.style.display = '';
+  try { const res = await vidProcessar(VID, st); dica(`<b>Vídeo processado:</b> ${res.fotos} foto(s) criada(s), ${res.caixas} caixa(s) contornada(s)${res.trocas ? `, ${res.trocas} troca(s) de pallet` : ''}. <b>Confira as fotos</b> na lista (clique em cada uma): apague contornos errados, contorne o que faltou. Depois clique em 🧠 Treinar IA.`); }
+  catch (err) { avisoErro('Vídeo: ' + err.message); }
+  $('ensVidCancelar').style.display = 'none'; st.style.display = 'none'; VID = null; listarAmostras();
+};
+$('ensVidCancelar').onclick = () => { if (VID) VID.cancelar = true; };
+function vidAbrir(arq) {
+  return new Promise((res, rej) => {
+    const v = document.createElement('video'); v.muted = true; v.playsInline = true; v.preload = 'auto'; v.src = URL.createObjectURL(arq);
+    v.onloadedmetadata = () => res(v); v.onerror = () => rej(new Error('o navegador não conseguiu abrir ' + arq.name + ' (formato não suportado?)'));
+  });
+}
+function vidIr(v, t) { return new Promise(res => { v.onseeked = () => res(); v.currentTime = t; }); }
+const vidCanvas = document.createElement('canvas'), vidCtx = vidCanvas.getContext('2d', { willReadFrequently: true });
+function vidQuadro(v) {   // quadro em tamanho de foto (máx. 1280 px)
+  const k = Math.min(1, 1280 / Math.max(v.videoWidth, v.videoHeight)); vidCanvas.width = Math.round(v.videoWidth * k); vidCanvas.height = Math.round(v.videoHeight * k);
+  vidCtx.drawImage(v, 0, 0, vidCanvas.width, vidCanvas.height);
+  return { jpeg: vidCanvas.toDataURL('image/jpeg', 0.85), w: vidCanvas.width, h: vidCanvas.height };
+}
+async function vidProcessar(V, st) {
+  const AW = 320, AH = 240, N = AW * AH;   // resolução de análise (as fotos sobem em tamanho maior)
+  const ac = document.createElement('canvas'); ac.width = AW; ac.height = AH; const actx = ac.getContext('2d', { willReadFrequently: true });
+  const pid = V.produtoId, pallet = V.palletPts;
+  let prev = null, quietDesde = null, estado = null, aguardandoPallet = false, caixas = [], fotos = 0, ncx = 0, trocas = 0, tTotal = 0, tAntes = 0;
+  const vids = []; for (const a of V.arquivos) { const v = await vidAbrir(a); vids.push(v); tTotal += v.duration; }
+  const gray = px => { const g = new Uint8Array(N); for (let i = 0; i < N; i++) g[i] = (px[i * 4] * 3 + px[i * 4 + 1] * 6 + px[i * 4 + 2]) / 10; return g; };
+  const movimento = (g1, g2) => { let n = 0; for (let i = 0; i < N; i++) if (Math.abs(g1[i] - g2[i]) > 18) n++; return n / N; };
+  const maskDe = pts => { const m = new Uint8Array(N), bb = Contorno.caixaDe(pts); for (let y = Math.max(0, Math.floor(bb.y * AH)); y < Math.min(AH, Math.ceil((bb.y + bb.h) * AH)); y++) for (let x = Math.max(0, Math.floor(bb.x * AW)); x < Math.min(AW, Math.ceil((bb.x + bb.w) * AW)); x++) if (Contorno.dentro(pts, (x + 0.5) / AW, (y + 0.5) / AH)) m[y * AW + x] = 1; return m; };
+  const ptsDe = m => { const r = Contorno.maior(m, AW, AH, 1.2); return r && r.pts.length >= 3 ? r.pts.map(([x, y]) => [+(x / AW).toFixed(4), +(y / AH).toFixed(4)]) : null; };
+  const enviar = async q => {
+    const cx = [{ c: 'pallet', pts: pallet }, ...caixas.filter(c => c.pts).map(c => ({ c: 'peca', pts: c.pts }))];
+    await API.post(`/api/contador/linhas/${cfgLinha.id}/amostras`, { jpeg: q.jpeg, largura: q.w, altura: q.h, produto_id: pid, caixas: cx });
+    fotos++;
+  };
+  const pb = Contorno.caixaDe(pallet);
+  const dentroDe = (m, pts) => { const bb = Contorno.caixaDe(pts); let den = 0, mud = 0; for (let y = Math.max(0, Math.floor(bb.y * AH)); y < Math.min(AH, Math.ceil((bb.y + bb.h) * AH)); y++) for (let x = Math.max(0, Math.floor(bb.x * AW)); x < Math.min(AW, Math.ceil((bb.x + bb.w) * AW)); x++) if (Contorno.dentro(pts, (x + 0.5) / AW, (y + 0.5) / AH)) { den++; if (m[y * AW + x]) mud++; } return den ? mud / den : 0; };
+  const sobre = (ma, mb) => { let a = 0, i = 0; for (let k = 0; k < N; k++) { if (ma[k]) { a++; if (mb[k]) i++; } } return a ? i / a : 0; };
+  // candidatos a caixa nova num momento: manchas vs o estado aceito, que não encostam na borda esquerda/direita (braço/pessoa entrando)
+  const palletM = maskDe(pallet);
+  // a caixa nova tem que estar APOIADA: encostada no pallet ou nas caixas que já estão lá (nada de fundo, gente longe)
+  const apoiada = m => { let a = 0, t = 0; for (let y = 0; y < AH; y++) for (let x = 0; x < AW; x++) { if (!m[y * AW + x]) continue; t++;
+      for (let dy = -8; dy <= 8 && !a; dy += 4) for (let dx = -8; dx <= 8; dx += 4) { const xx = x + dx, yy = y + dy; if (xx >= 0 && yy >= 0 && xx < AW && yy < AH) { const i = yy * AW + xx; if (palletM[i] || caixas.some(c => c.pts && c.m[i])) { a++; break; } } } }
+    return t > 0 && a > 0; };
+  const candidatos = (px) => {
+    const r = diffPecas(estado.px, px, AW, AH, pallet);
+    const pessoa = r.pecas.some(p => (p.y1 - p.y0) > (p.x1 - p.x0) * 1.3 && (p.y1 - p.y0) / AH > pb.w * 0.9);
+    let cand = (pessoa || r.pecas.length > 4) ? [] : r.pecas.filter(p => p.x0 > 5 && p.x1 < AW - 6).map(p => ({ pts: p.pts, m: maskDe(p.pts), area: p.area }));
+    // dentro do próprio pallet (papelão/sombra na madeira) não é caixa; longe do pallet/pilha também não
+    cand = cand.filter(c => { let dentro = 0, t = 0; for (let i = 0; i < N; i++) if (c.m[i]) { t++; if (palletM[i]) dentro++; } return t && dentro / t < 0.6; });
+    cand = cand.filter(c => apoiada(c.m));
+    return { r, cand };
+  };
+  let pend = [], seqValida = V.comecaVazio !== false;   // pend = candidatos a caixa ainda não confirmados (cada um guarda o quadro em que apareceu)
+  window.VID_LOG = [];
+  const log = (t, o) => window.VID_LOG.push({ t: Math.round(t), ...o });
+  const aceitar = async (conf, origem) => {
+    for (const c of caixas) {   // a caixa nova cobre parte das de baixo (face de cima): tira essa parte dos contornos antigos
+      if (!c.pts) continue;
+      let resta = 0; for (let i = 0; i < N; i++) { if (c.m[i] && conf.some(nv => nv.m[i])) c.m[i] = 0; if (c.m[i]) resta++; }
+      if (resta < c.area0 * 0.25) c.pts = null; else { const p2 = ptsDe(c.m); if (p2) c.pts = p2; }
+    }
+    for (const nv of conf) caixas.push({ pts: nv.pts, m: nv.m, area0: nv.area });
+    ncx += conf.length; estado = { px: origem.px, g: origem.g };
+    if (seqValida) await enviar(origem.quadro);
+  };
+  // um momento parado: uma caixa só vira foto quando aparece em DOIS momentos parados seguidos (pessoa parada, sombra, braço: somem)
+  const momento = async (v, px, g, t) => {
+    const quadro = vidQuadro(v);
+    if (!estado) { estado = { px, g }; log(t, { acao: 'inicio' }); if (seqValida) await enviar(quadro); return; }
+    if (aguardandoPallet) {
+      const r = diffPecas(estado.px, px, AW, AH, pallet); log(t, { acao: 'aguardando', pm: +r.palletMudou.toFixed(2) });
+      if (r.palletMudou < 0.15) { aguardandoPallet = false; seqValida = true; caixas = []; trocas++; estado = { px, g }; pend = []; await enviar(quadro); }
+      else estado = { px, g };
+      return;
+    }
+    let { r, cand } = candidatos(px);
+    log(t, { acao: 'momento', pm: +r.palletMudou.toFixed(2), regs: r.pecas.length, cand: cand.length, pend: pend.length });
+    if (r.palletMudou > 0.4) { aguardandoPallet = true; estado = { px, g }; pend = []; log(t, { acao: 'pallet saiu' }); return; }   // pallet saiu/mexeu
+    // candidatos pendentes que continuam presentes → confirmados; os que sumiram caem
+    const presentes = pend.filter(p => cand.some(n => sobre(p.m, n.m) >= 0.5));
+    if (presentes.length) {
+      // aceita primeiro os do quadro mais antigo (a foto é a do quadro em que apareceram); os outros ficam para o próximo momento
+      const t0 = Math.min(...presentes.map(p => p.t0)); const grupo = presentes.filter(p => p.t0 === t0);
+      log(t, { acao: 'confirmacao', conf: grupo.length, t0: Math.round(t0) });
+      await aceitar(grupo, grupo[0].origem);
+      ({ r, cand } = candidatos(px));   // o que ainda difere do novo estado (ex.: caixa colocada logo depois) continua candidato
+      const resto = presentes.filter(p => p.t0 !== t0 && cand.some(n => sobre(p.m, n.m) >= 0.5));
+      pend = [...resto, ...cand.filter(n => !resto.some(p => sobre(p.m, n.m) >= 0.5)).map(n => ({ ...n, t0: t, origem: { px, g, quadro } }))];
+      return;
+    }
+    if (!cand.length) { let n = 0; for (let i = 0; i < N; i++) if (r.mascara[i]) n++; if (n / N > 0.02) estado = { px, g }; pend = []; return; }   // só luz/sombra: atualiza a referência
+    pend = cand.map(n => ({ ...n, t0: t, origem: { px, g, quadro } }));
+  };
+  for (const v of vids) {
+    if (V.cancelar) break;
+    // toca 16× mais rápido e amostra os quadros apresentados a cada ~0,5 s de vídeo (bem mais rápido que ir pulando)
+    const dur = v.duration; v.playbackRate = 16; let ultT = -1; prev = null; quietDesde = null;
+    const proximo = () => new Promise(res => { const tm = setTimeout(res, 1500); const ok = () => { clearTimeout(tm); res(); }; if (v.requestVideoFrameCallback) v.requestVideoFrameCallback(ok); else requestAnimationFrame(ok); });
+    await v.play(); let paradoDesde = 0;
+    while (!v.ended && !V.cancelar) {
+      await proximo();
+      const t = v.currentTime; if (t >= dur - 0.3) break;
+      if (t - ultT < 0.45) { if (!paradoDesde) paradoDesde = Date.now(); else if (Date.now() - paradoDesde > 8000) break; continue; }   // travou no fim do arquivo
+      paradoDesde = 0; ultT = t;
+      actx.drawImage(v, 0, 0, AW, AH); const px = actx.getImageData(0, 0, AW, AH).data; const g = gray(px);
+      const mov = prev ? movimento(prev, g) : 1; prev = g;
+      if (mov >= 0.006) quietDesde = null;
+      else if (quietDesde == null) quietDesde = t;
+      else if (t - quietDesde >= 2 && quietDesde !== 'ok') { quietDesde = 'ok'; v.pause(); await momento(v, px, g, t); await v.play(); }
+      if (Math.round(t * 2) % 40 === 0) st.innerHTML = `📹 Processando… ${Math.round(100 * (tAntes + t) / tTotal)}% · ${fotos} foto(s), ${ncx} caixa(s)`;
+    }
+    tAntes += v.duration; v.pause(); URL.revokeObjectURL(v.src);
+  }
+  return { fotos, caixas: ncx, trocas };
 }
 /* 📁 importar fotos (celular/PC) — reduz para no máx. 1280 px; contorne à mão (ou 🪄 depois do 1º treino) */
 $('ensImportar').onchange = async e => {
@@ -835,13 +987,24 @@ async function carregarBiblio() {
       <div><b>${m.padrao ? '⭐ ' : ''}${escapar(nomeModelo(m))}</b>${m.padrao ? ' <span class="tag-padrao">PADRÃO</span>' : ''}
         <small>${m.tipo === 'seg' ? 'contorno' : m.tipo === 'cls' ? 'vazio × com peças' : 'retângulos'} · ${m.amostras} fotos · ${metricasTxt(m)} · ${new Date(m.updated_at || m.created_at).toLocaleString('pt-BR')}</small>
         <small>${m.padrao ? 'Usado por todos os produtos que não escolheram outro' : ''}${(m.produtos || []).length ? (m.padrao ? ' · ' : '') + 'Escolhido em: ' + m.produtos.map(p => escapar(p.nome)).join(', ') : ''}</small></div>
-      <div class="mod-acoes">${m.padrao ? '' : `<button class="btn btn-sm btn-fantasma" data-padrao="${m.id}" title="Vale para todos os produtos">⭐ Tornar padrão</button>`}<button class="btn btn-sm btn-fantasma" data-renomear="${m.id}">✎</button><button class="btn btn-sm btn-fantasma" data-apagar="${m.id}">🗑</button></div></div>`).join('')
+      <div class="mod-acoes">${m.padrao ? '' : `<button class="btn btn-sm btn-fantasma" data-padrao="${m.id}" title="Vale para todos os produtos">⭐ Tornar padrão</button>`}<button class="btn btn-sm btn-fantasma" data-renomear="${m.id}" title="Renomear">✎</button><a class="btn btn-sm btn-fantasma" href="/api/contador/modelos/${m.id}/exportar" download title="Exportar (.iamodelo) para levar a outro servidor">📤</a><button class="btn btn-sm btn-fantasma" data-apagar="${m.id}" title="Apagar">🗑</button></div></div>`).join('')
     : '<div class="ajuda">Nenhum modelo treinado ainda. O primeiro que você treinar vira o ⭐ padrão de todos os produtos.</div>';
   $('ensBiblio').querySelectorAll('[data-padrao]').forEach(b => b.onclick = async () => { await API.put('/api/contador/modelos/' + b.dataset.padrao, { padrao: true }).catch(e => avisoErro(e.message)); avisoOk('Modelo padrão trocado. As câmeras passam a usar ele em alguns segundos.'); carregarBiblio(); });
   $('ensBiblio').querySelectorAll('[data-renomear]').forEach(b => b.onclick = async () => { const m = BIBLIO.find(x => x.id === Number(b.dataset.renomear)); const n = prompt('Nome do modelo:', m.nome || ''); if (!n || !n.trim()) return; await API.put('/api/contador/modelos/' + m.id, { nome: n.trim() }).catch(e => avisoErro(e.message)); carregarBiblio(); });
   $('ensBiblio').querySelectorAll('[data-apagar]').forEach(b => b.onclick = async () => { const m = BIBLIO.find(x => x.id === Number(b.dataset.apagar)); if (!confirm(`Apagar o modelo "${nomeModelo(m)}"? Os produtos que usam ele voltam para o padrão.`)) return; await API.del('/api/contador/modelos/' + m.id).catch(e => avisoErro(e.message)); carregarBiblio(); });
   await infoModelo();
 }
+$('ensImportarModelo').onchange = async e => {
+  const f = e.target.files[0]; e.target.value = ''; if (!f) return;
+  const nome = prompt('Nome do modelo importado:', f.name.replace(/\.iamodelo$/i, '').replace(/_/g, ' ')); if (nome === null) return;
+  $('ensImpStatus').textContent = `Enviando ${Math.round(f.size / 1e6)} MB…`;
+  try {
+    const r = await fetch('/api/contador/modelos/importar?nome=' + encodeURIComponent(nome.trim() || 'Modelo importado'), { method: 'POST', headers: { 'Content-Type': 'application/octet-stream' }, body: f });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(j.error || ('HTTP ' + r.status));
+    $('ensImpStatus').textContent = ''; avisoOk(`Modelo "${j.nome}" importado${j.padrao ? ' e definido como padrão' : ''}.`); carregarBiblio();
+  } catch (err) { $('ensImpStatus').textContent = ''; avisoErro('Importar: ' + err.message); }
+};
 $('ensDestino').onchange = () => { $('ensNomeCampo').style.display = $('ensDestino').value === 'novo' ? '' : 'none'; if ($('ensDestino').value === 'novo') $('ensNome').focus(); };
 /* qual modelo este produto usa */
 async function infoModelo() {

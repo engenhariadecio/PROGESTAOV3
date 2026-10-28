@@ -36,6 +36,11 @@ Os sistemas eram independentes e guardavam dados em lugares diferentes. Agora co
 - As consultas de aniversariantes usavam `HAVING` sem `GROUP BY`, o que o Postgres rejeita. Reescritas com subquery.
 - Layout retematizado com a identidade da Décio.
 
+**Zoom automático na pilha e "uma caixa não vira duas" (28/10/2026) — v49**
+- **Zoom na pilha**: depois de achar o pallet (ou a base da pilha), a IA passa a olhar um recorte em volta do pallet + caixas em que o pallet ocupa ~70 % da largura — o tamanho em que ela foi treinada — com folga em cima para a próxima caixa e o braço. Câmera longe, 0,5× ou área marcada grande deixam de "achatar" as caixas finas. Se o pallet sumir do recorte por 2 leituras, volta a procurar na área/quadro inteiro.
+- **Uma caixa não vira duas**: os contornos das peças são comparados entre si; se 60 % do menor está dentro do maior (pedaço da mesma caixa ou a mesma caixa detectada duas vezes), fica só o de maior confiança.
+- Conferido: câmera longe (pallet pequeno na imagem) — todas as caixas colocadas depois de ligar; pallet visível 20/20; pallet escondido — todas depois de ligar.
+
 **Pallet coberto/invisível e número fixo na tela (28/10/2026) — v48**
 - **Conta sem enxergar o pallet**: pallet coberto por papelão, cortado na imagem ou que a IA não reconhece — a **camada de baixo da pilha** (as caixas lado a lado com o fundo na mesma altura) vira o apoio; a área automática passa a ser a pilha inteira (com folga em cima para crescer). Antes ficava "Sem pallet" e não contava nada. Pallet novo coberto: ele só "aparece" quando a 1ª caixa é colocada — essas 1–2 caixas contam.
 - **Número fixo na tela**: o painel e o celular mostram a contagem **confirmada** da pilha; a leitura do momento só aparece entre parênteses quando difere ("pilha com 12 peças (lendo 13…)").

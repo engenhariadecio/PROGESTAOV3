@@ -213,7 +213,7 @@ router.delete('/linhas/:id/config/:produto', requireAuth, naoPcp, async (req, re
 });
 
 /* Comando remoto para o celular: recalibrar | troca_pallet | mais | menos | reiniciar_camera */
-const TIPOS_CMD = ['recalibrar', 'troca_pallet', 'mais', 'menos', 'reiniciar_camera', 'encerrar'];
+const TIPOS_CMD = ['recalibrar', 'troca_pallet', 'mais', 'menos', 'reiniciar_camera', 'encerrar', 'testar_cameras'];
 router.post('/linhas/:id/comando', requireAuth, naoPcp, (req, res) => {
   const { tipo } = req.body || {};
   if (!TIPOS_CMD.includes(tipo)) return res.status(400).json({ error: 'Comando inválido' });

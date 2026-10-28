@@ -21,7 +21,7 @@
 .linhas { display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: 16px; }
 .linha { background: var(--card); border: 1px solid var(--linha); border-radius: 16px; overflow: hidden; }
 .linha .tela { position: relative; background: #0b1620; aspect-ratio: 4/3; cursor: zoom-in; }
-.linha .tela img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.linha .tela img { width: 100%; height: 100%; object-fit: contain; display: block; }
 .linha .tela .off { position: absolute; inset: 0; display: grid; place-items: center; color: #8aa0b0; font-size: 13px; text-align: center; padding: 20px; background: rgba(11,22,32,.9); line-height: 1.5; }
 .linha .tela .vivo { position: absolute; top: 8px; right: 8px; font-size: 10.5px; font-weight: 800; padding: 3px 8px; border-radius: 6px; background: rgba(220,38,38,.9); color: #fff; letter-spacing: .06em; }
 .linha .tela .vivo.off { background: rgba(100,116,139,.9); }
@@ -127,6 +127,10 @@ html.embed #mCfg .modal { max-width: none !important; width: 100%; max-height: 1
 table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
 th, td { padding: 7px 9px; text-align: left; border-bottom: 1px solid var(--linha); }
 th { font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--t3); }
+.fotos-cam { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 8px; margin-top: 8px; }
+.fotos-cam button { background: #0b1620; border: 2px solid var(--linha); border-radius: 8px; padding: 4px; color: inherit; font-size: 11px; cursor: pointer; text-align: center; }
+.fotos-cam button.sel { border-color: #35C95C; }
+.fotos-cam img { width: 100%; aspect-ratio: 3/4; object-fit: contain; background: #000; border-radius: 4px; display: block; margin-bottom: 3px; }
 td img { width: 72px; height: 54px; object-fit: cover; border-radius: 6px; cursor: zoom-in; border: 1px solid var(--linha); }
 .pill { font-size: 10.5px; font-weight: 700; padding: 2px 8px; border-radius: 99px; background: var(--sup); }
 .pill.ia { background: var(--fade-suave); color: var(--verde-clr); }
@@ -273,7 +277,10 @@ td img { width: 72px; height: 54px; object-fit: cover; border-radius: 6px; curso
           <button class="btn btn-sm btn-fantasma" id="cLimparProduto">Voltar ao padrão da linha para este produto</button>
         </div>
         <div class="grupo"><h5>Câmera do celular</h5>
-          <div class="campo"><span class="rotulo">Câmera</span><select class="controle" id="cCamera"><option value="">Traseira (padrão)</option></select></div>
+          <div class="campo"><span class="rotulo">Câmera</span><select class="controle" id="cCamera"><option value="">Traseira (padrão)</option></select>
+            <button class="btn btn-sm btn-fantasma" id="cAcharLente" style="margin-top:6px">🔍 Achar a lente 0,5× (foto de cada câmera)</button>
+            <span class="ajuda">O 0,5× (ultra-angular) aparece como <b>outra câmera traseira</b>, não no zoom. Clique para o celular tirar uma foto com cada câmera e escolha a que mostra mais do pallet.</span>
+            <div id="cFotosCam" class="fotos-cam"></div></div>
           <div class="campo"><span class="rotulo">Resolução</span><select class="controle" id="cRes"><option value="baixa">Baixa (640×480)</option><option value="media">Média (1280×960)</option><option value="alta">Alta (1920×1440)</option></select></div>
           <div class="campo" id="cZoomWrap"><span class="rotulo">Zoom <span class="valor" id="zoomVal">—</span></span><input type="range" id="cZoom" min="1" max="1" step="0.1" disabled><span class="ajuda" id="zoomAjuda">Este celular não informou zoom.</span></div>
           <label class="lbl"><input type="checkbox" id="cLant"> Lanterna (se o celular permitir)</label>
@@ -436,13 +443,18 @@ const POR_PRODUTO = ['caixa', 'caixa_pos', 'sens', 'multiplas'];
 function preencherCapacidades(l) {
   const cap = l.capacidades || {};
   const cams = cap.cameras || [];
-  $('cCamera').innerHTML = '<option value="">Traseira (padrão)</option>' + cams.map(c => `<option value="${escapar(c.id)}">${escapar(c.label)}</option>`).join('');
+  const nomeCam = (c, i) => { const l = c.label || 'Câmera ' + (i + 1); const m = l.match(/camera2? ?(\d+), facing (back|front)/i); const n = m ? (m[2].toLowerCase() === 'back' ? 'Traseira — lente ' + m[1] : 'Frontal — lente ' + m[1]) : l; return /ultra|wide|angular|0[.,]5/i.test(l) ? n + '  (0,5×)' : n; };
+  $('cCamera').innerHTML = '<option value="">Traseira (padrão)</option>' + cams.map((c, i) => `<option value="${escapar(c.id)}">${escapar(nomeCam(c, i))}</option>`).join('');
+  const fotos = cap.fotos_cameras || [];
+  $('cFotosCam').innerHTML = fotos.map((f, i) => `<button type="button" data-cam="${escapar(f.id)}" class="${f.id === cfgCfg.camera ? 'sel' : ''}">${f.foto ? `<img src="${f.foto}" alt="">` : '<div style="padding:20px 0">não abriu</div>'}${escapar(nomeCam(f, i))}${f.largura ? '<br>' + f.largura + '×' + f.altura : ''}</button>`).join('')
+    + (fotos.length ? '<span class="ajuda" style="grid-column:1/-1">Escolha a foto que mostra <b>mais coisa</b> (o pallet menor e mais do chão em volta): essa é a 0,5×. ' + (fotos.length < 2 ? 'Este celular só liberou <b>uma</b> câmera traseira para o navegador — o 0,5× não está disponível pelo site neste aparelho.' : '') + '</span>' : '');
+  $('cFotosCam').querySelectorAll('[data-cam]').forEach(b => b.onclick = () => { $('cCamera').value = b.dataset.cam; salvarCfg({ camera: b.dataset.cam }); $('cFotosCam').querySelectorAll('[data-cam]').forEach(x => x.classList.toggle('sel', x === b)); });
   $('cCamera').value = cfgCfg.camera && cams.some(c => c.id === cfgCfg.camera) ? cfgCfg.camera : '';
   const z = $('cZoom');
   if (cap.zoom) { z.disabled = false; z.min = cap.zoom.min; z.max = cap.zoom.max; z.step = cap.zoom.step || 0.1; z.value = cfgCfg.zoom != null ? cfgCfg.zoom : (cap.zoom.atual || cap.zoom.min); $('zoomVal').textContent = Number(z.value).toFixed(1) + '×'; $('zoomAjuda').textContent = `De ${cap.zoom.min}× a ${cap.zoom.max}×`; }
   else { z.disabled = true; $('zoomVal').textContent = '—'; $('zoomAjuda').textContent = l.online ? 'Este celular não oferece zoom pela câmera do navegador. Aproxime o suporte ou troque de câmera.' : 'Conecte o celular para ver as opções de zoom.'; }
   $('cLant').disabled = !cap.lanterna;
-  $('cfgCap').textContent = l.online ? `Celular: ${l.dispositivo || ''} · ${cap.largura || '?'}×${cap.altura || '?'} · IA ${cap.ia ? 'ativa' : 'indisponível (só movimento)'}` : 'Celular não conectado — a configuração fica salva e é aplicada quando ele conectar.';
+  $('cfgCap').textContent = l.online ? `Celular: ${l.dispositivo || ''} · ${cap.largura || '?'}×${cap.altura || '?'} · IA de pessoas ${cap.ia ? 'ativa' : 'indisponível neste celular (usa movimento perto da pilha)'}` : 'Celular não conectado — a configuração fica salva e é aplicada quando ele conectar.';
 }
 function atualizarCfgVivo() {
   const l = linhasCache.find(x => x.id === cfgLinha.id); if (!l) return;
@@ -451,9 +463,9 @@ function atualizarCfgVivo() {
   if (l.produto_id !== prodAntes && l.produto_id) { cfgProduto = l.produto_id; $('cProduto').value = cfgProduto; carregarCfgProduto(); }   // o tablet trocou de produto
   if (JSON.stringify(l.capacidades) !== capAntes || online !== l.online) preencherCapacidades(l);
   $('cfgSem').style.display = l.online ? 'none' : '';
-  $('cfgStatus').textContent = l.online ? `Ao vivo · ${({ calibrando: 'calibrando', livre: 'pallet livre', ocupado: 'pessoa no pallet', assentando: 'conferindo', confirmando: 'confirmando' })[l.estado] || l.estado} · contagem ${l.contagem}` : 'Sem imagem';
+  $('cfgStatus').textContent = l.online ? `Ao vivo · ${({ calibrando: 'calibrando', livre: 'pallet livre', ocupado: l.capacidades && l.capacidades.ia ? 'pessoa no pallet' : 'movimento no pallet (laranja pontilhado)', assentando: 'conferindo', confirmando: 'confirmando' })[l.estado] || l.estado} · contagem ${l.contagem}` : 'Sem imagem';
   const img = $('cfgImg');
-  if (l.online && img.dataset.ts !== String(l.frame_ts) && !img.dataset.carregando) { img.dataset.carregando = '1'; img.dataset.ts = l.frame_ts; img.onload = img.onerror = () => { img.dataset.carregando = ''; }; img.src = `/api/contador/frame/${l.id}?t=${l.frame_ts}`; }
+  if (l.online && img.dataset.ts !== String(l.frame_ts) && !img.dataset.carregando) { img.dataset.carregando = '1'; img.dataset.ts = l.frame_ts; img.onerror = () => { img.dataset.carregando = ''; }; img.onload = () => { img.dataset.carregando = ''; const r = img.naturalWidth / img.naturalHeight, pc = img.parentElement; if (r && pc.dataset.r !== String(r)) { pc.dataset.r = r; pc.style.aspectRatio = r; pc.style.width = `min(100%, ${(62 * r).toFixed(1)}vh)`; pc.style.margin = '0 auto'; desenharCfg(); } }; img.src = `/api/contador/frame/${l.id}?t=${l.frame_ts}`; }
 }
 function desenharCfg() {
   const W = cfgCanvas.width = cfgCanvas.clientWidth, H = cfgCanvas.height = cfgCanvas.clientHeight;
@@ -497,6 +509,11 @@ $('cCamera').onchange = e => salvarCfg({ camera: e.target.value });
 $('cRes').onchange = e => salvarCfg({ resolucao: e.target.value });
 $('cZoom').oninput = e => { $('zoomVal').textContent = Number(e.target.value).toFixed(1) + '×'; salvarCfgDebounce({ zoom: Number(e.target.value) }); };
 $('cLant').onchange = e => salvarCfg({ lanterna: e.target.checked });
+$('cAcharLente').onclick = async () => {
+  if (!cfgLinha) return;
+  if (!cfgLinha.online) return avisoErro('O celular precisa estar com a câmera ligada.');
+  try { await API.post('/api/contador/linhas/' + cfgLinha.id + '/comando', { tipo: 'testar_cameras' }); $('cFotosCam').innerHTML = '<span class="ajuda" style="grid-column:1/-1">O celular está fotografando com cada câmera (uns 2 s por câmera; a contagem fica pausada nesse tempo)…</span>'; } catch (e) { avisoErro(e.message); }
+};
 document.querySelectorAll('.cmds [data-cmd]').forEach(b => b.onclick = async () => {
   if (!cfgLinha) return;
   if (b.dataset.cmd === 'encerrar' && !confirm('Encerrar a câmera no celular?')) return;

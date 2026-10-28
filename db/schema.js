@@ -714,6 +714,8 @@ ALTER TABLE users             ADD COLUMN IF NOT EXISTS ativo BOOLEAN DEFAULT TRU
 ALTER TABLE cont_eventos      ADD COLUMN IF NOT EXISTS linha_id INTEGER REFERENCES cont_linhas(id) ON DELETE SET NULL;
 ALTER TABLE cont_amostras     ADD COLUMN IF NOT EXISTS rotulo VARCHAR(20);
 ALTER TABLE cont_eventos      ADD COLUMN IF NOT EXISTS detalhe VARCHAR(60);   -- caixa | peca | pallet saiu | pallet novo
+ALTER TABLE cont_eventos      ADD COLUMN IF NOT EXISTS uid VARCHAR(64);       -- código único do evento (o celular reenviar não duplica)
+CREATE UNIQUE INDEX IF NOT EXISTS idx_cont_ev_uid ON cont_eventos(uid) WHERE uid IS NOT NULL;
 ALTER TABLE cont_modelos      ADD COLUMN IF NOT EXISTS tipo VARCHAR(10) NOT NULL DEFAULT 'det';
 ALTER TABLE cont_modelos      ADD COLUMN IF NOT EXISTS classes JSONB;
 -- biblioteca de modelos da IA: um modelo com nome (ex.: Caixa/Pallet) serve para vários produtos

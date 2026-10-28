@@ -36,6 +36,11 @@ Os sistemas eram independentes e guardavam dados em lugares diferentes. Agora co
 - As consultas de aniversariantes usavam `HAVING` sem `GROUP BY`, o que o Postgres rejeita. Reescritas com subquery.
 - Layout retematizado com a identidade da Décio.
 
+**Fim da contagem em dobro (28/10/2026) — v50**
+- **Evento nunca é gravado duas vezes**: cada +1 sai do celular com um código único (`uid`). Se a resposta do servidor se perde no Wi-Fi e o celular reenvia — ou a página é recarregada / aberta em duas abas com eventos na fila —, o servidor reconhece o código e não grava de novo (coluna `cont_eventos.uid` com índice único). Antes, cada reenvio virava +1 a mais ("coloquei 2, contou 4").
+- **Só UMA câmera conta cada célula**: cada página de câmera tem uma identidade; se um 2º aparelho (ou outra aba) abrir a câmera na mesma célula enquanto a 1ª está transmitindo, ele mostra "⚠ OUTRA CÂMERA JÁ CONTA ESTA CÉLULA — esta não conta", o servidor ignora os eventos dele e o painel avisa "2 câmeras abertas nesta célula". Quando a 1ª fecha, a outra assume sozinha (recalibra, sem contar o que já está no pallet).
+- Conferido: celular perdendo a resposta de TODO 1º envio (11 eventos reenviados) + 2º celular aberto na mesma célula → 0 duplicados, total certo.
+
 **Zoom automático na pilha e "uma caixa não vira duas" (28/10/2026) — v49**
 - **Zoom na pilha**: depois de achar o pallet (ou a base da pilha), a IA passa a olhar um recorte em volta do pallet + caixas em que o pallet ocupa ~70 % da largura — o tamanho em que ela foi treinada — com folga em cima para a próxima caixa e o braço. Câmera longe, 0,5× ou área marcada grande deixam de "achatar" as caixas finas. Se o pallet sumir do recorte por 2 leituras, volta a procurar na área/quadro inteiro.
 - **Uma caixa não vira duas**: os contornos das peças são comparados entre si; se 60 % do menor está dentro do maior (pedaço da mesma caixa ou a mesma caixa detectada duas vezes), fica só o de maior confiança.

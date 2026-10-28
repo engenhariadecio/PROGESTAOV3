@@ -20,6 +20,7 @@ const { requireAuth, requireAdmin } = require('../middleware/auth');
  * Os eventos de contagem (com miniatura de evidência) vão para o banco.
  */
 
+const CAM_VIVA_MS = 10000;      // câmera que mandou quadro há menos que isso é a "dona" da célula
 const QUADROS = new Map();    // linha_id -> { buf, ts, contagem, estado, dispositivo, usuario, capacidades }
 const COMANDOS = new Map();   // linha_id -> [{ tipo, valor, ts }]
 const QUADRO_MAX = 600 * 1024;
@@ -128,6 +129,7 @@ router.get('/linhas', requireAuth, async (req, res) => {
       l.dispositivo = q ? q.dispositivo : null;
       l.usuario = q ? q.usuario : null;
       l.capacidades = q ? q.capacidades : null;
+      l.cam_duplicada = q && q.camDupla && agora - q.camDupla.ts < 15000 ? (q.camDupla.dispositivo || 'outro aparelho') : null;
       if (q && q.produto_id) { const pn = (await pool.query('SELECT nome FROM cad_produtos WHERE id = $1', [q.produto_id])).rows[0]; if (pn) l.produto_nome = pn.nome; }
       l.sessao = q && q.sessao_id ? await sessaoPorId(q.sessao_id) : await sessaoDeHoje(l.produto_id);
       // contagem da sessão em andamento; sem sessão, o total do dia da câmera
@@ -254,8 +256,15 @@ router.get('/linhas/:id/qr.svg', requireAuth, async (req, res) => {
 /* ───────── Ao vivo ───────── */
 
 router.post('/frame', requireAuth, (req, res) => {
-  const { linha_id, contagem, estado, resumo, dispositivo, jpeg, jpeg_limpo, capacidades, produto_id, sessao_id } = req.body || {};
+  const { linha_id, contagem, estado, resumo, dispositivo, jpeg, jpeg_limpo, capacidades, produto_id, sessao_id, cam } = req.body || {};
   if (!idOk(linha_id)) return res.status(400).json({ error: 'Linha obrigatória' });
+  // Só UMA câmera conta cada célula: se outra (outro celular, outra aba) já está transmitindo, esta fica só de aviso
+  const atual = QUADROS.get(Number(linha_id));
+  const camId = cam ? String(cam).slice(0, 40) : null;
+  if (camId && atual && atual.cam && atual.cam !== camId && Date.now() - atual.ts < CAM_VIVA_MS) {
+    atual.camDupla = { cam: camId, ts: Date.now(), dispositivo: String(dispositivo || '').slice(0, 120) };
+    return res.json({ ok: true, outraCam: true, comandos: 0 });
+  }
   const buf = b64jpeg(jpeg);
   if (!buf) return res.status(400).json({ error: 'Quadro inválido' });
   if (buf.length > QUADRO_MAX) return res.status(413).json({ error: 'Quadro muito grande' });
@@ -266,7 +275,8 @@ router.post('/frame', requireAuth, (req, res) => {
     estado: String(estado || '').slice(0, 40), resumo: resumo ? String(resumo).slice(0, 80) : null, dispositivo: String(dispositivo || '').slice(0, 120),
     usuario: req.session.nome || req.session.username,
     produto_id: idOk(produto_id) ? Number(produto_id) : null, sessao_id: idOk(sessao_id) ? Number(sessao_id) : null,
-    capacidades: capacidades && typeof capacidades === 'object' ? capacidades : (ant.capacidades || null)
+    capacidades: capacidades && typeof capacidades === 'object' ? capacidades : (ant.capacidades || null),
+    cam: camId, camDupla: ant.cam === camId ? ant.camDupla : null
   });
   res.json({ ok: true, comandos: (COMANDOS.get(id) || []).length });
 });
@@ -303,10 +313,16 @@ const ORIG = { ia: 1, ia_retirada: -1, manual_mais: 1, manual_menos: -1, troca_p
 
 router.post('/eventos', requireAuth, naoPcp, async (req, res) => {
   try {
-    const { linha_id, celula, sessao_id, origem, valor, ts, foto, mudanca_pct, dispositivo, detalhe } = req.body || {};
+    const { linha_id, celula, sessao_id, origem, valor, ts, foto, mudanca_pct, dispositivo, detalhe, uid, cam } = req.body || {};
     if (!(origem in ORIG)) return res.status(400).json({ error: 'Origem inválida' });
+    const uidOk = uid ? String(uid).slice(0, 64) : null;
     let linha = null;
     if (idOk(linha_id)) linha = await carregarLinha(linha_id);
+    // evento de uma 2ª câmera na mesma célula: não grava (senão cada caixa conta 2×)
+    const q = linha ? QUADROS.get(linha.id) : null;
+    if (cam && q && q.cam && q.cam !== String(cam).slice(0, 40) && Date.now() - q.ts < CAM_VIVA_MS + 5000) return res.json({ ignorado: 'outra câmera está contando esta célula' });
+    // reenvio do mesmo evento (a resposta se perdeu na rede): devolve o que já foi gravado, sem duplicar
+    if (uidOk) { const ja = (await pool.query('SELECT id, ts, valor FROM cont_eventos WHERE uid = $1', [uidOk])).rows[0]; if (ja) return res.json({ ...ja, duplicado: true }); }
     const cel = linha ? linha.celula : String(celula || '').trim();
     if (!cel) return res.status(400).json({ error: 'Célula obrigatória' });
     let sid = idOk(sessao_id) ? Number(sessao_id) : null;
@@ -317,11 +333,12 @@ router.post('/eventos', requireAuth, naoPcp, async (req, res) => {
     if (fotoBuf && fotoBuf.length > FOTO_MAX) fotoBuf = null;
     const quando = ts && !isNaN(Date.parse(ts)) ? new Date(ts) : new Date();
     const r = await pool.query(
-      `INSERT INTO cont_eventos (linha_id, celula, sessao_id, ts, origem, valor, mudanca_pct, foto, dispositivo, usuario_id, detalhe)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING id, ts, valor`,
+      `INSERT INTO cont_eventos (linha_id, celula, sessao_id, ts, origem, valor, mudanca_pct, foto, dispositivo, usuario_id, detalhe, uid)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+       ON CONFLICT (uid) WHERE uid IS NOT NULL DO UPDATE SET uid = EXCLUDED.uid RETURNING id, ts, valor`,
       [linha ? linha.id : null, cel.slice(0, 80), sid, quando, origem, v,
        mudanca_pct != null && isFinite(Number(mudanca_pct)) ? Number(mudanca_pct) : null, fotoBuf,
-       String(dispositivo || '').slice(0, 120), req.session.userId || null, detalhe ? String(detalhe).slice(0, 60) : null]);
+       String(dispositivo || '').slice(0, 120), req.session.userId || null, detalhe ? String(detalhe).slice(0, 60) : null, uidOk]);
     res.json(r.rows[0]);
   } catch (e) { res.status(500).json({ error: e.message }); }
 });

@@ -24,6 +24,8 @@ window.ContadorCam = (function () {
   const RES = { baixa: { w: 640, h: 480 }, media: { w: 1280, h: 960 }, alta: { w: 1920, h: 1440 } };
   const CFG_PADRAO = { zona: null, caixa: null, sens: 5, camera: '', zoom: null, lanterna: false, resolucao: 'media', multiplas: false };
   const disp = (navigator.userAgent.match(/\((.*?)\)/) || [])[1] || 'aparelho';
+  // identidade desta câmera (desta aba): o servidor deixa só UMA câmera contar cada célula
+  const CAM_ID = (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2)).slice(0, 36);
 
   function criar(o) {
     const video = o.video, sobre = o.canvas, sctx = sobre ? sobre.getContext('2d') : null;
@@ -708,7 +710,10 @@ window.ContadorCam = (function () {
     }
     function registrar(origem, valor, frac, detalhe) {
       if (origem === 'manual_mais') valor = 1; else if (origem === 'manual_menos') valor = -1; else if (origem === 'troca_pallet') valor = 0; else if (origem === 'ia_retirada') valor = -Math.abs(valor || 1);
-      const ev = { linha_id: S.linhaId, sessao_id: S.sessaoId || (S.sessao ? S.sessao.id : null), origem, valor: Math.abs(valor) || undefined, ts: new Date().toISOString(), mudanca_pct: frac != null ? Math.round(frac * 1000) / 10 : null, foto: miniatura(), dispositivo: disp, detalhe: detalhe || null };
+      // 2ª câmera aberta na mesma célula: não conta nada (a outra já está contando)
+      if (S.camDuplicada && origem !== 'manual_mais' && origem !== 'manual_menos') return;
+      S.seqEv = (S.seqEv || 0) + 1;
+      const ev = { uid: CAM_ID.slice(0, 20) + '-' + Date.now().toString(36) + '-' + S.seqEv, cam: CAM_ID, linha_id: S.linhaId, sessao_id: S.sessaoId || (S.sessao ? S.sessao.id : null), origem, valor: Math.abs(valor) || undefined, ts: new Date().toISOString(), mudanca_pct: frac != null ? Math.round(frac * 1000) / 10 : null, foto: miniatura(), dispositivo: disp, detalhe: detalhe || null };
       if (valor) { S.contagem += valor; o.onContagem && o.onContagem(S.contagem); if (o.flash) { o.flash.classList.add('on'); setTimeout(() => o.flash.classList.remove('on'), 250); } if (navigator.vibrate) navigator.vibrate(60); }
       S.eventos.push({ ts: ev.ts, valor, origem, detalhe: ev.detalhe, local: true });
       o.onEvento && o.onEvento({ ...ev, valor });
@@ -773,7 +778,7 @@ window.ContadorCam = (function () {
       const ia = !S.modelo ? '' : S.modelo.tipo === 'cls' ? ' · pallet ' + (S.probCom == null ? '?' : S.probCom > 0.5 ? 'COM PEÇAS' : 'VAZIO') + ' (' + Math.round((S.probCom || 0) * 100) + '%)' : ' · ' + resumoPallet();
       const temArea = !!areaAtiva();
       const maoAgora = S.ultimaMao && performance.now() - S.ultimaMao < 1500;
-      const txt = (S.pausado ? 'PAUSADO · ' : '') + (maoAgora ? '✋ mão no pallet · ' : '') + (S.estado === 'sem_pallet' ? 'Sem pallet' : temArea ? nomes[S.estado] : (S.modelo && S.modelo.tipo !== 'cls' ? 'Procurando o pallet…' : 'Sem área marcada')) + ia + ' · ' + S.fps + ' fps' + (S.modelo && S.intervalo > 1200 ? ' · IA a cada ' + (S.intervalo / 1000).toFixed(1).replace('.', ',') + ' s' : '');
+      const txt = (S.camDuplicada ? '⚠ OUTRA CÂMERA JÁ CONTA ESTA CÉLULA — esta não conta · ' : '') + (S.pausado ? 'PAUSADO · ' : '') + (maoAgora ? '✋ mão no pallet · ' : '') + (S.estado === 'sem_pallet' ? 'Sem pallet' : temArea ? nomes[S.estado] : (S.modelo && S.modelo.tipo !== 'cls' ? 'Procurando o pallet…' : 'Sem área marcada')) + ia + ' · ' + S.fps + ' fps' + (S.modelo && S.intervalo > 1200 ? ' · IA a cada ' + (S.intervalo / 1000).toFixed(1).replace('.', ',') + ' s' : '');
       hud('estado', txt, S.estado === 'ocupado' ? 'alerta' : S.estado === 'livre' ? 'on' : '');
       o.onEstado && o.onEstado(areaAtiva() ? S.estado : 'sem_area', txt);
       desenhar.map = { sx, sy, sw, sh };
@@ -816,11 +821,15 @@ window.ContadorCam = (function () {
         ectx.fillStyle = 'rgba(10,22,32,.7)'; ectx.fillRect(0, 0, EW, 26);
         ectx.fillStyle = '#fff'; ectx.font = 'bold 14px sans-serif';
         ectx.fillText(`${(S.linha && (S.linha.nome || S.linha.celula)) || ''}  ·  ${S.contagem} un  ·  ${new Date().toLocaleTimeString('pt-BR')}`, 10, 18);
-        const body = { linha_id: S.linhaId, produto_id: S.produtoId, sessao_id: S.sessaoId || (S.sessao ? S.sessao.id : null), contagem: S.contagem, estado: areaAtiva() ? S.estado : 'sem_area', resumo: S.modelo && S.modelo.tipo !== 'cls' ? resumoPallet() : null, dispositivo: disp, jpeg: envio.toDataURL('image/jpeg', 0.55), jpeg_limpo: quadroLimpo };
+        const body = { linha_id: S.linhaId, produto_id: S.produtoId, sessao_id: S.sessaoId || (S.sessao ? S.sessao.id : null), contagem: S.contagem, estado: areaAtiva() ? S.estado : 'sem_area', resumo: S.modelo && S.modelo.tipo !== 'cls' ? resumoPallet() : null, dispositivo: disp, cam: CAM_ID, jpeg: envio.toDataURL('image/jpeg', 0.55), jpeg_limpo: quadroLimpo };
         if (S.capacidades && !S.capEnviadas) body.capacidades = S.capacidades;
         const r = await fetch('/api/contador/frame', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
         if (r.status === 401) location.href = '/login';
-        if (r.ok) { S.capEnviadas = true; const j = await r.json().catch(() => ({})); if (j.comandos) sincronizar(false).catch(() => {}); }
+        if (r.ok) {
+          S.capEnviadas = true; const j = await r.json().catch(() => ({}));
+          const dup = !!j.outraCam; if (dup !== !!S.camDuplicada) { S.camDuplicada = dup; if (dup) avisoErro('Outra câmera já está contando esta célula — esta NÃO conta (feche a outra ou esta).'); else recalibrar(); }
+          if (j.comandos) sincronizar(false).catch(() => {});
+        }
         hud('live', null, r.ok ? 'on' : 'erro');
       } catch (_) { hud('live', null, 'erro'); }
       enviandoQuadro = false;

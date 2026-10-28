@@ -241,7 +241,7 @@ class H(SimpleHTTPRequestHandler):
         if p == '/api/contador/linhas':
             online = time.time() - QUADRO['ts'] < 8
             return self.json([{ **LINHA, 'produto_nome': PRODUTOS[0]['nome'], 'takt_padrao': PRODUTOS[0]['takt_min'], 'config': CONFIG, 'config_linha': CONFIG, 'config_produto': {}, 'produtos_configurados': [],
-                'online': online, 'frame_ts': int(QUADRO['ts'] * 1000) if QUADRO['ts'] else None, 'estado': QUADRO['estado'], 'resumo': QUADRO['resumo'], 'dispositivo': QUADRO['dispositivo'], 'usuario': 'Teste', 'capacidades': QUADRO['capacidades'],
+                'online': online, 'frame_ts': int(QUADRO['ts'] * 1000) if QUADRO['ts'] else None, 'estado': QUADRO['estado'], 'resumo': QUADRO['resumo'], 'dispositivo': QUADRO['dispositivo'], 'usuario': 'Teste', 'capacidades': QUADRO['capacidades'], 'cam_duplicada': (QUADRO['camDupla']['dispositivo'] or 'outro aparelho') if QUADRO.get('camDupla') and time.time() - QUADRO['camDupla']['ts'] < 15 else None,
                 'contagem': contagem_total(), 'ultimo': EVENTOS[-1]['ts'] if EVENTOS else None, 'sessao': None, 'updated_at': CONFIG_TS }])
         if p == '/api/contador/linhas/1/estado':
             with LOCK: cmds = list(COMANDOS); COMANDOS.clear()
@@ -323,17 +323,30 @@ class H(SimpleHTTPRequestHandler):
         if p == '/api/contador/frame':
             buf = b64jpeg(b.get('jpeg'))
             if not buf: return self.json({ 'error': 'Quadro inválido' }, 400)
+            cam = str(b.get('cam') or '')[:40] or None
+            if cam and QUADRO.get('cam') and QUADRO['cam'] != cam and time.time() - QUADRO['ts'] < 10:   # só UMA câmera conta a célula
+                QUADRO['camDupla'] = { 'cam': cam, 'ts': time.time(), 'dispositivo': str(b.get('dispositivo', ''))[:120] }
+                return self.json({ 'ok': True, 'outraCam': True, 'comandos': 0 })
             with LOCK:
+                if QUADRO.get('cam') != cam: QUADRO['camDupla'] = None
+                QUADRO['cam'] = cam
                 QUADRO.update({ 'buf': buf, 'limpo': b64jpeg(b.get('jpeg_limpo')) or buf, 'ts': time.time(), 'contagem': b.get('contagem', 0), 'estado': str(b.get('estado', ''))[:40], 'resumo': b.get('resumo'), 'dispositivo': str(b.get('dispositivo', ''))[:120] })
                 if isinstance(b.get('capacidades'), dict): QUADRO['capacidades'] = b['capacidades']
             return self.json({ 'ok': True, 'comandos': len(COMANDOS) })
         if p == '/api/contador/eventos':
             origem = b.get('origem')
             if origem not in ORIG: return self.json({ 'error': 'Origem inválida' }, 400)
+            cam = str(b.get('cam') or '')[:40] or None
+            if cam and QUADRO.get('cam') and QUADRO['cam'] != cam and time.time() - QUADRO['ts'] < 15:
+                return self.json({ 'ignorado': 'outra câmera está contando esta célula' })
+            uid = str(b.get('uid') or '')[:64] or None
+            if uid:
+                ja = next((x for x in EVENTOS if x.get('uid') == uid), None)
+                if ja: return self.json({ 'id': ja['id'], 'ts': ja['ts'], 'valor': ja['valor'], 'duplicado': True })
             v = ORIG[origem]
             if origem in ('ia', 'ia_retirada') and str(b.get('valor', '')).isdigit(): v = ORIG[origem] * max(1, min(50, int(b['valor'])))
             foto = b64jpeg(b.get('foto'))
-            e = { 'id': (EVENTOS[-1]['id'] + 1) if EVENTOS else 1, 'ts': b.get('ts') or agora_iso(), 'origem': origem, 'valor': v, 'mudanca_pct': b.get('mudanca_pct'), 'detalhe': (str(b['detalhe'])[:60] if b.get('detalhe') else None), 'foto': foto }
+            e = { 'id': (EVENTOS[-1]['id'] + 1) if EVENTOS else 1, 'ts': b.get('ts') or agora_iso(), 'origem': origem, 'valor': v, 'mudanca_pct': b.get('mudanca_pct'), 'detalhe': (str(b['detalhe'])[:60] if b.get('detalhe') else None), 'foto': foto, 'uid': uid }
             with LOCK: EVENTOS.append(e); salvar_eventos()
             print('  EVENTO', origem, v, e['detalhe'] or '', flush=True)
             return self.json({ 'id': e['id'], 'ts': e['ts'], 'valor': v })

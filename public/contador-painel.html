@@ -345,6 +345,7 @@ async function atualizarLinhas() {
     if (s) { const d = l.contagem - s.esperado; dif.textContent = (d > 0 ? '+' : '') + d; dif.className = 'c-dif ' + (d >= 0 ? 'ok' : 'ruim'); } else { dif.textContent = '—'; dif.className = 'c-dif neutro'; }
     const nomes = { calibrando: 'Calibrando', livre: 'Estável', ocupado: 'Pessoa no pallet', assentando: 'Conferindo', confirmando: 'Confirmando', sem_pallet: 'Sem pallet', sem_area: 'Procurando o pallet' };
     el.querySelector('.e-est').textContent = l.online ? (nomes[l.estado] || l.estado || '') + (l.resumo ? ' · ' + l.resumo : l.config.zona ? '' : ' · sem área marcada') : 'Último evento: ' + (l.ultimo ? new Date(l.ultimo).toLocaleTimeString('pt-BR') : '—');
+    if (l.cam_duplicada) el.querySelector('.e-est').textContent = '⚠ 2 câmeras abertas nesta célula — só a 1ª conta (feche a do ' + l.cam_duplicada.slice(0, 40) + ') · ' + el.querySelector('.e-est').textContent;
     el.querySelector('.e-disp').textContent = l.online && l.usuario ? l.usuario : '';
     el.querySelector('.vivo').textContent = l.online ? '● AO VIVO' : 'SEM CÂMERA';
     el.querySelector('.vivo').className = 'vivo' + (l.online ? '' : ' off');

@@ -36,6 +36,13 @@ Os sistemas eram independentes e guardavam dados em lugares diferentes. Agora co
 - As consultas de aniversariantes usavam `HAVING` sem `GROUP BY`, o que o Postgres rejeita. Reescritas com subquery.
 - Layout retematizado com a identidade da Décio.
 
+**Pallet coberto/invisível e número fixo na tela (28/10/2026) — v48**
+- **Conta sem enxergar o pallet**: pallet coberto por papelão, cortado na imagem ou que a IA não reconhece — a **camada de baixo da pilha** (as caixas lado a lado com o fundo na mesma altura) vira o apoio; a área automática passa a ser a pilha inteira (com folga em cima para crescer). Antes ficava "Sem pallet" e não contava nada. Pallet novo coberto: ele só "aparece" quando a 1ª caixa é colocada — essas 1–2 caixas contam.
+- **Número fixo na tela**: o painel e o celular mostram a contagem **confirmada** da pilha; a leitura do momento só aparece entre parênteses quando difere ("pilha com 12 peças (lendo 13…)").
+- **Decisão pela leitura que mais se repete** (moda) nos últimos ~6 s (antes: mediana em ~4 s). Empate fica com a confirmada; trocar de número pede 70 % das leituras (manter, 60 %).
+- Pallet que vai de 1+ caixas a 0 é sempre troca de pallet (não desconta). Pallet/pilha que some e **volta em menos de 1 min com pelo menos as mesmas caixas** é o mesmo pallet (alguém tapou): conta só as caixas a mais. Sem pallet e sem pilha, caixa solta não conta.
+- Conferido no replay do vídeo da linha: pallet visível 20/20, pallet escondido da IA 20/20, gente passando no fundo com área grande marcada: todas as caixas colocadas depois de ligar.
+
 **Conta só caixa colocada no pallet; lente 0,5×; movimento só na pilha (28/10/2026) — v47**
 - **Só conta caixa COLOCADA**: o que já está no pallet quando a câmera liga (ou ao recalibrar / trocar de câmera / mudar o zoom) é o ponto de partida e não conta. Removido o "já no pallet ao ligar".
 - **Só conta o que está EM CIMA DO PALLET**: a caixa tem que estar apoiada no pallet ou numa caixa que já está na pilha (pelo menos metade dela em cima). Caixa plástica, caixa no chão ao lado, outra pilha — mesmo dentro da área — ficam de fora e aparecem em cinza. Entre vários "pallets" que a IA vê, vale o que tem a pilha em cima (ela às vezes marca um falso no topo da pilha).

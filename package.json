@@ -1,6 +1,6 @@
 {
   "name": "decio-sistema-integrado",
-  "version": "47.0.0",
+  "version": "48.0.0",
   "description": "Sistema Integrado da Montagem — Décio Indústria Metalúrgica (Ponto NFC + Cadenciador de Produção + ProGestão)",
   "main": "server.js",
   "scripts": {

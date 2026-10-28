@@ -128,7 +128,7 @@ window.ContadorCam = (function () {
       else if (c.tipo === 'reiniciar_camera') abrirCamera().catch(e => avisoErro('Câmera: ' + e.message));
       else if (c.tipo === 'encerrar') { parar(); o.onEncerrar && o.onEncerrar(); }
     }
-    function recalibrar() { S.ref = null; S.refAnterior = null; S.fundo = null; S.estado = 'calibrando'; S.livreDesde = 0; S.contEstavel = null; S.chaveEstavel = null; S.histCont = []; S.pallet = null; S.histPallet = []; S.areaAuto = null; S.palletRef = null; }
+    function recalibrar() { S.ref = null; S.refAnterior = null; S.fundo = null; S.estado = 'calibrando'; S.livreDesde = 0; S.contEstavel = null; S.chaveEstavel = null; S.histCont = []; S.pallet = null; S.histPallet = []; S.areaAuto = null; S.palletRef = null; S.chaveAnterior = null; S.tUltimoEvento = 0; }
 
     /* ───────── análise da área ───────── */
     const COR_CLASSE = { caixa: '#F0B429', peca: '#56B6E0', pallet: '#A78BFA', objeto: '#35C95C' };
@@ -344,10 +344,13 @@ window.ContadorCam = (function () {
         // Recorta em volta da área (pallet + altura da pilha) antes de mandar para a IA: caixas finas/empilhadas ficam
         // com o dobro de pixels. Sem área (ou pallet sumido há várias leituras) usa o quadro inteiro.
         const za = areaAtiva(); let cx0 = 0, cy0 = 0, vw = VW, vh = VH;
-        if (za && (S.semPalletN || 0) < 2) {
+        const usarRecorte = (x0, y0, x1, y1) => { if (x1 - x0 > 0.15 && y1 - y0 > 0.15 && (x1 - x0) * (y1 - y0) < 0.85) { cx0 = Math.round(x0 * VW); cy0 = Math.round(y0 * VH); vw = Math.round((x1 - x0) * VW); vh = Math.round((y1 - y0) * VH); } };
+        if (za && (S.semPalletN || 0) % 3 !== 2) {   // pallet sumido no recorte: a cada 3 leituras uma é no quadro inteiro (pallet pode ter mudado de lugar)
           const mx = za.w * 0.25, my = za.h * 0.2;
-          const x0 = Math.max(0, za.x - mx), y0 = Math.max(0, za.y - my), x1 = Math.min(1, za.x + za.w + mx), y1 = Math.min(1, za.y + za.h + my * 0.6);
-          if (x1 - x0 > 0.15 && y1 - y0 > 0.15 && (x1 - x0) * (y1 - y0) < 0.85) { cx0 = Math.round(x0 * VW); cy0 = Math.round(y0 * VH); vw = Math.round((x1 - x0) * VW); vh = Math.round((y1 - y0) * VH); }
+          usarRecorte(Math.max(0, za.x - mx), Math.max(0, za.y - my), Math.min(1, za.x + za.w + mx), Math.min(1, za.y + za.h + my * 0.6));
+        } else if (!za && S.temClassePallet !== false && (S.buscaN || 0) >= 2) {
+          // pallet pequeno na imagem (câmera longe): sem área ainda, alterna o quadro inteiro com recortes (centro, esquerda, direita)
+          const q = [[0.2, 0.15, 0.8, 0.85], [0, 0.1, 0.6, 0.9], [0.4, 0.1, 1, 0.9]][S.buscaN % 3]; usarRecorte(...q);
         }
         const s = sz / Math.max(vw, vh);
         const dw = Math.round(vw * s), dh = Math.round(vh * s), ox = Math.floor((sz - dw) / 2), oy = Math.floor((sz - dh) / 2);
@@ -379,11 +382,16 @@ window.ContadorCam = (function () {
         S.dets = fin; S.melhorSc = melhor;   // maior confiança vista (diagnóstico: IA "tímida" = precisa de mais fotos)
         // pallet: o mais confiável; define a área automática (coluna acima dele) quando não há área marcada
         // pallet: tem que ser grande (≥ 22 % da largura — a câmera fica perto); entre vários, o que está onde o pallet já estava
-        const pallets = fin.filter(b => b.classe === 'pallet' && b.w >= 0.22);
+        // …ou do recorte (câmera longe), ou onde o pallet já estava, ou com peças apoiadas em cima dele
+        const pecasDet = fin.filter(b => b.classe !== 'pallet');
+        const apoiada = (p, b) => { const sob = Math.min(p.x + p.w, b.x + b.w) - Math.max(p.x, b.x); return sob >= p.w * 0.5 && p.y + p.h >= b.y - p.h * 0.6 && p.y + p.h <= b.y + b.h + 0.02; };
+        const plausivel = b => b.w >= 0.22 || (S.recorte && b.w >= 0.22 * S.recorte.w) || (S.palletRef && iou(b, S.palletRef) > 0.3) || pecasDet.some(p => apoiada(p, b));
+        const pallets = fin.filter(b => b.classe === 'pallet' && plausivel(b));
         const pallet = (S.palletRef ? pallets.sort((p, q) => iou(q, S.palletRef) - iou(p, S.palletRef) || q.sc - p.sc)[0] : pallets.sort((p, q) => q.sc - p.sc)[0]) || null;
         S.temClassePallet = nomes.includes('pallet');
         S.palletBox = pallet;
-        S.semPalletN = (S.temClassePallet && !pallet) ? (S.semPalletN || 0) + 1 : 0;   // 2 leituras sem pallet no recorte → volta ao quadro inteiro
+        S.semPalletN = (S.temClassePallet && !pallet) ? (S.semPalletN || 0) + 1 : 0;   // leituras seguidas sem pallet (no recorte → 1 em 3 no quadro inteiro)
+        S.buscaN = (S.temClassePallet && !pallet && !za) ? (S.buscaN || 0) + 1 : 0;   // leituras seguidas sem pallet e sem área → tenta recortes
         if (pallet && !S.zona) {
           // coluna acima do pallet até ~1,6× a largura dele (altura de pilha); de cima, cobre o próprio pallet
           const alturaPilha = pallet.w * (VW / VH) * 1.6, topo = Math.max(0, pallet.y - alturaPilha);
@@ -466,15 +474,22 @@ window.ContadorCam = (function () {
       const pessoa = sobrepoe(S.pessoaBox), mov = movimentoRecente(t), mao = S.ultimaMao && t - S.ultimaMao < 1500;
       if (pessoa || mov || mao) S.ultimaPresenca = t;   // alguém mexeu no pallet (vale para as próximas ~25 s)
       if (pessoa || mov) { S.estado = 'ocupado'; S.histCont = []; return; }
-      const k = (palletOk ? 'P|' : 'X|') + chave(cont);
-      const janela = Math.min(9000, Math.max(2500, (S.intervalo || 700) * 3.5));
-      S.histCont.push({ k, t, cont: { ...cont }, palletOk }); S.histCont = S.histCont.filter(h => t - h.t <= janela);
-      const votos = {}; for (const h of S.histCont) votos[h.k] = (votos[h.k] || 0) + 1;
-      const [kMaior, nMaior] = Object.entries(votos).sort((a, b) => b[1] - a[1])[0];
-      const n = S.histCont.length;
-      const estavel = n >= 3 && t - S.histCont[0].t >= Math.min(2000, janela * 0.6) && nMaior / n >= 0.75 && k === kMaior;
+      // Leituras dos últimos segundos → MEDIANA por classe (uma leitura que oscila não derruba a decisão).
+      // Estável = a maioria das leituras concorda com a mediana; se não concordar nunca (câmera tremendo, luz piscando),
+      // decide mesmo assim 12 s depois de a pessoa sair — a contagem não pode travar em "confirmando".
+      const janela = Math.min(10000, Math.max(3000, (S.intervalo || 700) * 4));
+      S.histCont.push({ t, cont: { ...cont }, palletOk }); S.histCont = S.histCont.filter(h => t - h.t <= janela);
+      const n = S.histCont.length, span = t - S.histCont[0].t;
+      const classes = new Set(); S.histCont.forEach(h => Object.keys(h.cont).forEach(c => classes.add(c)));
+      const med = {}; for (const c of classes) { const v = S.histCont.map(h => h.cont[c] || 0).sort((a, b) => a - b); const m = v[Math.floor((v.length - 1) / 2)]; if (m) med[c] = m; }
+      const palletMaj = S.histCont.filter(h => h.palletOk).length * 2 >= n;
+      const k = (palletMaj ? 'P|' : 'X|') + chave(med);
+      const concordam = S.histCont.filter(h => ((h.palletOk ? 'P|' : 'X|') + chave(h.cont)) === k).length / n;
+      const semPresencaHa = t - (S.ultimaPresenca || -1e9);
+      const estavel = n >= 3 && span >= Math.min(2500, janela * 0.6) && (concordam >= 0.6 || (semPresencaHa > 12000 && span >= janela * 0.9));
+      S.concordam = concordam;
       if (!estavel) { if (S.contEstavel !== null && k !== S.chaveEstavel) S.estado = 'confirmando'; else if (S.contEstavel === null) S.estado = 'calibrando'; return; }
-      const h = S.histCont[S.histCont.length - 1]; cont = h.cont; palletOk = h.palletOk;
+      cont = med; palletOk = palletMaj;
       if (S.contEstavel === null) {
         if (!S.eventosProntos) { S.estado = 'calibrando'; return; }   // espera saber o que já foi contado hoje
         // 1ª leitura estável: conta as peças que estão no pallet e ainda não foram contadas (ligou com o pallet já carregado,
@@ -483,24 +498,32 @@ window.ContadorCam = (function () {
           const falta = soma(cont) - contadasNoPalletAtual();
           if (falta > 0) registrar('ia', falta, null, 'peca (ja no pallet ao ligar)');
         }
-        S.contEstavel = { ...cont }; S.palletEstavel = palletOk; S.chaveEstavel = k; S.estado = palletOk ? 'livre' : 'sem_pallet'; return;
+        S.contEstavel = { ...cont }; S.palletEstavel = palletOk; S.chaveEstavel = k; S.tUltimoEvento = t; S.estado = palletOk ? 'livre' : 'sem_pallet'; return;
       }
       if (k === S.chaveEstavel) { S.estado = palletOk ? 'livre' : 'sem_pallet'; return; }
       // pallet saiu (com ou sem carga) ou chegou um pallet novo: não é colocar/retirar peça — a contagem continua
       if (S.temClassePallet && palletOk !== S.palletEstavel) {
         if (!palletOk) registrar('troca_pallet', 0, null, 'pallet saiu');
         else registrar('troca_pallet', 0, null, 'pallet novo' + (soma(cont) ? ' (' + chave(cont) + ')' : ' vazio'));
+        S.tUltimoEvento = t;
       } else if (t - (S.ultimaPresenca || -1e9) > 25000) {
         // mudou sem nenhum movimento/pessoa/mão no pallet (sombra, reflexo, a IA oscilou): só ajusta a referência, não conta
         S.ajustes = (S.ajustes || 0) + 1; console.info('Contador: mudança sem movimento no pallet ignorada', chave(S.contEstavel), '→', chave(cont));
       } else {
         const tipos = new Set([...Object.keys(cont), ...Object.keys(S.contEstavel)]);
-        for (const tipo of tipos) {
-          const delta = (cont[tipo] || 0) - (S.contEstavel[tipo] || 0);
+        const deltas = [...tipos].map(tipo => [tipo, (cont[tipo] || 0) - (S.contEstavel[tipo] || 0)]);
+        // Peça não some sozinha: "menos peças" sem ninguém ter chegado perto do pallet desde a última contagem é a IA
+        // oscilando (peça fina mal vista) — ignora e mantém a contagem; se persistir 25 s, a referência se ajusta sozinha acima.
+        if (deltas.every(([, d]) => d <= 0) && (S.ultimaPresenca || 0) <= (S.tUltimoEvento || 0)) { S.oscilacoes = (S.oscilacoes || 0) + 1; S.estado = 'livre'; return; }
+        // Voltar à contagem de antes da última mudança (16→15→16) só com leituras MUITO firmes — senão é oscilação
+        if (k === S.chaveAnterior && t - (S.tUltimoEvento || 0) < 30000 && !(concordam >= 0.85 && n >= 5 && span >= janela * 0.9)) { S.estado = 'confirmando'; return; }
+        for (const [tipo, delta] of deltas) {
           if (delta > 0) registrar('ia', Math.min(50, delta), null, tipo);
           else if (delta < 0) registrar('ia_retirada', Math.min(50, -delta), null, tipo);
         }
+        S.tUltimoEvento = t;
       }
+      S.chaveAnterior = S.chaveEstavel;
       S.contEstavel = { ...cont }; S.palletEstavel = palletOk; S.chaveEstavel = k; S.estado = palletOk ? 'livre' : 'sem_pallet';
     }
     function movimentoRecente(t) {
@@ -580,7 +603,7 @@ window.ContadorCam = (function () {
       }
       if (S.maos && S.maos.length) { const za = areaAtiva(); for (const m of S.maos) { const dentro = za && m.x >= za.x && m.x <= za.x + za.w && m.y >= za.y && m.y <= za.y + za.h; sctx.fillStyle = dentro ? '#35C95C' : 'rgba(255,255,255,.6)'; sctx.beginPath(); sctx.arc(mapX(m.x), mapY(m.y), dentro ? 7 : 4, 0, Math.PI * 2); sctx.fill(); } }
       if (S.pessoaBox) { sctx.strokeStyle = 'rgba(86,182,224,.9)'; sctx.lineWidth = 2; sctx.strokeRect(mapX(S.pessoaBox.x), mapY(S.pessoaBox.y), S.pessoaBox.w / sw * W, S.pessoaBox.h / sh * H); }
-      const nomes = { calibrando: 'Calibrando — saia da frente do pallet', livre: 'Livre', ocupado: 'Pessoa no pallet', assentando: 'Conferindo…', confirmando: 'Confirmando…' };
+      const nomes = { calibrando: 'Calibrando — saia da frente do pallet', livre: 'Livre', ocupado: 'Pessoa no pallet', assentando: 'Conferindo…', confirmando: 'Confirmando…' + (S.concordam != null ? ' (' + Math.round(S.concordam * 100) + '% das leituras)' : '') };
       const ia = !S.modelo ? '' : S.modelo.tipo === 'cls' ? ' · pallet ' + (S.probCom == null ? '?' : S.probCom > 0.5 ? 'COM PEÇAS' : 'VAZIO') + ' (' + Math.round((S.probCom || 0) * 100) + '%)' : ' · ' + resumoPallet();
       const temArea = !!areaAtiva();
       const maoAgora = S.ultimaMao && performance.now() - S.ultimaMao < 1500;

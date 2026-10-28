@@ -157,7 +157,7 @@ window.ContadorCam = (function () {
       else if (c.tipo === 'testar_cameras') testarCameras().catch(e => avisoErro('Câmeras: ' + e.message));
       else if (c.tipo === 'encerrar') { parar(); o.onEncerrar && o.onEncerrar(); }
     }
-    function recalibrar() { S.ref = null; S.refAnterior = null; S.fundo = null; S.estado = 'calibrando'; S.livreDesde = 0; S.contEstavel = null; S.chaveEstavel = null; S.histCont = []; S.pallet = null; S.histPallet = []; S.areaAuto = null; S.palletRef = null; S.chaveAnterior = null; S.tUltimoEvento = 0; S.regMov = null; S.comMov = false; S.antesSaiu = null; }
+    function recalibrar() { S.ref = null; S.refAnterior = null; S.fundo = null; S.estado = 'calibrando'; S.livreDesde = 0; S.contEstavel = null; S.chaveEstavel = null; S.histCont = []; S.pallet = null; S.histPallet = []; S.areaAuto = null; S.palletRef = null; S.chaveAnterior = null; S.tUltimoEvento = 0; S.regMov = null; S.comMov = false; S.antesSaiu = null; S.pilhaRef = null; }
 
     /* ───────── análise da área ───────── */
     const COR_CLASSE = { caixa: '#F0B429', peca: '#56B6E0', pallet: '#A78BFA', objeto: '#35C95C' };
@@ -376,7 +376,16 @@ window.ContadorCam = (function () {
         // com o dobro de pixels. Sem área (ou pallet sumido há várias leituras) usa o quadro inteiro.
         const za = areaAtiva(); let cx0 = 0, cy0 = 0, vw = VW, vh = VH;
         const usarRecorte = (x0, y0, x1, y1) => { if (x1 - x0 > 0.15 && y1 - y0 > 0.15 && (x1 - x0) * (y1 - y0) < 0.92) { cx0 = Math.round(x0 * VW); cy0 = Math.round(y0 * VH); vw = Math.round((x1 - x0) * VW); vh = Math.round((y1 - y0) * VH); } };
-        if (za && (S.semPalletN || 0) % 3 !== 2) {   // pallet sumido no recorte: a cada 3 leituras uma é no quadro inteiro (pallet pode ter mudado de lugar)
+        const pz = S.pilhaRef && (S.semPalletN || 0) < 2 ? S.pilhaRef : null;
+        if (pz) {
+          // ZOOM NA PILHA: recorta em volta do pallet + caixas para o pallet ocupar ~70 % da largura (o tamanho em que a IA
+          // foi treinada), com folga em cima para a próxima caixa e o braço. Câmera longe/0,5× deixa de "achatar" as caixas.
+          const W0 = Math.max(pz.w / 0.7, 0.3), cxm = pz.x + pz.w / 2;
+          let x0 = cxm - W0 / 2, x1 = cxm + W0 / 2; if (x0 < 0) { x1 -= x0; x0 = 0; } if (x1 > 1) { x0 -= x1 - 1; x1 = 1; } x0 = Math.max(0, x0);
+          let y0 = Math.max(0, pz.y - Math.max(pz.h * 0.35, 0.06) - 0.04), y1 = Math.min(1, pz.y + pz.h + 0.04);
+          if (y1 - y0 < 0.3) { const c = (y0 + y1) / 2; y0 = Math.max(0, c - 0.15); y1 = Math.min(1, y0 + 0.3); }
+          usarRecorte(x0, y0, x1, y1);
+        } else if (za && (S.semPalletN || 0) % 3 !== 2) {   // pallet sumido no recorte: a cada 3 leituras uma é no quadro inteiro (pallet pode ter mudado de lugar)
           // área marcada à mão já é "onde as caixas ficam": margem pequena (mais zoom na pilha); a automática ganha mais folga
           const f = S.zona ? 0.08 : 0.25, mx = za.w * f, my = za.h * (S.zona ? 0.08 : 0.2);
           usarRecorte(Math.max(0, za.x - mx), Math.max(0, za.y - my), Math.min(1, za.x + za.w + mx), Math.min(1, za.y + za.h + my * 0.6));
@@ -412,6 +421,20 @@ window.ContadorCam = (function () {
         const fin = [];
         for (const c of cand) { if (fin.every(k => k.classe !== c.classe || iou(k, c) < 0.45)) fin.push(c); if (fin.length >= 60) break; }
         if (pr && window.Contorno) for (const b of fin) b.pts = contornoDet(b, d, A, 4 + nc, nm, pr, sz, s, ox, oy, VW, VH, cx0, cy0);
+        if (window.Contorno) {
+          // contorno "rasterizado" numa grade 160×160; se 60 % do menor estiver dentro do maior (pedaço da mesma caixa,
+          // caixa detectada duas vezes), fica só o de maior confiança
+          const G = 160, ras = b => { if (!b.pts || b.pts.length < 3) return null; const m = new Set();
+            const i0 = Math.max(0, Math.floor(b.x * G)), i1 = Math.min(G - 1, Math.ceil((b.x + b.w) * G)), j0 = Math.max(0, Math.floor(b.y * G)), j1 = Math.min(G - 1, Math.ceil((b.y + b.h) * G));
+            for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) if (Contorno.dentro(b.pts, (i + 0.5) / G, (j + 0.5) / G)) m.add(j * G + i); return m.size ? m : null; };
+          const fica = [];
+          for (const b of fin.filter(x => x.classe !== 'pallet').sort((p, q) => q.sc - p.sc)) {
+            const mb = ras(b);
+            const dup = mb && fica.some(k => { let inter = 0; for (const c of mb) if (k.m.has(c)) inter++; return inter >= 0.6 * Math.min(mb.size, k.m.size); });
+            if (dup) b.dup = true; else if (mb) fica.push({ b, m: mb });
+          }
+          for (let i = fin.length - 1; i >= 0; i--) if (fin[i].dup) fin.splice(i, 1);
+        }
         S.dets = fin; S.melhorSc = melhor;   // maior confiança vista (diagnóstico: IA "tímida" = precisa de mais fotos)
         // pallet: o mais confiável; define a área automática (coluna acima dele) quando não há área marcada
         // pallet: tem que ser grande (≥ 22 % da largura — a câmera fica perto); entre vários, o que está onde o pallet já estava
@@ -469,7 +492,11 @@ window.ContadorCam = (function () {
         let dentro = z ? itens.filter(b => { const cx = b.x + b.w / 2, cy = b.y + b.h / 2; return cx >= z.x && cx <= z.x + z.w && cy >= z.y && cy <= z.y + z.h; }) : itens;
         // Só conta o que está EM CIMA DO PALLET: apoiado no pallet ou numa caixa que já está na pilha.
         // Caixa plástica, caixa no chão ao lado, mesa, outra pilha — mesmo dentro da área — ficam de fora (cinza na tela).
-        if (apoio) { const ok = naPilha(dentro, apoio); for (const b of itens) b.foraPilha = !ok.has(b); dentro = dentro.filter(b => ok.has(b)); }
+        if (apoio) {
+          const ok = naPilha(dentro, apoio); for (const b of itens) b.foraPilha = !ok.has(b); dentro = dentro.filter(b => ok.has(b));
+          const u = [apoio, ...dentro], ux0 = Math.min(...u.map(b => b.x)), uy0 = Math.min(...u.map(b => b.y)), ux1 = Math.max(...u.map(b => b.x + b.w)), uy1 = Math.max(...u.map(b => b.y + b.h));
+          if (pallet || (base && base.n >= 2)) S.pilhaRef = { x: ux0, y: uy0, w: ux1 - ux0, h: uy1 - uy0 };
+        }
         else if (S.temClassePallet) { for (const b of itens) b.foraPilha = true; dentro = []; }   // sem pallet e sem pilha: caixa solta não conta
         const cont = {}; for (const b of dentro) cont[b.classe] = (cont[b.classe] || 0) + 1;
         avaliarContagem(cont, S.temClassePallet ? !!apoio : true, t);

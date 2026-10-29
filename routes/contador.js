@@ -130,6 +130,7 @@ router.get('/linhas', requireAuth, async (req, res) => {
       l.usuario = q ? q.usuario : null;
       l.capacidades = q ? q.capacidades : null;
       l.cam_duplicada = q && q.camDupla && agora - q.camDupla.ts < 15000 ? (q.camDupla.dispositivo || 'outro aparelho') : null;
+      l.claude = CLAUDE.ativo() ? CLAUDE.modelo() : null;
       if (q && q.produto_id) { const pn = (await pool.query('SELECT nome FROM cad_produtos WHERE id = $1', [q.produto_id])).rows[0]; if (pn) l.produto_nome = pn.nome; }
       l.sessao = q && q.sessao_id ? await sessaoPorId(q.sessao_id) : await sessaoDeHoje(l.produto_id);
       // contagem da sessão em andamento; sem sessão, o total do dia da câmera
@@ -214,6 +215,51 @@ router.delete('/linhas/:id/config/:produto', requireAuth, naoPcp, async (req, re
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+/* ═══════ Conferência com o Claude (API da Anthropic) ═══════
+   A cada colocação o celular manda a foto da pilha ANTES e DEPOIS; o Claude responde quantas caixas foram colocadas.
+   Liga sozinho quando a variável ANTHROPIC_API_KEY existe no servidor (Railway → Variables). Opcionais:
+   ANTHROPIC_MODEL (padrão claude-sonnet-5-5) e CLAUDE_MAX_DIA (limite de consultas por dia, padrão 3000). */
+const CLAUDE = {
+  ativo: () => !!process.env.ANTHROPIC_API_KEY,
+  modelo: () => process.env.ANTHROPIC_MODEL || 'claude-sonnet-5-5',
+  usoDia: { dia: '', n: 0 }, ultimaPorLinha: new Map(),
+};
+const PROMPT_CONFERIR = `Você confere a produção de uma célula de embalagem. A câmera é FIXA e filma um pallet onde o operador empilha caixas iguais (caixas de papelão finas, empilhadas em camadas).
+IMAGEM 1 = o pallet ANTES. IMAGEM 2 = o MESMO pallet DEPOIS que o operador mexeu nele.
+Conte quantas caixas foram COLOCADAS em cima do pallet entre a imagem 1 e a imagem 2 (0 se nenhuma; número negativo se caixas foram retiradas).
+Ignore pessoas, mãos, braços, carrinhos, caixas plásticas, caixas no chão ou fora da pilha do pallet. Se um pallet foi trocado por outro (o pallet todo saiu ou chegou outro), responda "troca": true.
+Compare camada por camada (topo da pilha, colunas da frente e de trás) antes de responder.
+Responda SÓ com JSON, sem texto fora dele: {"adicionadas": inteiro, "total_antes": inteiro, "total_depois": inteiro, "troca": true|false, "certeza": "alta"|"media"|"baixa", "motivo": "frase curta"}`;
+router.post('/conferir', requireAuth, naoPcp, express.json({ limit: '6mb' }), async (req, res) => {
+  try {
+    if (!CLAUDE.ativo()) return res.status(503).json({ error: 'Conferência com o Claude desligada (falta ANTHROPIC_API_KEY no servidor)' });
+    const { linha_id, antes, depois, local } = req.body || {};
+    const a = b64jpeg(antes), d = b64jpeg(depois);
+    if (!a || !d) return res.status(400).json({ error: 'Fotos antes/depois obrigatórias' });
+    const dia = hoje(); if (CLAUDE.usoDia.dia !== dia) CLAUDE.usoDia = { dia, n: 0 };
+    if (CLAUDE.usoDia.n >= (Number(process.env.CLAUDE_MAX_DIA) || 3000)) return res.status(429).json({ error: 'Limite diário de consultas ao Claude atingido' });
+    const lid = Number(linha_id) || 0, ult = CLAUDE.ultimaPorLinha.get(lid) || 0;
+    if (Date.now() - ult < 3000) return res.status(429).json({ error: 'Consulta muito seguida' });
+    CLAUDE.ultimaPorLinha.set(lid, Date.now()); CLAUDE.usoDia.n++;
+    const ctl = new AbortController(), to = setTimeout(() => ctl.abort(), 25000);
+    const r = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST', signal: ctl.signal,
+      headers: { 'content-type': 'application/json', 'x-api-key': process.env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
+      body: JSON.stringify({ model: CLAUDE.modelo(), max_tokens: 300, messages: [{ role: 'user', content: [
+        { type: 'text', text: 'IMAGEM 1 (ANTES):' }, { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: a.toString('base64') } },
+        { type: 'text', text: 'IMAGEM 2 (DEPOIS):' }, { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: d.toString('base64') } },
+        { type: 'text', text: PROMPT_CONFERIR + (Number.isFinite(Number(local)) ? `\n(A câmera do celular estimou ${Number(local)}; confira você mesmo.)` : '') }] }] })
+    }).finally(() => clearTimeout(to));
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) return res.status(502).json({ error: 'Claude: ' + ((j.error && j.error.message) || r.status) });
+    const txt = (j.content || []).filter(c => c.type === 'text').map(c => c.text).join('');
+    const m = txt.match(/\{[\s\S]*\}/); let out = null; try { out = m ? JSON.parse(m[0]) : null; } catch (_) {}
+    if (!out || !Number.isFinite(Number(out.adicionadas))) return res.status(502).json({ error: 'Resposta do Claude sem número', texto: txt.slice(0, 200) });
+    res.json({ adicionadas: Math.round(Number(out.adicionadas)), total_antes: out.total_antes, total_depois: out.total_depois, troca: !!out.troca,
+      certeza: ['alta', 'media', 'baixa'].includes(out.certeza) ? out.certeza : 'media', motivo: String(out.motivo || '').slice(0, 140), modelo: CLAUDE.modelo() });
+  } catch (e) { res.status(e.name === 'AbortError' ? 504 : 500).json({ error: e.name === 'AbortError' ? 'Claude demorou demais' : e.message }); }
+});
+
 /* Comando remoto para o celular: recalibrar | troca_pallet | mais | menos | reiniciar_camera */
 const TIPOS_CMD = ['recalibrar', 'troca_pallet', 'mais', 'menos', 'reiniciar_camera', 'encerrar', 'testar_cameras'];
 router.post('/linhas/:id/comando', requireAuth, naoPcp, (req, res) => {
@@ -240,7 +286,7 @@ router.get('/linhas/:id/estado', requireAuth, async (req, res) => {
     const cont = (await pool.query(`SELECT COALESCE(SUM(valor), 0)::int AS c FROM cont_eventos WHERE ${where}`, params)).rows[0].c;
     const modelo = await modeloAtual(l.id, l.config_produto_id);
     res.json({ linha: { id: l.id, celula: l.celula, nome: l.nome, produto_id: l.config_produto_id, produto_nome: l.produto_nome, takt_padrao: l.takt_padrao },
-      config: l.config, config_ts: l.updated_at, sessao, contagem: cont, comandos, agora: Date.now(),
+      config: l.config, config_ts: l.updated_at, sessao, contagem: cont, comandos, agora: Date.now(), claude: CLAUDE.ativo(),
       modelo: modelo ? { id: modelo.id, chave: modelo.chave, nome: modelo.nome, origem: modelo.origem, imgsz: modelo.imgsz, tipo: modelo.tipo || 'det', classes: modelo.classes, created_at: modelo.created_at, updated_at: modelo.updated_at, metricas: modelo.metricas } : null });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });

@@ -135,6 +135,7 @@ window.ContadorCam = (function () {
       if (primeira || e.config_ts !== S.cfgTs) { S.cfgTs = e.config_ts; aplicarConfig(e.config, primeira); }
       if (!primeira && e.contagem !== S.contagem && !S.fila.length) { S.contagem = e.contagem; o.onContagem && o.onContagem(S.contagem); }
       for (const c of e.comandos || []) executarComando(c);
+      S.claudeOk = !!e.claude;   // servidor com a chave do Claude: cada colocação é conferida por ele
       const mid = e.modelo ? (e.modelo.chave || e.modelo.id) : null;   // chave muda quando o modelo é treinado de novo
       if (mid !== S.modeloId && !S.modeloCarregando) carregarModelo(e.modelo);
       o.onSessao && o.onSessao(S.sessao, S.contagem, S.eventos);
@@ -159,7 +160,7 @@ window.ContadorCam = (function () {
       else if (c.tipo === 'testar_cameras') testarCameras().catch(e => avisoErro('Câmeras: ' + e.message));
       else if (c.tipo === 'encerrar') { parar(); o.onEncerrar && o.onEncerrar(); }
     }
-    function recalibrar() { S.ref = null; S.refAnterior = null; S.fundo = null; S.estado = 'calibrando'; S.livreDesde = 0; S.contEstavel = null; S.chaveEstavel = null; S.histCont = []; S.pallet = null; S.histPallet = []; S.areaAuto = null; S.palletRef = null; S.chaveAnterior = null; S.tUltimoEvento = 0; S.regMov = null; S.comMov = false; S.antesSaiu = null; S.pilhaRef = null; }
+    function recalibrar() { S.ref = null; S.refAnterior = null; S.fundo = null; S.estado = 'calibrando'; S.livreDesde = 0; S.contEstavel = null; S.chaveEstavel = null; S.histCont = []; S.pallet = null; S.histPallet = []; S.areaAuto = null; S.palletRef = null; S.chaveAnterior = null; S.tUltimoEvento = 0; S.regMov = null; S.comMov = false; S.antesSaiu = null; S.pilhaRef = null; S.snapA = null; S.emInteracao = false; S.eventoReserva = false; S.leituras = []; S.perdaN = 0; S.quietoDesde = 0; S.snapSaiu = null; }
 
     /* ───────── análise da área ───────── */
     const COR_CLASSE = { caixa: '#F0B429', peca: '#56B6E0', pallet: '#A78BFA', objeto: '#35C95C' };
@@ -337,6 +338,8 @@ window.ContadorCam = (function () {
         const sess = await ort.InferenceSession.create(buf, { executionProviders: ['wasm'], graphOptimizationLevel: 'all' });
         S.modelo = { id: info.id, imgsz: info.imgsz || 416, tipo: info.tipo || 'det', classes: info.classes || ['com_pecas', 'vazio'], sess, entrada: sess.inputNames[0], saida: sess.outputNames[0], saidas: sess.outputNames, metricas: info.metricas };
         S.pallet = null; S.histPallet = [];
+        S.modoEvento = S.modelo.tipo !== 'cls' && !window.__testeModoAntigo;   // conta COLOCAÇÕES (antes × depois)
+        S.snapA = null; S.leituras = []; S.emInteracao = false; S.eventoReserva = false;
         S.modeloId = info.chave || info.id; S.modelo.nome = info.nome; S.contEstavel = null; S.histCont = []; S.detErro = null;
         hud('ia', S.modelo.tipo === 'cls' ? 'IA: pallet vazio × com peças' : 'IA' + (info.nome ? ' ' + info.nome : '') + (S.modelo.tipo === 'seg' ? ' (contorno)' : '') + ': ' + (S.modelo.classes || ['objeto']).map(c => ROTULO_CLASSE[c] || c).join(' / '), 'on');
         o.onModelo && o.onModelo(S.modelo); o.onConfig && o.onConfig(S.cfg, S.zona);
@@ -368,6 +371,15 @@ window.ContadorCam = (function () {
       else ctx.rect(fx(b.x), fy(b.y), fx(b.x + b.w) - fx(b.x), fy(b.y + b.h) - fy(b.y));
     }
     const det = document.createElement('canvas'); const dctx = det.getContext('2d', { willReadFrequently: true });
+    const cinC = document.createElement('canvas'); const cinCtx = cinC.getContext('2d', { willReadFrequently: true });
+    function capturarCinza() {
+      const W = video.videoWidth >= video.videoHeight ? 640 : 480, H = video.videoWidth >= video.videoHeight ? 480 : 640;
+      if (cinC.width !== W || cinC.height !== H) { cinC.width = W; cinC.height = H; }
+      cinCtx.drawImage(video, 0, 0, W, H);
+      const d = cinCtx.getImageData(0, 0, W, H).data, g = new Uint8Array(W * H);
+      for (let i = 0; i < g.length; i++) g[i] = (d[i * 4] * 0.299 + d[i * 4 + 1] * 0.587 + d[i * 4 + 2] * 0.114) | 0;
+      return { g, W, H };
+    }
     async function detectar(t) {
       const m = S.modelo; if (!m || !video.videoWidth) return;
       if (m.tipo === 'cls') return classificar(t);
@@ -398,6 +410,7 @@ window.ContadorCam = (function () {
         const s = sz / Math.max(vw, vh);
         const dw = Math.round(vw * s), dh = Math.round(vh * s), ox = Math.floor((sz - dw) / 2), oy = Math.floor((sz - dh) / 2);
         det.width = sz; det.height = sz; dctx.fillStyle = 'rgb(114,114,114)'; dctx.fillRect(0, 0, sz, sz); dctx.drawImage(video, cx0, cy0, vw, vh, ox, oy, dw, dh);
+        const cinzaLeitura = S.modoEvento ? capturarCinza() : null;
         S.recorte = (cx0 || cy0 || vw !== VW || vh !== VH) ? { x: cx0 / VW, y: cy0 / VH, w: vw / VW, h: vh / VH } : null;
         const px = dctx.getImageData(0, 0, sz, sz).data, n = sz * sz, f = new Float32Array(3 * n);
         for (let i = 0; i < n; i++) { f[i] = px[i * 4] / 255; f[n + i] = px[i * 4 + 1] / 255; f[2 * n + i] = px[i * 4 + 2] / 255; }
@@ -502,6 +515,8 @@ window.ContadorCam = (function () {
         else if (S.temClassePallet) { for (const b of itens) b.foraPilha = true; dentro = []; }   // sem pallet e sem pilha: caixa solta não conta
         const cont = {}; for (const b of dentro) cont[b.classe] = (cont[b.classe] || 0) + 1;
         avaliarContagem(cont, S.temClassePallet ? !!apoio : true, t);
+        if (S.modoEvento && cinzaLeitura) eventoColocacao({ t, ...cinzaLeitura, pecas: dentro.map(b => ({ x: b.x, y: b.y, w: b.w, h: b.h, pts: b.pts })), n: dentro.length,
+          palletOk: S.temClassePallet ? !!apoio : true, chave: (apoio ? 'P|' : 'X|') + chave(cont), pilha: S.pilhaRef ? { ...S.pilhaRef } : null, area: areaAtiva() }, t);
       } catch (e) { S.detErro = e.message; }
       S.detOcupado = false;
     }
@@ -570,6 +585,157 @@ window.ContadorCam = (function () {
       for (let mudou = true; mudou;) { mudou = false; for (const a of itens) if (!ok.has(a) && sup.some(s => sobre(a, s))) { ok.add(a); sup.push(a); mudou = true; } }
       return ok;
     }
+    /* ═══════ MODO EVENTO: conta cada COLOCAÇÃO (antes × depois), não o pallet inteiro ═══════
+       Com o pallet parado guarda o "ANTES" (imagem + contornos das caixas). Quando alguém mexe e a cena para de novo,
+       tira o "DEPOIS" e compara: caixa NOVA = contorno que não existia antes E numa região onde a imagem mudou de
+       verdade. Caixa que já estava lá (mesmo com contorno errado) não conta; caixa nova partida em 2 pedaços conta 1
+       (pela área de uma caixa); 2 caixas inteiras contam 2. */
+    const contaPorLeitura = () => !S.modoEvento || S.eventoReserva;
+    function mascaraDe(p, W, H, zx0, zy0, zx1, zy1) {
+      const m = new Set();
+      const i0 = Math.max(zx0, Math.floor(p.x * W)), i1 = Math.min(zx1, Math.ceil((p.x + p.w) * W)), j0 = Math.max(zy0, Math.floor(p.y * H)), j1 = Math.min(zy1, Math.ceil((p.y + p.h) * H));
+      for (let j = j0; j < j1; j++) for (let i = i0; i < i1; i++) if (!p.pts || p.pts.length < 3 || Contorno.dentro(p.pts, (i + 0.5) / W, (j + 0.5) / H)) m.add(j * W + i);
+      return m;
+    }
+    function compararAB(A, B) {
+      const W = B.W, H = B.H;
+      if (A.W !== W || A.H !== H) return { novas: 0, remov: 0, motivo: 'imagem mudou de tamanho' };
+      // região de comparação: as duas pilhas (antes e depois) com folga — ou a área
+      const rs = [A.pilha, B.pilha].filter(Boolean); if (!rs.length && B.area) rs.push(B.area);
+      if (!rs.length) rs.push({ x: 0, y: 0, w: 1, h: 1 });
+      let x0 = Math.min(...rs.map(r => r.x)), y0 = Math.min(...rs.map(r => r.y)), x1 = Math.max(...rs.map(r => r.x + r.w)), y1 = Math.max(...rs.map(r => r.y + r.h));
+      const mw = (x1 - x0) * 0.1; x0 -= mw; x1 += mw; y0 -= Math.max(0.08, (y1 - y0) * 0.3); y1 += 0.03;
+      const zx0 = Math.max(0, Math.floor(x0 * W)), zx1 = Math.min(W, Math.ceil(x1 * W)), zy0 = Math.max(0, Math.floor(y0 * H)), zy1 = Math.min(H, Math.ceil(y1 * H));
+      // onde a imagem mudou (tirando a variação geral de luz)
+      let soma = 0, n = 0;
+      for (let j = zy0; j < zy1; j++) for (let i = zx0; i < zx1; i++) { const k = j * W + i; soma += B.g[k] - A.g[k]; n++; }
+      const md = n ? soma / n : 0, D = new Uint8Array(W * H);
+      for (let j = zy0; j < zy1; j++) for (let i = zx0; i < zx1; i++) { const k = j * W + i; if (Math.abs(B.g[k] - A.g[k] - md) > 28) D[k] = 1; }
+      let mudou = 0; const D2 = new Uint8Array(W * H);   // tira pixel solto (ruído): fica se ≥ 3 vizinhos também mudaram
+      for (let j = zy0 + 1; j < zy1 - 1; j++) for (let i = zx0 + 1; i < zx1 - 1; i++) { const k = j * W + i; if (!D[k]) continue; const v = D[k - 1] + D[k + 1] + D[k - W] + D[k + W] + D[k - W - 1] + D[k - W + 1] + D[k + W - 1] + D[k + W + 1]; if (v >= 3) { D2[k] = 1; mudou++; } }
+      const mA = A.pecas.map(p => mascaraDe(p, W, H, zx0, zy0, zx1, zy1)), mB = B.pecas.map(p => mascaraDe(p, W, H, zx0, zy0, zx1, zy1));
+      const iou = (a, b) => { if (!a.size || !b.size) return 0; const [pq, gr] = a.size < b.size ? [a, b] : [b, a]; let x = 0; for (const c of pq) if (gr.has(c)) x++; return x / (a.size + b.size - x); };
+      const fracD = m => { if (!m.size) return 0; let x = 0; for (const c of m) if (D2[c]) x++; return x / m.size; };
+      const casB = mB.map(b => mA.reduce((mx, a) => Math.max(mx, iou(a, b)), 0));
+      const casA = mA.map(a => mB.reduce((mx, b) => Math.max(mx, iou(a, b)), 0));
+      const areasFirmes = mB.filter((b, i) => casB[i] >= 0.5).map(b => b.size).sort((p, q) => p - q);
+      const tip = areasFirmes.length ? areasFirmes[Math.floor(areasFirmes.length / 2)] : (S.areaTipica || 0);
+      if (areasFirmes.length >= 3) S.areaTipica = tip;   // tamanho típico de uma caixa (para juntar pedaços)
+      // QUANTAS: diferença da leitura da IA entre o "antes" e o "depois" (cada um = 3 leituras iguais com a cena parada).
+      // SE CONTA: só se a imagem mudou de verdade na pilha — leitura que oscila sem ninguém mexer nunca conta.
+      const dIA = B.n - A.n, minMud = Math.max(200, (tip || 2000) * 0.25);   // mudança mínima ~ 1/4 de uma caixa (vale perto ou longe)
+      // contornos que não existiam antes (caixa fina empilhada: o de cima "parece" o de baixo deslocado → limite 0,5)
+      const novasI = mB.map((b, i) => i).filter(i => mB[i].size > 8 && casB[i] < 0.5 && fracD(mB[i]) >= 0.3);
+      const aNovas = novasI.reduce((s2, i) => s2 + mB[i].size, 0);
+      let novas = 0;
+      if (mudou >= minMud && dIA >= 1) {
+        novas = dIA;   // colocou 2 de uma vez = +2 (a caixa partida em 2 contornos já é juntada antes, pela sobreposição dos contornos)
+      }
+      const remov = mA.filter((a, i) => a.size > 8 && casA[i] < 0.5 && fracD(a) >= 0.3).length;
+      return { novas, remov, mudou, tip, dIA, nNovasIA: novasI.length, areaNovas: tip ? +(aNovas / tip).toFixed(2) : null };
+    }
+    function fotoCena() {
+      const W = video.videoWidth, H = video.videoHeight; if (!W) return null;
+      const f = Math.min(1, 1280 / Math.max(W, H)), c = document.createElement('canvas'); c.width = Math.round(W * f); c.height = Math.round(H * f);
+      c.getContext('2d').drawImage(video, 0, 0, c.width, c.height); return c;
+    }
+    function zonaComparacao(A, B) {
+      const rs = [A.pilha, B.pilha].filter(Boolean); if (!rs.length && B.area) rs.push(B.area); if (!rs.length) return { x: 0, y: 0, w: 1, h: 1 };
+      let x0 = Math.min(...rs.map(r => r.x)), y0 = Math.min(...rs.map(r => r.y)), x1 = Math.max(...rs.map(r => r.x + r.w)), y1 = Math.max(...rs.map(r => r.y + r.h));
+      const mw = (x1 - x0) * 0.12; x0 = Math.max(0, x0 - mw); x1 = Math.min(1, x1 + mw); y0 = Math.max(0, y0 - Math.max(0.1, (y1 - y0) * 0.3)); y1 = Math.min(1, y1 + 0.05);
+      return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
+    }
+    function recorteJpeg(cv, z) {
+      const sx = z.x * cv.width, sy = z.y * cv.height, sw = z.w * cv.width, sh = z.h * cv.height, f = Math.min(1, 900 / Math.max(sw, sh));
+      const c = document.createElement('canvas'); c.width = Math.round(sw * f); c.height = Math.round(sh * f);
+      c.getContext('2d').drawImage(cv, sx, sy, sw, sh, 0, 0, c.width, c.height); return c.toDataURL('image/jpeg', 0.85);
+    }
+    /* pergunta ao Claude quantas caixas foram colocadas entre o ANTES e o DEPOIS; sem resposta em 25 s, vale a câmera */
+    async function conferirComClaude(A, B, r, limite) {
+      const z = zonaComparacao(A, B);
+      try {
+        const resp = await fetch('/api/contador/conferir', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ linha_id: S.linhaId, antes: recorteJpeg(A.foto, z), depois: recorteJpeg(B.foto, z), local: r.novas }) });
+        const j = await resp.json().catch(() => ({}));
+        if (!resp.ok || !Number.isFinite(j.adicionadas)) throw new Error(j.error || ('HTTP ' + resp.status));
+        S.ultimoClaude = { ...j, t: performance.now(), local: r.novas };
+        if (window.__logEvento) console.log('EVT', JSON.stringify({ claude: j, local: r.novas }));
+        if (j.troca) return;
+        const n = j.certeza === 'baixa' ? r.novas : j.adicionadas;
+        if (n > 0 && n <= limite) { registrar('ia', n, null, 'peca (Claude' + (n !== r.novas ? ', câmera ' + r.novas : '') + ')'); S.ultimaColocacao = { n, t: performance.now(), claude: true }; }
+        else if (n < 0 && n >= -2) registrar('ia_retirada', -n, null, 'peca (retirada, Claude)');
+      } catch (e) {
+        S.claudeErro = e.message; console.warn('Claude:', e.message);
+        if (r.novas > 0 && r.novas <= limite) { registrar('ia', r.novas, null, 'peca (colocada)'); S.ultimaColocacao = { n: r.novas, t: performance.now() }; }
+      }
+    }
+    /* caixas que a leitura do pallet (já confirmada) tem a mais que o último "antes" e o modo evento ainda não contou */
+    function pendentesDesdeAntes() {
+      if (!S.modoEvento || !S.snapA || !S.contEstavel || !S.snapA.palletOk) return 0;
+      const p = soma(S.contEstavel) - S.snapA.n - (S.eventoReserva ? (S.reservaContou || 0) : 0);
+      return p > 0 && p <= (S.cfg.multiplas ? 6 : 3) ? p : 0;
+    }
+    function eventoColocacao(L, t) {
+      if (S.testandoCameras || !L.area) return;
+      S.leituras = (S.leituras || []).filter(l => t - l.t < 20000); S.leituras.push(L);
+      if (S.presencaAgora) {
+        if (!S.emInteracao) { S.emInteracao = true; S.interacaoDesde = t; }
+        S.quietoDesde = 0;
+        // mexendo sem parar há mais de 60 s (câmera tremendo, gente sempre na frente): a leitura do pallet assume até parar
+        if (t - S.interacaoDesde > 30000 && !S.eventoReserva) {
+          // mexendo há mais de 30 s: a leitura do pallet assume — e já conta o que subiu desde o último "antes"
+          S.eventoReserva = true; S.reservaContou = 0;
+          const pend = pendentesDesdeAntes();
+          if (pend > 0) { registrar('ia', pend, null, 'peca (colocada)'); S.reservaContou = pend; S.ultimaColocacao = { n: pend, t }; }
+        }
+        return;
+      }
+      if (!S.quietoDesde) S.quietoDesde = t;
+      const q = S.leituras.filter(l => l.t >= S.quietoDesde);
+      if (q.length < 3 || t - S.quietoDesde < 2500) return;
+      const u3 = q.slice(-3); if (!u3.every(l => l.chave === u3[2].chave)) return;   // 3 leituras iguais com a cena parada
+      const B = u3[2], A = S.snapA;
+      const tirarFoto = () => { if (S.claudeOk && !B.foto) B.foto = fotoCena(); };   // cena parada: a foto de agora vale para esta leitura
+      if (!A) { tirarFoto(); S.snapA = B; S.emInteracao = false; S.perdaN = 0; return; }   // 1º "antes" (o que já está no pallet não conta)
+      if (S.eventoReserva) {
+        // a cena parou depois de muito tempo mexendo: conta o que apareceu desde o último "antes", menos o que a reserva já contou
+        tirarFoto();
+        const r = B.palletOk && B.n >= A.n ? compararAB(A, B) : null, ja = S.reservaContou || 0;
+        const falta = r && r.mudou >= Math.max(200, (r.tip || 2000) * 0.25) ? r.dIA - ja : 0;
+        if (window.__logEvento) console.log('EVT', JSON.stringify({ reserva: true, An: A.n, Bn: B.n, dIA: r && r.dIA, jaContou: ja, falta }));
+        if (falta > 0 && falta <= (S.cfg.multiplas ? 6 : 3)) { registrar('ia', falta, null, 'peca (colocada)'); S.ultimaColocacao = { n: falta, t }; }
+        S.snapA = B; S.emInteracao = false; S.eventoReserva = false; S.reservaContou = 0; S.perdaN = 0; return;
+      }
+      if (!S.emInteracao && B.chave === A.chave && t - A.t < 15000) return;   // nada aconteceu
+      tirarFoto();
+      const interagiu = S.emInteracao; S.emInteracao = false;
+      const limite = S.cfg.multiplas ? 6 : 3;
+      // pallet saiu / ficou sem apoio, ou esvaziou: troca de pallet — o "depois" vira o novo "antes", sem contar
+      if (!B.palletOk || (A.n > 0 && B.n === 0)) { if (A.palletOk && A.n > 0) S.snapSaiu = { A, t }; S.snapA = B; S.perdaN = 0; return; }
+      // MENOS caixas que antes: alguém tapando a pilha (espera a pessoa sair) — ou retirada, se continuar assim por 20 s
+      if (B.n < A.n) {
+        if (window.__logEvento) console.log('EVT', JSON.stringify({ t: Math.round(t / 1000), An: A.n, Bn: B.n, menos: S.perdaN || 0 }));
+        if (!S.perdaN) S.perdaDesde = t; S.perdaN = (S.perdaN || 0) + 1;
+        if (S.perdaN >= 3 && t - S.perdaDesde > 20000) {
+          const r = compararAB(A, B); S.snapA = B; S.perdaN = 0;
+          if (r.remov >= 1 && r.remov <= 2 && A.n - B.n <= 2) registrar('ia_retirada', r.remov, null, 'peca (retirada)');
+        }
+        return;
+      }
+      S.perdaN = 0;
+      // a pilha "sumiu" (alguém tapou / a IA perdeu o pallet) e voltou em menos de 1 min com pelo menos as mesmas caixas:
+      // é o MESMO pallet — compara com o "antes" de quando sumiu (senão as caixas que já estavam contariam de novo)
+      let ref = A;
+      if (S.snapSaiu && A.n === 0 && t - S.snapSaiu.t < 60000 && B.n >= S.snapSaiu.A.n) ref = S.snapSaiu.A;
+      if (B.n > 0) S.snapSaiu = null;
+      const r = compararAB(ref, B); S.ultimaComparacao = { ...r, t, interagiu, voltou: ref !== A };
+      if (window.__logEvento) console.log('EVT', JSON.stringify({ t: Math.round(t / 1000), An: A.n, Bn: B.n, ...r, interagiu }));
+      S.snapA = B;
+      const mudouDeVerdade = r.mudou >= Math.max(200, (r.tip || 2000) * 0.25);
+      if (S.claudeOk && ref.foto && B.foto && (r.novas > 0 || (interagiu && mudouDeVerdade))) { conferirComClaude(ref, B, r, limite); return; }
+      if (r.novas > 0 && r.novas <= limite) { registrar('ia', r.novas, null, 'peca (colocada)'); S.ultimaColocacao = { n: r.novas, t }; }
+      else if (r.novas > limite) console.info('Contador: chegou pallet já carregado (' + r.novas + ' caixas) — não conta');
+    }
     function avaliarContagem(cont, palletOk, t) {
       if (S.testandoCameras) return;
       S.contAtual = cont; S.palletOk = palletOk;
@@ -578,6 +744,7 @@ window.ContadorCam = (function () {
       if (!areaAtiva()) { S.estado = S.temClassePallet ? 'sem_pallet' : 'livre'; return; }
       const pessoa = sobrepoe(S.pessoaBox), mov = movimentoRecente(t), mao = S.ultimaMao && t - S.ultimaMao < 1500;
       if (pessoa || mov || mao) S.ultimaPresenca = t;   // alguém mexeu no pallet (vale para as próximas ~25 s)
+      S.presencaAgora = !!(pessoa || mov || mao);
       // A IA de pessoas viu alguém na frente do pallet: espera sair (a pessoa tapa as caixas).
       if (pessoa) { S.estado = 'ocupado'; S.histCont = []; S.comMov = true; return; }
       // Só movimento perto da pilha (celular sem a IA de pessoas, braço, gente passando atrás): NÃO trava — continua
@@ -619,7 +786,13 @@ window.ContadorCam = (function () {
       if (k === S.chaveEstavel) { S.estado = !palletOk ? 'sem_pallet' : S.comMov ? 'ocupado' : 'livre'; return; }
       // pallet saiu (com ou sem carga) ou chegou um pallet novo: não é colocar/retirar peça — a contagem continua
       if (S.temClassePallet && palletOk !== S.palletEstavel) {
-        if (!palletOk) { registrar('troca_pallet', 0, null, 'pallet saiu'); S.antesSaiu = { n: soma(S.contEstavel || {}), t }; }
+        if (!palletOk) {
+          // o pallet saiu com caixas que subiram depois do último "antes" (a cena não parou para o modo evento ver): conta agora
+          const pend = pendentesDesdeAntes();
+          if (pend > 0) { registrar('ia', pend, null, 'peca (antes do pallet sair)'); S.ultimaColocacao = { n: pend, t }; }
+          registrar('troca_pallet', 0, null, 'pallet saiu'); S.antesSaiu = { n: soma(S.contEstavel || {}), t };
+          if (S.modoEvento) { S.eventoReserva = false; S.reservaContou = 0; }
+        }
         else {
           const nNovo = soma(cont), maxV = S.cfg.multiplas ? 6 : 2, ant = S.antesSaiu;
           // voltou em menos de 1 min com pelo menos as mesmas caixas = o MESMO pallet (alguém tapou a pilha): conta só as a mais
@@ -627,8 +800,9 @@ window.ContadorCam = (function () {
           registrar('troca_pallet', 0, null, mesmo ? 'pallet voltou a aparecer' : 'pallet novo' + (nNovo ? ' (' + chave(cont) + ')' : ' vazio'));
           // pallet coberto/invisível: ele só "aparece" quando a 1ª caixa é colocada → essas 1–2 caixas foram colocadas agora
           const novas = mesmo ? nNovo - ant.n : S.palletVirtual ? nNovo : 0;
-          if (novas > 0 && novas <= maxV && t - (S.ultimaPresenca || -1e9) < 25000) {
+          if (contaPorLeitura() && novas > 0 && novas <= maxV && t - (S.ultimaPresenca || -1e9) < 25000) {
             const tipo = Object.entries(cont).sort((x, y) => y[1] - x[1])[0][0]; registrar('ia', novas, null, tipo);
+            if (S.modoEvento) S.reservaContou = (S.reservaContou || 0) + novas;
           }
           S.antesSaiu = null;
         }
@@ -654,9 +828,10 @@ window.ContadorCam = (function () {
         if (deltas.every(([, d]) => d <= 0) && (S.ultimaPresenca || 0) <= (S.tUltimoEvento || 0)) { S.oscilacoes = (S.oscilacoes || 0) + 1; S.estado = 'livre'; return; }
         // Voltar à contagem de antes da última mudança (16→15→16) só com leituras MUITO firmes — senão é oscilação
         if (k === S.chaveAnterior && t - (S.tUltimoEvento || 0) < 30000 && !(concordam >= 0.85 && n >= 5 && span >= janela * 0.9)) { S.estado = 'confirmando'; return; }
-        for (const [tipo, delta] of deltas) {
+        if (contaPorLeitura()) for (const [tipo, delta] of deltas) {
           if (delta > 0) registrar('ia', Math.min(50, delta), null, tipo);
           else if (delta < 0) registrar('ia_retirada', Math.min(50, -delta), null, tipo);
+          if (S.modoEvento) S.reservaContou = (S.reservaContou || 0) + delta;   // o que a reserva já contou (o modo evento desconta)
         }
         S.tUltimoEvento = t;
       }
@@ -778,7 +953,8 @@ window.ContadorCam = (function () {
       const ia = !S.modelo ? '' : S.modelo.tipo === 'cls' ? ' · pallet ' + (S.probCom == null ? '?' : S.probCom > 0.5 ? 'COM PEÇAS' : 'VAZIO') + ' (' + Math.round((S.probCom || 0) * 100) + '%)' : ' · ' + resumoPallet();
       const temArea = !!areaAtiva();
       const maoAgora = S.ultimaMao && performance.now() - S.ultimaMao < 1500;
-      const txt = (S.camDuplicada ? '⚠ OUTRA CÂMERA JÁ CONTA ESTA CÉLULA — esta não conta · ' : '') + (S.pausado ? 'PAUSADO · ' : '') + (maoAgora ? '✋ mão no pallet · ' : '') + (S.estado === 'sem_pallet' ? 'Sem pallet' : temArea ? nomes[S.estado] : (S.modelo && S.modelo.tipo !== 'cls' ? 'Procurando o pallet…' : 'Sem área marcada')) + ia + ' · ' + S.fps + ' fps' + (S.modelo && S.intervalo > 1200 ? ' · IA a cada ' + (S.intervalo / 1000).toFixed(1).replace('.', ',') + ' s' : '');
+      const ultCol = (S.ultimaColocacao && performance.now() - S.ultimaColocacao.t < 20000 ? ' · ✅ +' + S.ultimaColocacao.n + ' colocada' + (S.ultimaColocacao.n > 1 ? 's' : '') + (S.ultimaColocacao.claude ? ' (Claude)' : '') : '') + (S.claudeOk ? ' · 🤖 Claude conferindo' : '');
+      const txt = (S.camDuplicada ? '⚠ OUTRA CÂMERA JÁ CONTA ESTA CÉLULA — esta não conta · ' : '') + (S.pausado ? 'PAUSADO · ' : '') + (maoAgora ? '✋ mão no pallet · ' : '') + (S.estado === 'sem_pallet' ? 'Sem pallet' : temArea ? nomes[S.estado] : (S.modelo && S.modelo.tipo !== 'cls' ? 'Procurando o pallet…' : 'Sem área marcada')) + ia + ultCol + ' · ' + S.fps + ' fps' + (S.modelo && S.intervalo > 1200 ? ' · IA a cada ' + (S.intervalo / 1000).toFixed(1).replace('.', ',') + ' s' : '');
       hud('estado', txt, S.estado === 'ocupado' ? 'alerta' : S.estado === 'livre' ? 'on' : '');
       o.onEstado && o.onEstado(areaAtiva() ? S.estado : 'sem_area', txt);
       desenhar.map = { sx, sy, sw, sh };

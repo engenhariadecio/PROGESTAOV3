@@ -246,7 +246,7 @@ class H(SimpleHTTPRequestHandler):
         if p == '/api/contador/linhas/1/estado':
             with LOCK: cmds = list(COMANDOS); COMANDOS.clear()
             return self.json({ 'linha': { 'id': 1, 'celula': 'Teste', 'nome': LINHA['nome'], 'produto_id': 1, 'produto_nome': PRODUTOS[0]['nome'], 'takt_padrao': PRODUTOS[0]['takt_min'] },
-                'config': CONFIG, 'config_ts': CONFIG_TS, 'sessao': None, 'contagem': contagem_total(), 'comandos': cmds, 'agora': int(time.time() * 1000), 'modelo': modelo_info(q.get('produto_id')) })
+                'config': CONFIG, 'config_ts': CONFIG_TS, 'sessao': None, 'contagem': contagem_total(), 'comandos': cmds, 'agora': int(time.time() * 1000), 'claude': bool(os.environ.get('CLAUDE_MOCK')), 'modelo': modelo_info(q.get('produto_id')) })
         if p == '/api/contador/linhas/1/config': return self.json({ 'config': CONFIG, 'config_linha': CONFIG, 'config_produto': {}, 'produto_id': None, 'updated_at': CONFIG_TS })
         if p == '/api/contador/frame/1':
             if not QUADRO['buf']: return self.json({ 'error': 'sem quadro' }, 404)
@@ -333,6 +333,15 @@ class H(SimpleHTTPRequestHandler):
                 QUADRO.update({ 'buf': buf, 'limpo': b64jpeg(b.get('jpeg_limpo')) or buf, 'ts': time.time(), 'contagem': b.get('contagem', 0), 'estado': str(b.get('estado', ''))[:40], 'resumo': b.get('resumo'), 'dispositivo': str(b.get('dispositivo', ''))[:120] })
                 if isinstance(b.get('capacidades'), dict): QUADRO['capacidades'] = b['capacidades']
             return self.json({ 'ok': True, 'comandos': len(COMANDOS) })
+        if p == '/api/contador/conferir':
+            # só teste (CLAUDE_MOCK=1): guarda as fotos antes/depois e responde o que a câmera estimou
+            if not os.environ.get('CLAUDE_MOCK'): return self.json({ 'error': 'Conferência com o Claude desligada' }, 503)
+            pasta = os.path.join(DADOS, 'conferir'); os.makedirs(pasta, exist_ok=True); n = len(os.listdir(pasta)) // 2 + 1
+            for nome in ('antes', 'depois'):
+                buf = b64jpeg(b.get(nome))
+                if buf: open(os.path.join(pasta, f'{n:03d}_{nome}.jpg'), 'wb').write(buf)
+            print('  CONFERIR', n, 'local =', b.get('local'), flush=True)
+            return self.json({ 'adicionadas': int(b.get('local') or 0), 'total_antes': None, 'total_depois': None, 'troca': False, 'certeza': 'alta', 'motivo': 'simulado', 'modelo': 'mock' })
         if p == '/api/contador/eventos':
             origem = b.get('origem')
             if origem not in ORIG: return self.json({ 'error': 'Origem inválida' }, 400)
